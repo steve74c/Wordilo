@@ -5,8 +5,27 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Wordilo } from './src/screens/Wordilo';
 import { LoadingScreen } from './src/LoadingScreen';
 import { StatisticheProvider } from './src/stats/statistiche';
+import { supabase } from './src/lib/supabase';
+import { useEffect } from 'react';
+
+import { ConfigProvider } from './src/config/ConfigContext';
+import { AuthProvider } from './src/auth/AuthContext';
+import { PortaAuth } from './src/auth/PortaAuth';
 
 export default function App() {
+
+/*
+  useEffect(() => {
+    supabase
+      .from('game_settings')
+      .select('*')
+      .then(({ data, error }) => {
+        if (error) console.log('❌ Supabase errore:', error.message);
+        else console.log('✅ Supabase ok, game_settings:', data);
+      });
+  }, []);
+*/
+  
   // Carica i font Poppins, ma se falliscono non blocca l'app
   const [caricati] = useFonts({
     Poppins_400Regular: require('./assets/fonts/Poppins_400Regular.ttf'),
@@ -18,12 +37,22 @@ export default function App() {
   // Il Provider sta SOPRA Wordilo: così i contatori sopravvivono quando si passa
   // dal gioco al menu e viceversa. Mostra il loading finché i font non sono pronti
   // (se il caricamento fallisce, si procede col font di sistema).
-  return (
-    <SafeAreaProvider>
-      <StatusBar style="light" />
-      <StatisticheProvider>
-        {caricati ? <Wordilo /> : <LoadingScreen />}
-      </StatisticheProvider>
-    </SafeAreaProvider>
-  );
+	return (
+	  <ConfigProvider>
+		<AuthProvider>
+		  <SafeAreaProvider>
+			<StatusBar style="light" />
+			<StatisticheProvider>
+			  {caricati ? (
+				<PortaAuth>
+				  <Wordilo />
+				</PortaAuth>
+			  ) : (
+				<LoadingScreen />
+			  )}
+			</StatisticheProvider>
+		  </SafeAreaProvider>
+		</AuthProvider>
+	  </ConfigProvider>
+	);
 }

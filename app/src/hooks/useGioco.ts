@@ -7,7 +7,6 @@ import {
   confermaTentativo,
   timeoutTentativo as timeoutTentativoCore,
   coloriTastiera,
-  CONFIG_DEFAULT,
   pescaParolaCasuale,
 } from '@wordilo/core';
 import type {
@@ -16,6 +15,8 @@ import type {
   ProblemaConferma,
   StatoGioco,
 } from '@wordilo/core';
+import { useConfig } from '../config/ConfigContext';
+import type { FinePartita } from '../stats/statistiche';
 
 /**
  * Ponte fra il motore `core` (puro) e React: tiene lo stato della partita e
@@ -25,17 +26,22 @@ import type {
  * il `timeoutTentativo` del core. Espone `secondiRimasti` per la UI.
  *
  * `onFine` (opzionale) viene chiamato UNA sola volta quando la partita finisce
- * (won/lost): serve, ad esempio, ad aggiornare le statistiche. Si riarma a ogni
- * nuova partita.
+ * (won/lost), con il riepilogo della partita (esito, modalità, lunghezza,
+ * tentativi usati): serve a salvarla e ad aggiornare le statistiche. Si riarma a
+ * ogni nuova partita.
  */
 export function useGioco(
   modalita: Modalita,
   lunghezza: LunghezzaParola,
-  onFine?: (esito: 'won' | 'lost') => void,
+  onFine?: (fine: FinePartita) => void,
 ) {
+  // La config arriva dal provider (Supabase, con fallback ai default): il timer
+  // di 25s e gli altri numeri vengono dal database, non più da CONFIG_DEFAULT.
+  const { config } = useConfig();
+
   const nuovoStato = useCallback(
-    () => creaStato(CONFIG_DEFAULT, modalita, pescaParolaCasuale(lunghezza), lunghezza),
-    [modalita, lunghezza],
+    () => creaStato(config, modalita, pescaParolaCasuale(lunghezza), lunghezza),
+    [config, modalita, lunghezza],
   );
 
   const [stato, setStato] = useState<StatoGioco>(nuovoStato);
@@ -49,11 +55,17 @@ export function useGioco(
     if (stato.esito === 'won' || stato.esito === 'lost') {
       if (!registrato.current) {
         registrato.current = true;
-        onFine?.(stato.esito);
+        onFine?.({
+          esito: stato.esito,
+          modalita,
+          lunghezza,
+          tentativiUsati: stato.righe.length,
+        });
       }
     } else {
       registrato.current = false; // 'in_corso' → pronta la prossima partita
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stato.esito, onFine]);
 
   // ---------------------------------------------------------------------------

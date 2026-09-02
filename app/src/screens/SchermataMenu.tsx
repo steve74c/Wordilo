@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { Colore, LunghezzaParola, Modalita } from '@wordilo/core';
 import { C, coloreDiSfondo, FONT, GRAD, ombra, RAGGIO, bagliore } from '../theme';
 import { useStatistiche } from '../stats/statistiche';
+import { useAuth } from '../auth/AuthContext';
 
 // -----------------------------------------------------------------------------
 // Prima "finestra" (stile vetro): titolo serif con bagliore, card traslucida
@@ -90,10 +91,25 @@ export function SchermataMenu({
   const [lunghezza, setLunghezza] = useState<LunghezzaParola>(lunghezzaIniziale);
   const [modalita, setModalita] = useState<Modalita>(modalitaIniziale);
   const { giocate, vinte, perse } = useStatistiche();
+  const { sessione, esci } = useAuth();
+  const nick = (sessione?.user?.user_metadata?.nick as string | undefined) ?? 'Giocatore';
 
   return (
     <LinearGradient colors={GRAD.sfondo} style={styles.sfondo}>
       <SafeAreaView style={styles.safe}>
+        <View style={styles.barraTop}>
+          <Text style={styles.saluto} numberOfLines={1}>
+            Ciao, <Text style={styles.salutoNick}>{nick}</Text>
+          </Text>
+          <Pressable
+            onPress={esci}
+            hitSlop={8}
+            style={({ pressed }) => [styles.esci, { opacity: pressed ? 0.7 : 1 }]}
+          >
+            <Text style={styles.esciTesto}>Esci</Text>
+          </Pressable>
+        </View>
+
         <View style={styles.contenuto}>
           {/* Titolo serif con bagliore */}
           <View style={styles.intestazione}>
@@ -177,6 +193,30 @@ export function SchermataMenu({
 const styles = StyleSheet.create({
   sfondo: { flex: 1 },
   safe: { flex: 1 },
+
+  // Barra in alto: saluto col nick a sinistra, pulsante Esci a destra.
+  barraTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    maxWidth: 440,
+    alignSelf: 'center',
+    paddingHorizontal: 22,
+    paddingTop: 10,
+    gap: 12,
+  },
+  saluto: { flexShrink: 1, color: C.testo, fontSize: 15, fontFamily: FONT.medium, fontWeight: '600' },
+  salutoNick: { color: C.accentoSoft, fontFamily: FONT.bold, fontWeight: '800' },
+  esci: {
+    backgroundColor: C.superficieAlta,
+    borderWidth: 1,
+    borderColor: C.hair,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  esciTesto: { color: C.testoTenue, fontSize: 14, fontFamily: FONT.medium, fontWeight: '600' },
   contenuto: {
     flex: 1,
     width: '100%',
