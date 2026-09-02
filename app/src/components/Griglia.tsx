@@ -102,7 +102,56 @@ function Cella({ cella, lato, indiceColonna }: { cella: StatoCella; lato: number
   );
 }
 
-export function Griglia({ stato, lato, scossa }: { stato: StatoGioco; lato: number; scossa: number }) {
+// Badge del countdown (modalità esperto): cerchio a destra della riga attiva.
+// È FIGLIO della riga → si allinea in verticale da solo e "scende" con essa,
+// senza calcoli di posizione. È fuori dal flow (absolute) quindi non sposta le
+// celle, che restano centrate. Cambia colore (teal → arancione) negli ultimi 3".
+function Countdown({ secondi, lato }: { secondi: number; lato: number }) {
+  const size = Math.max(26, Math.round(lato * 0.8));
+  const pop = useRef(new Animated.Value(1)).current;
+
+  // Piccolo "pop" a ogni cambio di secondo.
+  useEffect(() => {
+    pop.setValue(0.8);
+    Animated.spring(pop, { toValue: 1, friction: 4, tension: 260, useNativeDriver: true }).start();
+  }, [secondi, pop]);
+
+  const colore = secondi <= 3 ? C.arancione : C.accento;
+  const gap = Math.max(6, Math.round(lato * 0.16));
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        styles.countdown,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          top: (lato - size) / 2,
+          borderColor: colore,
+          transform: [{ translateX: gap }, { scale: pop }],
+        },
+      ]}
+    >
+      <Text style={[styles.countdownTesto, { fontSize: Math.round(size * 0.46), color: colore }]}>
+        {secondi}
+      </Text>
+    </Animated.View>
+  );
+}
+
+export function Griglia({
+  stato,
+  lato,
+  scossa,
+  secondiRimasti,
+}: {
+  stato: StatoGioco;
+  lato: number;
+  scossa: number;
+  secondiRimasti?: number | null;
+}) {
   const righe = celleDi(stato);
   const shake = useRef(new Animated.Value(0)).current;
   const primo = useRef(true);
@@ -134,6 +183,7 @@ export function Griglia({ stato, lato, scossa }: { stato: StatoGioco; lato: numb
         return r === rigaAttiva ? (
           <Animated.View key={r} style={[stile, { transform: [{ translateX }] }]}>
             {contenuto}
+            {secondiRimasti != null && <Countdown secondi={secondiRimasti} lato={lato} />}
           </Animated.View>
         ) : (
           <View key={r} style={stile}>
@@ -150,4 +200,14 @@ const styles = StyleSheet.create({
   cella: { alignItems: 'center', justifyContent: 'center' },
   cellaVuota: { borderWidth: 2 },
   lettera: { color: '#FFFFFF', fontFamily: FONT.bold, fontWeight: '800', textTransform: 'uppercase' },
+  // Countdown esperto: ancorato al bordo destro della riga (left:'100%'), fuori flow.
+  countdown: {
+    position: 'absolute',
+    left: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    backgroundColor: 'rgba(120,236,220,0.10)',
+  },
+  countdownTesto: { fontFamily: FONT.bold, fontWeight: '800' },
 });

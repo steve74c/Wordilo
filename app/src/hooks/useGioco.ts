@@ -5,6 +5,7 @@ import {
   cancella as cancellaCore,
   svuotaRiga as svuotaRigaCore,
   confermaTentativo,
+  timeoutTentativo as timeoutTentativoCore,
   coloriTastiera,
   CONFIG_DEFAULT,
   pescaParolaCasuale,
@@ -19,8 +20,9 @@ import type {
 /**
  * Ponte fra il motore `core` (puro) e React: tiene lo stato della partita e
  * espone le azioni per la UI. Nessuna logica di gioco vive qui: solo `useState`
- * attorno alle funzioni pure. Il timer NON è qui (arriverà con la modalità
- * esperto, come effetto separato).
+ * attorno alle funzioni pure. Fa eccezione il TIMER della modalità esperto: è un
+ * effetto (non logica pura), quindi vive qui e allo scadere chiama semplicemente
+ * il `timeoutTentativo` del core. Espone `secondiRimasti` per la UI.
  *
  * `onFine` (opzionale) viene chiamato UNA sola volta quando la partita finisce
  * (won/lost): serve, ad esempio, ad aggiornare le statistiche. Si riarma a ogni
@@ -39,6 +41,7 @@ export function useGioco(
   const [stato, setStato] = useState<StatoGioco>(nuovoStato);
   const [problema, setProblema] = useState<ProblemaConferma | null>(null);
   const [scossa, setScossa] = useState(0); // incrementa a ogni tentativo rifiutato
+  const [secondiRimasti, setSecondiRimasti] = useState<number | null>(null); // countdown esperto
 
   // Registra l'esito una volta sola per partita (guardia con ref).
   const registrato = useRef(false);
@@ -52,6 +55,42 @@ export function useGioco(
       registrato.current = false; // 'in_corso' → pronta la prossima partita
     }
   }, [stato.esito, onFine]);
+
+  // ---------------------------------------------------------------------------
+  // Timer della modalità esperto (effetto: vive qui, non nel core puro).
+  // Countdown per tentativo: parte pieno a ogni riga, riparte dopo ogni conferma
+  // o timeout, si spegne in principiante (secondiPerTentativo === null) e a fine
+  // partita. Digitare/cancellare NON lo resetta (non tocca le dipendenze).
+  // Allo scadere chiama `timeoutTentativo` del core, che chiude la riga.
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    const totale = stato.secondiPerTentativo;
+    if (totale == null || stato.esito !== 'in_corso') {
+      setSecondiRimasti(null);
+      return;
+    }
+
+    setSecondiRimasti(totale); // nuova riga → il countdown riparte da capo
+    const scadenza = Date.now() + totale * 1000;
+    let scattato = false;
+
+    const id = setInterval(() => {
+      const rimastiF = (scadenza - Date.now()) / 1000;
+      const rimasti = Math.max(0, Math.ceil(rimastiF));
+      // Aggiorna solo quando cambia il secondo intero: pochi re-render, conta 10→1.
+      setSecondiRimasti((prev) => (prev === rimasti ? prev : rimasti));
+      if (rimastiF <= 0 && !scattato) {
+        scattato = true;
+        clearInterval(id);
+        setProblema(null);
+        setStato((s) => timeoutTentativoCore(s));
+      }
+    }, 200);
+
+    return () => clearInterval(id);
+    // Reset a ogni nuova riga (righe.length), a fine partita (esito) o cambio config.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stato.righe.length, stato.esito, stato.secondiPerTentativo]);
 
   const digita = useCallback((lettera: string) => {
     setProblema(null);
@@ -85,5 +124,5 @@ export function useGioco(
 
   const tastiera = useMemo(() => coloriTastiera(stato), [stato]);
 
-  return { stato, problema, scossa, tastiera, digita, cancella, svuotaRiga, conferma, nuovaPartita };
+  return { stato, problema, scossa, secondiRimasti, tastiera, digita, cancella, svuotaRiga, conferma, nuovaPartita };
 }

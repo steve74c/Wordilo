@@ -39,7 +39,7 @@ function IconaGomma() {
 
 export function SchermataGioco({ modalita = 'principiante', lunghezza = 5, onIndietro }: Props) {
   const { registra } = useStatistiche();
-  const { stato, problema, scossa, tastiera, digita, cancella, svuotaRiga, conferma, nuovaPartita } =
+  const { stato, problema, scossa, secondiRimasti, tastiera, digita, cancella, svuotaRiga, conferma, nuovaPartita } =
     useGioco(modalita, lunghezza, registra);
   const finita = stato.esito !== 'in_corso';
   const vinta = stato.esito === 'won';
@@ -61,7 +61,11 @@ export function SchermataGioco({ modalita = 'principiante', lunghezza = 5, onInd
   // così la griglia entra sempre sopra la tastiera su qualsiasi schermo.
   const gapRiga = 0.16; // ~ rapporto del margine fra righe
   const latoAltezza = spazioGriglia / (righe + (righe - 1) * gapRiga);
-  const latoLarghezza = (Math.min(width - 24, 470) - 6 * (lunghezza - 1)) / lunghezza;
+  // In esperto riserviamo ~2 "colonne" di larghezza: la griglia resta centrata e
+  // il countdown, che sporge a destra della riga attiva, non esce mai dallo schermo.
+  const riservaEsperto = modalita === 'esperto' ? 2 : 0;
+  const latoLarghezza =
+    (Math.min(width - 24, 470) - 6 * (lunghezza - 1)) / (lunghezza + riservaEsperto);
   const lato = clamp(Math.min(latoLarghezza, latoAltezza), 30, 64);
 
   useEffect(() => {
@@ -156,7 +160,7 @@ export function SchermataGioco({ modalita = 'principiante', lunghezza = 5, onInd
                 </View>
               )}
             </View>
-            <Griglia stato={stato} lato={lato} scossa={scossa} />
+            <Griglia stato={stato} lato={lato} scossa={scossa} secondiRimasti={secondiRimasti} />
           </View>
 
           <Tastiera
