@@ -8,8 +8,9 @@
 implementato e testato, e **app Expo** single player giocabile su web e mobile con
 **grafica in stile flat** (vedi §16): **schermata di scelta** (lunghezza 5/6 +
 modalità, con router menu ↔ partita) e **modalità principiante** già funzionanti,
-più **statistiche provvisorie lato client** (giocate/vinte/perse). Ancora da fare:
-il **timer** della modalità esperto (countdown per tentativo) e tutto il backend.
+più **statistiche provvisorie lato client** (giocate/vinte/perse) e la **modalità
+esperto** completa (countdown per tentativo, con timer che chiude la riga allo
+scadere). Ancora da fare: tutto il backend (database e online).
 **Ultimo aggiornamento:** 2026-09-02
 
 ---
@@ -127,9 +128,9 @@ I valori numerici qui sotto sono **default parametrizzabili lato server**.
 
 ### 5.2 Esperto
 
-- **10 secondi per ogni tentativo** (default), con countdown mostrato a lato
+- **25 secondi per ogni tentativo** (default), con countdown mostrato a lato
   della riga corrente.
-- Se scadono i 10 secondi, quel **tentativo è perso** e si passa al successivo
+- Se scadono i 25 secondi, quel **tentativo è perso** e si passa al successivo
   (non si perde l'intera partita). In dettaglio: la riga viene **persa senza
   valutazione** — ciò che era stato digitato si scarta e **non riceve colori** —,
   il timeout **consuma comunque un tentativo** (conta verso il massimo) e il
@@ -243,7 +244,7 @@ words
 game_settings
   mode                 text PK             -- 'principiante' | 'esperto'
   max_attempts         int not null default 7
-  seconds_per_attempt  int                 -- null = senza timer; 10 per esperto
+  seconds_per_attempt  int                 -- null = senza timer; 25 per esperto
   points_win           smallint default 10
   points_lose          smallint default 0
   points_draw          smallint default 5
@@ -381,7 +382,7 @@ oggi disattivato tramite stub, pronto per il dizionario reale.
 
 - Stack: **Expo + Supabase**, TypeScript, monorepo `core`/`app`/`backend`.
 - Principiante: **7 tentativi** (default parametrico), nessun timer.
-- Esperto: **10 secondi/tentativo** (default parametrico); allo scadere si perde
+- Esperto: **25 secondi/tentativo** (default parametrico); allo scadere si perde
   **solo quel tentativo**.
 - Tutti i valori numerici chiave sono **parametrici lato server**.
 - Single player: **nessun punteggio**, solo vinta/persa, niente pareggio.
@@ -392,6 +393,11 @@ oggi disattivato tramite stub, pronto per il dizionario reale.
 - Avatar in **Storage**, con fallback social → iniziali.
 - Esperto, dettaglio timeout: allo scadere la riga è **persa senza valutazione**
   (nessun colore), **consuma un tentativo**, e il **timer riparte a ogni riga**.
+- Timer esperto **implementato come effetto in `useGioco`** (non nel `core` puro):
+  scadenza a timestamp, aggiornamento al secondo, allo scadere chiama
+  `timeoutTentativo`; il countdown è un **badge a lato della riga attiva** nella
+  `Griglia` (teal → arancione negli ultimi secondi). Digitare/cancellare non lo
+  resetta.
 - Gioco **accent-insensitive**: accenti rimossi da dizionario, input e tastiera.
 - **Validazione parola iniettabile** (`isValida` in `confermaTentativo`); stub
   disattivato in questa fase.
@@ -429,10 +435,11 @@ oggi disattivato tramite stub, pronto per il dizionario reale.
     menu ↔ partita (`SchermataMenu` + `Wordilo`).
   - ✅ Fatto: **statistiche provvisorie lato client** (giocate/vinte/perse) mostrate
     nel menu e aggiornate a fine partita.
-  - ⏭️ Prossimo: **timer** della modalità **esperto** (countdown per tentativo →
-    `timeoutTentativo`), che è l'unico pezzo mancante della modalità (la selezione
-    "Esperto" è già nel menu, ma il countdown non è ancora agganciato nella UI).
-  - Poi: collegamento al database, poi l'online.
+  - ✅ Fatto: **modalità esperto** completa — timer/countdown per tentativo
+    (`useGioco` → `timeoutTentativo`) con badge a lato della riga attiva; con questo
+    il **single player è completo**.
+  - ⏭️ Prossimo: **collegamento al database** (Supabase: auth, profili,
+    `game_settings`, dizionario, statistiche reali), poi l'**online**.
 
 ---
 
@@ -451,6 +458,12 @@ sfondo e sul pulsante del pop-up.
 - **Griglia**: righe = `maxTentativi` (parametrico), celle a **tinta piena** con
   angoli arrotondati; cella vuota con bordo; la **riga attiva** ha un bordo più
   chiaro come indicatore.
+- **Countdown (solo esperto)**: badge circolare **a lato della riga attiva** (fuori
+  dal flow, quindi non sposta le celle centrate; scende con la riga). Conta i
+  secondi rimasti (default 25), fa un piccolo "pop" a ogni secondo e passa da
+  **teal ad arancione** negli ultimi secondi. In esperto la griglia riserva un po'
+  di spazio a destra così il badge non esce mai dallo schermo; in principiante è
+  assente.
 - **Tastiera** (QWERTY):
   - tasti **non ancora usati → bianchi** (testo scuro);
   - lettera **assente → grigio**; lettera **presente/corretta → arancione/verde** a

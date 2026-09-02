@@ -10,5 +10,5 @@ import type { ConfigGioco } from './types';
  */
 export const CONFIG_DEFAULT: ConfigGioco = {
   principiante: { maxTentativi: 7, secondiPerTentativo: null },
-  esperto: { maxTentativi: 7, secondiPerTentativo: 10 },
+  esperto: { maxTentativi: 7, secondiPerTentativo: 25 },
 };
