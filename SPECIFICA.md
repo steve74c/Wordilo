@@ -5,11 +5,12 @@
 > aggiornato a ogni decisione presa.
 
 **Stato:** in sviluppo — modulo `core` (colori, motore di gioco, normalizzazione)
-implementato e testato, e **app Expo** con la prima schermata single player
-(**modalità principiante**) giocabile su web e mobile, con **grafica in stile flat**
-(vedi §16). Ancora da fare: modalità esperto (countdown), schermata di scelta 5/6 +
-modalità, e tutto il backend.
-**Ultimo aggiornamento:** 2026-08-31
+implementato e testato, e **app Expo** single player giocabile su web e mobile con
+**grafica in stile flat** (vedi §16): **schermata di scelta** (lunghezza 5/6 +
+modalità, con router menu ↔ partita) e **modalità principiante** già funzionanti,
+più **statistiche provvisorie lato client** (giocate/vinte/perse). Ancora da fare:
+il **timer** della modalità esperto (countdown per tentativo) e tutto il backend.
+**Ultimo aggiornamento:** 2026-09-02
 
 ---
 
@@ -65,9 +66,12 @@ over-the-air del codice JS senza ripassare dagli store.
 /app         → app Expo (web + iOS + Android)
   App.tsx                      carica i font (Poppins locali) e monta la schermata
   src/hooks/useGioco.ts        ponte React ↔ motore core
+  src/stats/statistiche.ts     statistiche provvisorie lato client (giocate/vinte/perse)
   src/components/Griglia.tsx   griglia di celle colorate
   src/components/Tastiera.tsx  tastiera a schermo (neutri bianchi, OK teal)
   src/components/Coriandoli.tsx  particelle leggere per la vittoria
+  src/screens/Wordilo.tsx      router minimale menu ↔ partita (senza librerie di navigazione)
+  src/screens/SchermataMenu.tsx  scelta lunghezza (5/6) + modalità, contatori, legenda
   src/screens/SchermataGioco.tsx
   src/LoadingScreen.tsx        schermata di caricamento brandizzata
   src/theme.ts                 colori, font, ombre (stile flat)
@@ -189,6 +193,14 @@ secca. Rimandato.)*
 All'ingresso l'utente vede le **ultime partite** (vinte / perse / pareggiate) e i
 contatori aggregati. Le "ultime partite" sono gli ultimi N record dell'utente
 ordinati per data; gli aggregati escono da una vista sul database.
+
+**Stato attuale:** in attesa del backend, l'app usa un **modulo statistiche
+provvisorio lato client** (`app/src/stats/statistiche.ts`, hook `useStatistiche`)
+che tiene i contatori **giocate / vinte / perse** e li mostra nel menu; la partita
+lo aggiorna a fine gioco via `useGioco(..., registra)`. È lo stesso schema pensato
+per la config (default provvisorio ora, dati dal server poi): quando ci sarà
+Supabase, questi contatori verranno rimpiazzati dalle viste sul database senza
+cambiare le schermate.
 
 ---
 
@@ -353,7 +365,8 @@ Le tre modalità differiscono solo per configurazione (numero tentativi, timer,
 sincronizzazione avversario), non per codice.
 
 Oltre a `valutaTentativo`, il `core` contiene un **motore di gioco puro** (crea
-stato, digita/cancella, conferma tentativo, `timeoutTentativo`, `coloriTastiera`):
+stato, digita/cancella, `svuotaRiga` — svuota solo la parola in digitazione per il
+pulsante ↻ —, conferma tentativo, `timeoutTentativo`, `coloriTastiera`):
 funzioni senza effetti collaterali che le schermate consumano senza duplicare
 logica; il timer, essendo un effetto, vive nella UI e allo scadere chiama
 `timeoutTentativo`. La configurazione (`ConfigGioco`) si legge da un provider:
@@ -387,6 +400,10 @@ oggi disattivato tramite stub, pronto per il dizionario reale.
   codice.
 - Righe della griglia = `maxTentativi` (parametrico): la griglia si allinea sempre
   al parametro.
+- Navigazione: **router minimale** senza librerie (`Wordilo.tsx`) che alterna
+  `SchermataMenu` ↔ `SchermataGioco`; la scelta lunghezza/modalità sta nel menu.
+- Statistiche: **modulo provvisorio lato client** (`useStatistiche`) finché non è
+  collegato Supabase, poi viste sul database senza cambi alle schermate.
 - App su **Expo SDK 57** (React Native 0.86); l'app importa il core come
   `@wordilo/core` via alias Metro (`extraNodeModules`) + `paths` di TypeScript.
 - Grafica e interfaccia: stile **flat** allineato al riferimento condiviso — celle
@@ -408,8 +425,13 @@ oggi disattivato tramite stub, pronto per il dizionario reale.
   - ✅ Fatto: modulo `core` (logica colori + motore di gioco + test).
   - ✅ Fatto: app Expo + schermata **principiante** (griglia + tastiera) su web e
     mobile, wiring monorepo verificato con export web.
-  - ⏭️ Prossimo: modalità **esperto** (countdown per tentativo → `timeoutTentativo`)
-    e **schermata di scelta** 5/6 + modalità.
+  - ✅ Fatto: **schermata di scelta** (lunghezza 5/6 + modalità) con router minimale
+    menu ↔ partita (`SchermataMenu` + `Wordilo`).
+  - ✅ Fatto: **statistiche provvisorie lato client** (giocate/vinte/perse) mostrate
+    nel menu e aggiornate a fine partita.
+  - ⏭️ Prossimo: **timer** della modalità **esperto** (countdown per tentativo →
+    `timeoutTentativo`), che è l'unico pezzo mancante della modalità (la selezione
+    "Esperto" è già nel menu, ma il countdown non è ancora agganciato nella UI).
   - Poi: collegamento al database, poi l'online.
 
 ---
