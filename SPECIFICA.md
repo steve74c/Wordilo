@@ -5,12 +5,14 @@
 > aggiornato a ogni decisione presa.
 
 **Stato:** in sviluppo — modulo `core` (colori, motore di gioco, normalizzazione)
-implementato e testato, e **app Expo** single player giocabile su web e mobile con
-**grafica in stile flat** (vedi §16): **schermata di scelta** (lunghezza 5/6 +
-modalità, con router menu ↔ partita) e **modalità principiante** già funzionanti,
-più **statistiche provvisorie lato client** (giocate/vinte/perse) e la **modalità
-esperto** completa (countdown per tentativo, con timer che chiude la riga allo
-scadere). Ancora da fare: tutto il backend (database e online).
+implementato e testato, e **app Expo** single player **completa e collegata a
+Supabase**, giocabile su web e mobile con **grafica in stile flat** (vedi §16):
+schermata di scelta (lunghezza 5/6 + modalità), **principiante** ed **esperto**
+(countdown per tentativo) funzionanti; **login obbligatorio** email/password con
+**profilo** creato in automatico; **parametri di gioco letti dal database**
+(`game_settings`) e **statistiche personali reali** (partite salvate in `games`,
+conteggi dalla vista `user_stats`). Ancora da fare: **login social**
+(Google/Facebook) con avatar, il **dizionario** reale e tutto l'**online**.
 **Ultimo aggiornamento:** 2026-09-02
 
 ---
@@ -65,14 +67,22 @@ over-the-air del codice JS senza ripassare dagli store.
   src/         valutaTentativo, gioco (motore), normalizza, config, paroleDev, types
   dev/gioca.ts CLI di prova (banco di prova della logica, non fa parte del gioco)
 /app         → app Expo (web + iOS + Android)
-  App.tsx                      carica i font (Poppins locali) e monta la schermata
-  src/hooks/useGioco.ts        ponte React ↔ motore core
-  src/stats/statistiche.ts     statistiche provvisorie lato client (giocate/vinte/perse)
-  src/components/Griglia.tsx   griglia di celle colorate
+  App.tsx                      carica i font, monta i provider (config/auth/stat) e il gioco
+  .env                         chiavi Supabase locali (EXPO_PUBLIC_*), NON in Git
+  .env.example                 template committabile delle variabili d'ambiente
+  src/lib/supabase.ts          client Supabase unico (URL + chiave anon dal .env)
+  src/config/configService.ts  legge game_settings dal DB → ConfigGioco (fallback ai default)
+  src/config/ConfigContext.tsx provider della config + hook useConfig()
+  src/auth/AuthContext.tsx     provider auth (sessione + registrati/accedi/esci)
+  src/auth/PortaAuth.tsx       "cancello": login se non loggato, gioco se loggato
+  src/hooks/useGioco.ts        ponte React ↔ motore core (+ timer esperto)
+  src/stats/statistiche.tsx    statistiche per-utente dal DB (games + vista user_stats)
+  src/components/Griglia.tsx   griglia di celle colorate (+ countdown esperto)
   src/components/Tastiera.tsx  tastiera a schermo (neutri bianchi, OK teal)
   src/components/Coriandoli.tsx  particelle leggere per la vittoria
   src/screens/Wordilo.tsx      router minimale menu ↔ partita (senza librerie di navigazione)
-  src/screens/SchermataMenu.tsx  scelta lunghezza (5/6) + modalità, contatori, legenda
+  src/screens/SchermataAuth.tsx  accesso/registrazione (email/password)
+  src/screens/SchermataMenu.tsx  saluto+logout, scelta lunghezza/modalità, contatori, legenda
   src/screens/SchermataGioco.tsx
   src/LoadingScreen.tsx        schermata di caricamento brandizzata
   src/theme.ts                 colori, font, ombre (stile flat)
@@ -95,6 +105,15 @@ Registrazione e login tramite **Supabase Auth**:
   email, nick**.
 - **Google**.
 - **Facebook**.
+
+**Stato attuale (implementato):** **login obbligatorio** con **email/password**
+(`AuthProvider` + `SchermataAuth`; `PortaAuth` mostra login o gioco a seconda della
+sessione). Alla registrazione si raccoglie per ora **solo il nick** (oltre a
+email/password); nome, cognome e avatar arriveranno con il login social. Il
+**profilo** viene creato **in automatico** al primo accesso da un **trigger** sul
+database (`handle_new_user`, legge il nick dai metadati dell'utente), così esiste
+sempre. In sviluppo la **conferma via email è disattivata** (registrazione →
+subito dentro). Google e Facebook sono ancora da collegare.
 
 ### Profilo
 
@@ -195,13 +214,14 @@ All'ingresso l'utente vede le **ultime partite** (vinte / perse / pareggiate) e 
 contatori aggregati. Le "ultime partite" sono gli ultimi N record dell'utente
 ordinati per data; gli aggregati escono da una vista sul database.
 
-**Stato attuale:** in attesa del backend, l'app usa un **modulo statistiche
-provvisorio lato client** (`app/src/stats/statistiche.ts`, hook `useStatistiche`)
-che tiene i contatori **giocate / vinte / perse** e li mostra nel menu; la partita
-lo aggiorna a fine gioco via `useGioco(..., registra)`. È lo stesso schema pensato
-per la config (default provvisorio ora, dati dal server poi): quando ci sarà
-Supabase, questi contatori verranno rimpiazzati dalle viste sul database senza
-cambiare le schermate.
+**Stato attuale (implementato):** le statistiche sono **reali e per-utente**. A
+fine partita l'app scrive una riga in **`games`** (`app/src/stats/statistiche.tsx`,
+hook `useStatistiche`, alimentato da `useGioco(..., registra)`); i contatori
+**giocate / vinte / perse** del menu si leggono dalla vista **`user_stats`**, che
+aggrega `games` rispettando la RLS (ogni utente vede solo i propri). Essendo su
+Supabase, le statistiche **seguono l'utente su ogni dispositivo** e sopravvivono
+ai riavvii. Le "ultime partite" in dettaglio e gli aggregati online (pareggiate,
+win-rate, punti) arriveranno con la parte online.
 
 ---
 
@@ -295,9 +315,11 @@ games
 ### Viste
 
 ```sql
--- statistiche personali
+-- statistiche personali  ✅ IMPLEMENTATA (security_invoker: rispetta la RLS di games)
+--   attuale: user_id, giocate, vinte, perse (single player)
+--   in arrivo con l'online: pareggiate, win_rate, punti_totali
 user_stats (view)
-  → user_id, giocate, vinte, perse, pareggiate, win_rate, punti_totali
+  → user_id, giocate, vinte, perse [, pareggiate, win_rate, punti_totali]
 
 -- classifica a punti
 leaderboard_points (view)
@@ -320,6 +342,13 @@ leaderboard_skill (view)
 - **`guesses` (jsonb)** salva la sequenza dei tentativi con i colori: utile per
   rimostrare una partita passata e, nell'online, come traccia. Opzionale.
 - Parametri di gioco e punti stanno nel DB → si cambiano senza ricompilare.
+- **Stato attuale del DB (implementato):** create tutte le tabelle qui sopra con
+  **RLS attiva** (ognuno vede/scrive solo i propri dati; dizionario e parametri in
+  lettura pubblica), il **trigger** `handle_new_user` che popola `profiles` alla
+  registrazione, i **seed** di `game_settings`/`app_config` (esperto = 25s) e un
+  piccolo **dizionario di prova**, e la **vista `user_stats`**. Restano da creare le
+  viste delle **classifiche** (`leaderboard_*`) e il bucket **`avatars`**, che
+  arriveranno con online e login social.
 
 ---
 
@@ -370,9 +399,10 @@ stato, digita/cancella, `svuotaRiga` — svuota solo la parola in digitazione pe
 pulsante ↻ —, conferma tentativo, `timeoutTentativo`, `coloriTastiera`):
 funzioni senza effetti collaterali che le schermate consumano senza duplicare
 logica; il timer, essendo un effetto, vive nella UI e allo scadere chiama
-`timeoutTentativo`. La configurazione (`ConfigGioco`) si legge da un provider:
-oggi un default **provvisorio lato client** (`CONFIG_DEFAULT`), domani i valori del
-server (`game_settings`), senza modifiche al resto del codice. La **validazione**
+`timeoutTentativo`. La configurazione (`ConfigGioco`) si legge da un provider
+(`ConfigProvider`/`useConfig`): oggi i valori arrivano **dal server**
+(`game_settings` via `configService`), con `CONFIG_DEFAULT` come **fallback** se la
+rete non risponde — il tutto senza modifiche al `core`. La **validazione**
 della parola è un predicato **iniettabile** (`confermaTentativo(stato, isValida)`),
 oggi disattivato tramite stub, pronto per il dizionario reale.
 
@@ -401,15 +431,20 @@ oggi disattivato tramite stub, pronto per il dizionario reale.
 - Gioco **accent-insensitive**: accenti rimossi da dizionario, input e tastiera.
 - **Validazione parola iniettabile** (`isValida` in `confermaTentativo`); stub
   disattivato in questa fase.
-- Config di gioco letta da un **provider**: default **provvisorio lato client**
-  finché non è collegato Supabase, poi valori da `game_settings` senza cambi di
-  codice.
+- Config di gioco letta da un **provider** (`ConfigProvider`): **valori dal DB**
+  (`game_settings`), con `CONFIG_DEFAULT` come **fallback** offline. ✅ collegato.
 - Righe della griglia = `maxTentativi` (parametrico): la griglia si allinea sempre
   al parametro.
 - Navigazione: **router minimale** senza librerie (`Wordilo.tsx`) che alterna
   `SchermataMenu` ↔ `SchermataGioco`; la scelta lunghezza/modalità sta nel menu.
-- Statistiche: **modulo provvisorio lato client** (`useStatistiche`) finché non è
-  collegato Supabase, poi viste sul database senza cambi alle schermate.
+- Statistiche: **reali dal DB** — a fine partita si scrive in `games`, i conteggi
+  vengono dalla vista `user_stats`. ✅ collegato (era un modulo provvisorio locale).
+- **Backend Supabase** (passi 3–6): un unico client `supabase.ts` con chiavi nel
+  `.env` (`EXPO_PUBLIC_*`, fuori da Git); la chiave `anon` sta nell'app, protetta
+  dalla **RLS**. **Login obbligatorio** email/password; **profilo creato via
+  trigger** alla registrazione; **conferma email disattivata** in sviluppo.
+  Vista `user_stats` con **`security_invoker`** per rispettare la RLS. Login social
+  (Google/Facebook) e viste classifiche rimandati.
 - App su **Expo SDK 57** (React Native 0.86); l'app importa il core come
   `@wordilo/core` via alias Metro (`extraNodeModules`) + `paths` di TypeScript.
 - Grafica e interfaccia: stile **flat** allineato al riferimento condiviso — celle
@@ -433,13 +468,22 @@ oggi disattivato tramite stub, pronto per il dizionario reale.
     mobile, wiring monorepo verificato con export web.
   - ✅ Fatto: **schermata di scelta** (lunghezza 5/6 + modalità) con router minimale
     menu ↔ partita (`SchermataMenu` + `Wordilo`).
-  - ✅ Fatto: **statistiche provvisorie lato client** (giocate/vinte/perse) mostrate
-    nel menu e aggiornate a fine partita.
+  - ✅ Fatto: **statistiche** (giocate/vinte/perse) mostrate nel menu e aggiornate a
+    fine partita.
   - ✅ Fatto: **modalità esperto** completa — timer/countdown per tentativo
     (`useGioco` → `timeoutTentativo`) con badge a lato della riga attiva; con questo
     il **single player è completo**.
-  - ⏭️ Prossimo: **collegamento al database** (Supabase: auth, profili,
-    `game_settings`, dizionario, statistiche reali), poi l'**online**.
+  - ✅ Fatto: **collegamento a Supabase** — client unico + chiavi in `.env` (passo 3).
+  - ✅ Fatto: **schema del database** — tabelle §10 + RLS + trigger profilo + seed
+    (esperto 25s) + dizionario di prova (passo 2).
+  - ✅ Fatto: **config dal database** — `game_settings` via `ConfigProvider`, con
+    fallback ai default (passo 4).
+  - ✅ Fatto: **login e profili** — email/password, login obbligatorio, profilo
+    automatico via trigger, saluto + logout nel menu (passo 5).
+  - ✅ Fatto: **statistiche reali dal database** — partite in `games`, conteggi da
+    `user_stats` (passo 6).
+  - ⏭️ Prossimo: **login social** (Google/Facebook) + **avatar** (Storage), poi
+    l'**online** (matches, Realtime, Edge Function, classifiche).
 
 ---
 
