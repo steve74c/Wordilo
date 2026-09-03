@@ -8,6 +8,7 @@ import {
   timeoutTentativo as timeoutTentativoCore,
   coloriTastiera,
   pescaParolaCasuale,
+  parolaValida,
 } from '@wordilo/core';
 import type {
   LunghezzaParola,
@@ -122,7 +123,8 @@ export function useGioco(
 
   const conferma = useCallback(() => {
     setStato((s) => {
-      const r = confermaTentativo(s); // validazione disattivata in questa fase
+      // Validazione attiva: la parola deve esistere nel dizionario italiano.
+      const r = confermaTentativo(s, (parola) => parolaValida(parola, s.lunghezza));
       setProblema(r.problema ?? null);
       if (r.problema) setScossa((n) => n + 1);
       return r.stato;

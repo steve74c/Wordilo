@@ -25,8 +25,8 @@ cose in modo semplice e **procediamo un passo alla volta**.
     (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`), fuori da Git;
   - **schema del DB creato** (tabelle §10 con **RLS attiva**, trigger
     `handle_new_user` che crea il profilo alla registrazione, seed di
-    `game_settings`/`app_config` con **esperto = 25s**, piccolo **dizionario di
-    prova**, vista **`user_stats`**);
+    `game_settings`/`app_config` con **esperto = 25s**, **dizionario italiano reale**
+    in `words` + funzione `parola_casuale`, vista **`user_stats`**);
   - **config dal database**: `game_settings` letto via `ConfigProvider`/`useConfig`
     (`app/src/config/`), con `CONFIG_DEFAULT` del core come fallback offline;
   - **login obbligatorio email/password**: `AuthProvider` + `PortaAuth` +
@@ -36,9 +36,16 @@ cose in modo semplice e **procediamo un passo alla volta**.
   - **statistiche reali per-utente**: a fine partita si scrive in `games`, i
     contatori (giocate/vinte/perse) si leggono dalla vista `user_stats`
     (`app/src/stats/statistiche.tsx`).
+- **Dizionario reale + validazione (offline-first)**: importato il dizionario
+  italiano vero in `words` (26.793 parole; 3.157 bersagli scelti per frequenza, soglia
+  ~top 15.000). Il target si pesca e le parole si validano **in locale** dal
+  dizionario incluso nell'app (`core/src/dizionarioDati.ts` → `SOLUZIONI`/`VALIDE`,
+  con `parolaValida` iniettata in `confermaTentativo`): **si gioca anche senza rete**.
+  Il DB resta la fonte di verità e la funzione SQL `parola_casuale` è pronta per
+  l'online.
 
-Con questo, **tutto il single player + account + statistiche è finito e collegato al
-database**. Per i dettagli completi vedi la specifica (in particolare §3 struttura
+Con questo, **tutto il single player + account + statistiche + dizionario reale è
+finito e collegato al database** (e il single player gira anche offline). Per i dettagli completi vedi la specifica (in particolare §3 struttura
 file, §10 modello dati, §13 core, §14 decisioni, §15 stato/ordine di sviluppo).
 
 ## Stack e convenzioni da rispettare
@@ -56,7 +63,8 @@ file, §10 modello dati, §13 core, §14 decisioni, §15 stato/ordine di svilupp
   restano nel `.env` locale, mai in chat né in Git.
 - Gotcha già incontrati: l'URL Supabase è **solo** `https://<progetto>.supabase.co`
   (niente `/rest/v1`, niente slash finale); il **`.env` si legge solo all'avvio**
-  (dopo averlo modificato, riavviare Expo).
+  (dopo averlo modificato, riavviare Expo). Quando **cambi o aggiungi file nel
+  `core`**, riavvia con **`npx expo start -c`** per pulire la cache di Metro.
 
 ## Come voglio che lavoriamo (metodo)
 
@@ -74,14 +82,12 @@ file, §10 modello dati, §13 core, §14 decisioni, §15 stato/ordine di svilupp
 
 ## Cosa manca (prossimi passi possibili)
 
-Da §15 della specifica, in ordine tipico. Sceglierò io da dove ripartire:
+Da §15 della specifica, in ordine tipico. Sceglierò io da dove ripartire.
+*(Il filone **B — Dizionario reale** è già stato completato: vedi sopra.)*
 
 - **A. Login social + avatar** (peso medio): Google e Facebook via Supabase Auth
   (richiede configurare le app OAuth nei rispettivi pannelli), più immagine profilo
   in Storage con fallback alle iniziali. Raccoglierebbe anche nome/cognome.
-- **B. Dizionario reale** (servizio): importare un dizionario italiano vero (5 e 6
-  lettere, accent-insensitive) al posto della lista di prova, e attivare la
-  validazione delle parole (il predicato è già iniettabile in `confermaTentativo`).
 - **C. Online** (peso grande, a sotto-passi): tabella `matches`, sfida in tempo reale
   con Supabase Realtime (codice-stanza), **Edge Function anti-cheat** che tiene la
   parola lato server, punteggi (10/0/5) e le due **classifiche** (`leaderboard_*`).
@@ -89,6 +95,6 @@ Da §15 della specifica, in ordine tipico. Sceglierò io da dove ripartire:
 ## Come iniziare
 
 Per prima cosa: leggi la specifica, poi **riassumimi in poche righe dove siamo** (per
-confermare che il contesto è chiaro), e **chiedimi quale dei tre filoni (A / B / C)
-voglio affrontare**. Quando ho scelto, partiamo dal **primo sotto-passo** di quel
-filone, con lo stesso metodo qui sopra.
+confermare che il contesto è chiaro), e **chiedimi quale dei due filoni rimasti
+(A / C) voglio affrontare**. Quando ho scelto, partiamo dal **primo sotto-passo** di
+quel filone, con lo stesso metodo qui sopra.

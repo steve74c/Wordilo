@@ -11,9 +11,10 @@ schermata di scelta (lunghezza 5/6 + modalità), **principiante** ed **esperto**
 (countdown per tentativo) funzionanti; **login obbligatorio** email/password con
 **profilo** creato in automatico; **parametri di gioco letti dal database**
 (`game_settings`) e **statistiche personali reali** (partite salvate in `games`,
-conteggi dalla vista `user_stats`). Ancora da fare: **login social**
-(Google/Facebook) con avatar, il **dizionario** reale e tutto l'**online**.
-**Ultimo aggiornamento:** 2026-09-02
+conteggi dalla vista `user_stats`); **dizionario italiano reale** con **validazione**
+attiva, **offline-first** (il single player gira anche senza rete). Ancora da fare:
+**login social** (Google/Facebook) con avatar e tutto l'**online**.
+**Ultimo aggiornamento:** 2026-09-03
 
 ---
 
@@ -64,7 +65,10 @@ over-the-air del codice JS senza ripassare dagli store.
 
 ```
 /core        → logica di gioco, tipi, dizionario (TypeScript puro, condiviso)
-  src/         valutaTentativo, gioco (motore), normalizza, config, paroleDev, types
+  src/         valutaTentativo, gioco (motore), normalizza, config, types
+  src/dizionario.ts     parolaValida (validazione dal dizionario) + stub storico
+  src/dizionarioDati.ts dizionario italiano vero: SOLUZIONI (bersagli) + VALIDE (generato dal DB)
+  src/paroleDev.ts      pescaParolaCasuale = pesca un bersaglio dal dizionario reale
   dev/gioca.ts CLI di prova (banco di prova della logica, non fa parte del gioco)
 /app         → app Expo (web + iOS + Android)
   App.tsx                      carica i font, monta i provider (config/auth/stat) e il gioco
@@ -236,6 +240,19 @@ Il gioco è **accent-insensitive**: gli accenti si rimuovono sia dal dizionario 
 dall'input dell'utente (es. `perché` → `PERCHE`) e la tastiera a schermo non ha
 tasti accentati. La normalizzazione è centralizzata in `normalizzaParola` (`core`).
 
+**Stato attuale (implementato):** dizionario italiano **reale** importato nella
+tabella `words` (**26.793 parole**: 8.176 da 5 lettere, 18.617 da 6). Una parte è
+marcata come **bersaglio** (`is_solution = true`): **1.452** da 5 e **1.705** da 6,
+scelte incrociando l'elenco con una **classifica di frequenza** (soglia ~top 15.000),
+così i target sono parole riconoscibili; il resto resta valido solo come tentativo. La
+scelta dei bersagli si affina in ogni momento con un `UPDATE` di `is_solution`, senza
+reimportare. **Offline-first**: per il single player il dizionario è anche **dentro
+l'app** (`core/src/dizionarioDati.ts`, generato dai dati del DB — `SOLUZIONI` per
+pescare il target, `VALIDE` per validare), quindi si gioca e si valida **senza rete e
+senza attese**. La **validazione è attiva** (`parolaValida` iniettata in
+`confermaTentativo`). Il DB resta la **fonte di verità**: la funzione SQL
+`parola_casuale(lunghezza)` (pesca un bersaglio lato server) è pronta per l'**online**.
+
 ---
 
 ## 10. Modello dati (Supabase / Postgres)
@@ -345,10 +362,12 @@ leaderboard_skill (view)
 - **Stato attuale del DB (implementato):** create tutte le tabelle qui sopra con
   **RLS attiva** (ognuno vede/scrive solo i propri dati; dizionario e parametri in
   lettura pubblica), il **trigger** `handle_new_user` che popola `profiles` alla
-  registrazione, i **seed** di `game_settings`/`app_config` (esperto = 25s) e un
-  piccolo **dizionario di prova**, e la **vista `user_stats`**. Restano da creare le
-  viste delle **classifiche** (`leaderboard_*`) e il bucket **`avatars`**, che
-  arriveranno con online e login social.
+  registrazione, i **seed** di `game_settings`/`app_config` (esperto = 25s), il
+  **dizionario italiano reale** in `words` (26.793 parole, di cui 3.157 bersagli), la
+  funzione `parola_casuale(lunghezza)` (pesca un bersaglio a caso lato server, per
+  l'online) e la **vista `user_stats`**. Restano da creare le viste delle
+  **classifiche** (`leaderboard_*`) e il bucket **`avatars`**, che arriveranno con
+  online e login social.
 
 ---
 
@@ -403,8 +422,11 @@ logica; il timer, essendo un effetto, vive nella UI e allo scadere chiama
 (`ConfigProvider`/`useConfig`): oggi i valori arrivano **dal server**
 (`game_settings` via `configService`), con `CONFIG_DEFAULT` come **fallback** se la
 rete non risponde — il tutto senza modifiche al `core`. La **validazione**
-della parola è un predicato **iniettabile** (`confermaTentativo(stato, isValida)`),
-oggi disattivato tramite stub, pronto per il dizionario reale.
+della parola è un predicato **iniettabile** (`confermaTentativo(stato, isValida)`):
+oggi è **attiva** e usa `parolaValida` (lookup nell'insieme `VALIDE` di
+`dizionarioDati.ts`, accent-insensitive). Anche il target si sceglie in locale con
+`pescaParolaCasuale`, che ora attinge al **dizionario reale** (`SOLUZIONI`) invece
+che alla vecchia lista di prova.
 
 ---
 
@@ -429,8 +451,16 @@ oggi disattivato tramite stub, pronto per il dizionario reale.
   `Griglia` (teal → arancione negli ultimi secondi). Digitare/cancellare non lo
   resetta.
 - Gioco **accent-insensitive**: accenti rimossi da dizionario, input e tastiera.
-- **Validazione parola iniettabile** (`isValida` in `confermaTentativo`); stub
-  disattivato in questa fase.
+- **Validazione parola** iniettabile (`isValida` in `confermaTentativo`): ora
+  **attiva** tramite `parolaValida` (insieme `VALIDE`). ✅ collegato.
+- **Dizionario reale** importato in `words` (26.793 parole); **bersagli** scelti per
+  **frequenza** (~top 15.000 → 1.452 da 5, 1.705 da 6), affinabili con un semplice
+  `UPDATE` di `is_solution` senza reimportare. ✅
+- **Single player offline-first**: dizionario **dentro l'app**
+  (`core/src/dizionarioDati.ts`, generato dal DB) → target e validazione **locali,
+  senza rete**. Il DB resta la fonte di verità; la funzione SQL
+  `parola_casuale(lunghezza)` è riservata all'**online** (parola lato server).
+  Aggiornare le parole = rigenerare il file + aggiornamento OTA. ✅
 - Config di gioco letta da un **provider** (`ConfigProvider`): **valori dal DB**
   (`game_settings`), con `CONFIG_DEFAULT` come **fallback** offline. ✅ collegato.
 - Righe della griglia = `maxTentativi` (parametrico): la griglia si allinea sempre
@@ -456,9 +486,9 @@ oggi disattivato tramite stub, pronto per il dizionario reale.
 
 ## 15. Punti ancora aperti
 
-- **Dizionario italiano** da procurare/importare (5 e 6 lettere), da normalizzare
-  accent-insensitive. Nel frattempo il single player usa una piccola lista di
-  parole di prova.
+- **Affinamento bersagli del dizionario**: oggi scelti per frequenza (~top 15.000).
+  Possibile ripulire in futuro nomi propri/forestierismi dai bersagli con un `UPDATE`
+  di `is_solution` (le parole restano comunque valide come tentativo).
 - **Classifica bravura**: soglia secca ora; valutare in futuro Elo/media pesata.
 - **Gestione disconnessione** in una sfida online (abbandono = sconfitta? timeout
   della stanza?).
@@ -475,15 +505,19 @@ oggi disattivato tramite stub, pronto per il dizionario reale.
     il **single player è completo**.
   - ✅ Fatto: **collegamento a Supabase** — client unico + chiavi in `.env` (passo 3).
   - ✅ Fatto: **schema del database** — tabelle §10 + RLS + trigger profilo + seed
-    (esperto 25s) + dizionario di prova (passo 2).
+    (esperto 25s) + dizionario di prova, poi **sostituito dal dizionario reale** nel
+    filone B (passo 2).
   - ✅ Fatto: **config dal database** — `game_settings` via `ConfigProvider`, con
     fallback ai default (passo 4).
   - ✅ Fatto: **login e profili** — email/password, login obbligatorio, profilo
     automatico via trigger, saluto + logout nel menu (passo 5).
   - ✅ Fatto: **statistiche reali dal database** — partite in `games`, conteggi da
     `user_stats` (passo 6).
-  - ⏭️ Prossimo: **login social** (Google/Facebook) + **avatar** (Storage), poi
-    l'**online** (matches, Realtime, Edge Function, classifiche).
+  - ✅ Fatto: **dizionario reale + validazione** (filone B) — import in `words`,
+    target dal dizionario vero e validazione attiva, **offline-first**
+    (`dizionarioDati.ts`); resta la funzione SQL `parola_casuale` per l'online.
+  - ⏭️ Prossimo: **login social** (Google/Facebook) + **avatar** (Storage) — filone A;
+    poi l'**online** (matches, Realtime, Edge Function, classifiche) — filone C.
 
 ---
 

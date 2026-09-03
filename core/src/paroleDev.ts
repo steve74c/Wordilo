@@ -1,18 +1,25 @@
 import type { LunghezzaParola } from './types';
 import { normalizzaParola } from './normalizza';
+import { SOLUZIONI } from './dizionarioDati';
 
 /**
- * PROVVISORIO — piccola lista di parole di prova per il single player, finché non
- * importiamo il dizionario italiano vero. Tutte reali, senza accenti, 5 o 6 lettere.
- * Quando arriverà il dizionario, questa sparisce e il target verrà pescato di lì.
+ * Sorgente delle parole-BERSAGLIO per il single player.
+ *
+ * Storicamente questo file conteneva una listina di prova; ora il target viene
+ * pescato dal DIZIONARIO ITALIANO VERO (generato in `dizionarioDati.ts` a partire
+ * dai dati della tabella `words` su Supabase). Manteniamo qui `pescaParolaCasuale`
+ * con la stessa identica firma di prima, così nulla a valle cambia (index, useGioco).
+ *
+ * Offline-first: il dizionario è dentro l'app, quindi la scelta della parola è
+ * istantanea e funziona anche senza rete.
  */
-export const PAROLE_DEV: Record<LunghezzaParola, string[]> = {
-  5: ['CANTO', 'PALLA', 'SEDIA', 'FIUME', 'LIBRO', 'MONTE', 'PORTA', 'VERDE', 'SUONO', 'NOTTE'],
-  6: ['GELATO', 'FINALE', 'MONETA', 'SIRENA', 'TAVOLO', 'DOMANI', 'CAMBIO', 'MARINO', 'CAMINO', 'DENARO'],
-};
 
-/** Pesca a caso una parola (già normalizzata) della lunghezza richiesta. */
+// Alias di compatibilità: prima erano le parole di prova, ora sono i bersagli veri.
+// (Serve solo a non rompere chi eventualmente importava `PAROLE_DEV`.)
+export const PAROLE_DEV: Record<LunghezzaParola, string[]> = SOLUZIONI;
+
+/** Pesca a caso una parola-bersaglio (già normalizzata) della lunghezza richiesta. */
 export function pescaParolaCasuale(lunghezza: LunghezzaParola): string {
-  const lista = PAROLE_DEV[lunghezza];
+  const lista = SOLUZIONI[lunghezza];
   return normalizzaParola(lista[Math.floor(Math.random() * lista.length)]);
 }
