@@ -12,9 +12,11 @@ schermata di scelta (lunghezza 5/6 + modalità), **principiante** ed **esperto**
 **profilo** creato in automatico; **parametri di gioco letti dal database**
 (`game_settings`) e **statistiche personali reali** (partite salvate in `games`,
 conteggi dalla vista `user_stats`); **dizionario italiano reale** con **validazione**
-attiva, **offline-first** (il single player gira anche senza rete). Ancora da fare:
-**login social** (Google/Facebook) con avatar e tutto l'**online**.
-**Ultimo aggiornamento:** 2026-09-03
+attiva, **offline-first** (il single player gira anche senza rete); **login Google**
+funzionante **sul web** e **avatar** (foto Google o iniziali) con nick corretto per
+tutti. Ancora da fare: **test del login Google su Android/iOS** (serve un
+*development build*), **login Facebook**, e tutto l'**online**.
+**Ultimo aggiornamento:** 2026-09-04
 
 ---
 
@@ -77,8 +79,11 @@ over-the-air del codice JS senza ripassare dagli store.
   src/lib/supabase.ts          client Supabase unico (URL + chiave anon dal .env)
   src/config/configService.ts  legge game_settings dal DB → ConfigGioco (fallback ai default)
   src/config/ConfigContext.tsx provider della config + hook useConfig()
-  src/auth/AuthContext.tsx     provider auth (sessione + registrati/accedi/esci)
+  src/auth/AuthContext.tsx     provider auth (sessione + registrati/accedi/accediConGoogle/esci)
   src/auth/PortaAuth.tsx       "cancello": login se non loggato, gioco se loggato
+  src/profilo/ProfiloContext.tsx provider profilo (nick/nome/cognome/avatarUrl + cambiaAvatar)
+  src/profilo/avatarStorage.ts scegliEcaricaAvatar: selettore foto + upload su Storage
+  src/components/Avatar.tsx    avatar tondo: foto (avatarUrl) o iniziali su sfondo colorato
   src/hooks/useGioco.ts        ponte React ↔ motore core (+ timer esperto)
   src/stats/statistiche.tsx    statistiche per-utente dal DB (games + vista user_stats)
   src/components/Griglia.tsx   griglia di celle colorate (+ countdown esperto)
@@ -115,9 +120,19 @@ Registrazione e login tramite **Supabase Auth**:
 sessione). Alla registrazione si raccoglie per ora **solo il nick** (oltre a
 email/password); nome, cognome e avatar arriveranno con il login social. Il
 **profilo** viene creato **in automatico** al primo accesso da un **trigger** sul
-database (`handle_new_user`, legge il nick dai metadati dell'utente), così esiste
-sempre. In sviluppo la **conferma via email è disattivata** (registrazione →
-subito dentro). Google e Facebook sono ancora da collegare.
+database (`handle_new_user`), così esiste sempre. In sviluppo la **conferma via
+email è disattivata** (registrazione → subito dentro).
+
+**Login Google — collegato (web).** Provider Google attivo su Supabase (client
+OAuth di tipo *Web application*; il *client secret* sta **solo** su Supabase, mai
+nell'app). Sul **web** il login funziona end-to-end (`accediConGoogle` in
+`AuthContext` + pulsante in `SchermataAuth`). Il **trigger** è stato aggiornato:
+se il nick **manca** (login social) ne **genera uno univoco** dalla parte prima
+della `@` dell'email, e importa **nome/cognome/foto** da Google
+(`given_name`/`family_name`/`picture`). Sul **telefono** il codice è pronto (deep
+link con scheme `wordilo`, via `expo-web-browser`/`expo-auth-session`), ma il test
+richiede un **development build** (Expo Go non registra lo scheme). **Facebook**
+ancora da collegare.
 
 ### Profilo
 
@@ -131,6 +146,12 @@ Gestione avatar in tre casi, in ordine di priorità:
    (fornita automaticamente da Supabase al primo accesso).
 3. Altrimenti si mostra un **avatar generato** con le iniziali su sfondo colorato
    (mai un riquadro vuoto).
+
+**Stato attuale (implementato):** componente `Avatar` che mostra la foto se
+presente, altrimenti le **iniziali** (nome/cognome → in mancanza nick) su sfondo
+colorato stabile; nel menu l'avatar è **toccabile** per cambiare foto
+(`ProfiloContext.cambiaAvatar` → selettore + upload su Storage). Su web funziona
+end-to-end; l'upload da telefono va verificato col development build.
 
 Il file immagine sta in **Supabase Storage** (bucket `avatars`, un file per
 utente, es. `avatars/<user_id>.jpg`); nel database si salva solo l'URL
@@ -475,6 +496,24 @@ che alla vecchia lista di prova.
   trigger** alla registrazione; **conferma email disattivata** in sviluppo.
   Vista `user_stats` con **`security_invoker`** per rispettare la RLS. Login social
   (Google/Facebook) e viste classifiche rimandati.
+- **Login social — Google (filone A):** collegato **sul web**. Provider Google su
+  Supabase con client OAuth *Web application*; il *client secret* resta **solo** su
+  Supabase. `accediConGoogle` è **universale**: su web fa il redirect di pagina, su
+  iOS/Android apre un browser interno e rientra via **deep link** (`scheme:
+  "wordilo"`, redirect `wordilo://auth-callback` tra i *Redirect URLs* di Supabase),
+  usando `expo-web-browser` + `expo-auth-session`. **Test su telefono rimandato**:
+  richiede un **development build** (Expo Go non registra lo scheme). Facebook non
+  ancora fatto (richiederà la revisione dell'app lato Meta).
+- **Trigger `handle_new_user` aggiornato:** se il nick manca (login social) ne
+  **genera uno univoco** (base dall'email + suffisso se già preso) e importa
+  **nome/cognome/avatar** da Google. Il flusso email/password resta invariato.
+- **Avatar:** componente `Avatar` (foto o iniziali su sfondo colorato stabile, con
+  fallback automatico se la foto non carica) in `src/components/Avatar.tsx`;
+  `ProfiloContext` espone **nick/nome/cognome/avatarUrl** e `cambiaAvatar` (selettore
+  + upload su Storage, già esistente). Nel menu l'avatar è **toccabile** per cambiare
+  foto, con spinner durante il caricamento.
+- **Nick nel menu** letto dal **profilo** (`ProfiloContext`), valido per tutti
+  (anche Google), con ripiego sui metadati di Auth finché il profilo carica.
 - App su **Expo SDK 57** (React Native 0.86); l'app importa il core come
   `@wordilo/core` via alias Metro (`extraNodeModules`) + `paths` di TypeScript.
 - Grafica e interfaccia: stile **flat** allineato al riferimento condiviso — celle
@@ -516,8 +555,16 @@ che alla vecchia lista di prova.
   - ✅ Fatto: **dizionario reale + validazione** (filone B) — import in `words`,
     target dal dizionario vero e validazione attiva, **offline-first**
     (`dizionarioDati.ts`); resta la funzione SQL `parola_casuale` per l'online.
-  - ⏭️ Prossimo: **login social** (Google/Facebook) + **avatar** (Storage) — filone A;
-    poi l'**online** (matches, Realtime, Edge Function, classifiche) — filone C.
+  - ✅ Fatto: **login Google (web) + avatar** (filone A) — provider Google su
+    Supabase, `accediConGoogle` (web ok; codice telefono pronto), trigger aggiornato
+    per generare il nick sui login social, componente `Avatar` (foto/iniziali)
+    toccabile nel menu, nick letto dal profilo per tutti.
+  - 🟡 In sospeso nel filone A: **test del login Google su Android/iOS** (passo 3c —
+    richiede un **development build**); **login Facebook**; verifica dell'**upload
+    avatar da telefono**.
+  - ⏭️ Prossimo: l'**online** (filone C) — tabella `matches`, sfida in tempo reale con
+    Realtime (codice-stanza), **Edge Function anti-cheat** (parola lato server),
+    punteggi 10/0/5 e le due **classifiche** (`leaderboard_*`).
 
 ---
 
