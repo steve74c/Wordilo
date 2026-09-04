@@ -94,8 +94,12 @@ export function SchermataMenu({
   const [modalita, setModalita] = useState<Modalita>(modalitaIniziale);
   const { giocate, vinte, perse } = useStatistiche();
   const { sessione, esci } = useAuth();
-  const { avatarUrl, nome, cognome, caricando, cambiaAvatar } = useProfilo();
-  const nick = (sessione?.user?.user_metadata?.nick as string | undefined) ?? 'Giocatore';
+  const { nick: nickProfilo, avatarUrl, nome, cognome, caricando, cambiaAvatar } = useProfilo();
+  // Il nick viene dal profilo (c'è per tutti, anche per gli utenti Google).
+  // Finché il profilo si carica usiamo quello dei metadati di Auth come ripiego,
+  // e in ultima istanza 'Giocatore'.
+  const nickMeta = sessione?.user?.user_metadata?.nick as string | undefined;
+  const nick = nickProfilo ?? nickMeta ?? 'Giocatore';
 
   return (
     <LinearGradient colors={GRAD.sfondo} style={styles.sfondo}>

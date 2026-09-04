@@ -3,8 +3,9 @@
 //   app/src/screens/SchermataAuth.tsx
 //
 // Un unico schermo con due modalità (Accedi / Registrati) scelte da un toggle.
-// In registrazione chiede anche il nickname. Al successo non fa nulla di
-// speciale: cambia la sessione e PortaAuth mostra il gioco da solo.
+// In registrazione chiede anche il nickname. In fondo, un pulsante
+// "Continua con Google". Al successo non fa nulla di speciale: cambia la
+// sessione e PortaAuth mostra il gioco da solo.
 // -----------------------------------------------------------------------------
 import React, { useState } from 'react';
 import {
@@ -25,7 +26,7 @@ import { C, FONT, GRAD, ombra, bagliore } from '../theme';
 type Modo = 'accedi' | 'registrati';
 
 export function SchermataAuth() {
-  const { accedi, registrati } = useAuth();
+  const { accedi, registrati, accediConGoogle } = useAuth();
   const [modo, setModo] = useState<Modo>('accedi');
   const [nick, setNick] = useState('');
   const [nome, setNome] = useState('');
@@ -71,6 +72,15 @@ export function SchermataAuth() {
     setBusy(false);
     if (err) setErrore(err);
     // Se va a buon fine, la sessione cambia e PortaAuth mostra il gioco.
+  };
+
+  const inviaGoogle = async () => {
+    if (busy) return;
+    setErrore(null);
+    setBusy(true);
+    const { errore: err } = await accediConGoogle();
+    if (err) setErrore(err);
+    setBusy(false);
   };
 
   return (
@@ -178,6 +188,28 @@ export function SchermataAuth() {
                 )}
               </LinearGradient>
             </Pressable>
+
+            {/* Separatore */}
+            <View style={styles.divisore}>
+              <View style={styles.divisoreLinea} />
+              <Text style={styles.divisoreTesto}>oppure</Text>
+              <View style={styles.divisoreLinea} />
+            </View>
+
+            {/* Accedi con Google */}
+            <Pressable
+              onPress={inviaGoogle}
+              disabled={busy}
+              style={({ pressed }) => [
+                styles.bottoneGoogle,
+                ombra(0.2, 8, 4, 4),
+                { transform: [{ scale: pressed ? 0.98 : 1 }] },
+                busy && { opacity: 0.7 },
+              ]}
+            >
+              <Text style={styles.gMark}>G</Text>
+              <Text style={styles.bottoneGoogleTesto}>Continua con Google</Text>
+            </Pressable>
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -233,4 +265,23 @@ const styles = StyleSheet.create({
   errore: { color: C.arancione, fontSize: 14, fontFamily: FONT.medium, fontWeight: '600', textAlign: 'center' },
   bottone: { width: '100%', paddingVertical: 15, borderRadius: 16, alignItems: 'center', marginTop: 4 },
   bottoneTesto: { color: '#052722', fontSize: 16, fontFamily: FONT.bold, fontWeight: '800' },
+
+  // Separatore "oppure"
+  divisore: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 2 },
+  divisoreLinea: { flex: 1, height: 1, backgroundColor: C.hair },
+  divisoreTesto: { color: C.testoTenue, fontSize: 13, fontFamily: FONT.medium, fontWeight: '600' },
+
+  // Pulsante Google (bianco, testo scuro, "G" in blu Google)
+  bottoneGoogle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    width: '100%',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    paddingVertical: 13,
+  },
+  gMark: { color: '#4285F4', fontSize: 20, fontFamily: FONT.bold, fontWeight: '800' },
+  bottoneGoogleTesto: { color: '#1f2937', fontSize: 16, fontFamily: FONT.bold, fontWeight: '700' },
 });

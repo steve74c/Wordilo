@@ -1,105 +1,84 @@
-import React from 'react';
-import { Image, Text, View } from 'react-native';
-import type { ImageStyle, TextStyle, ViewStyle } from 'react-native';
-import { C, FONT, ombra } from '../theme';
-
 // -----------------------------------------------------------------------------
-// Avatar riutilizzabile. Ordine di priorità (come da §4 della specifica):
-//   1. se c'è `avatarUrl` (foto caricata o presa dal social) → mostra la foto;
-//   2. altrimenti → cerchio colorato con le INIZIALI, mai un riquadro vuoto.
+// Componente Avatar riutilizzabile. Va salvato in:  app/src/components/Avatar.tsx
 //
-// Per ora le iniziali arrivano dal NICK (nome/cognome verranno col login social,
-// passo A5): il componente li accetta già, così poi non si tocca più.
-// Nessuna dipendenza nuova: solo React Native + il tema (`C`, `FONT`, `ombra`).
+// Se c'è una foto (avatarUrl) la mostra tonda; altrimenti disegna un cerchio con
+// le INIZIALI (da nome/cognome, in mancanza dal nick) su un colore di sfondo
+// scelto in modo stabile per quella persona. Se la foto non si carica, ricade
+// sulle iniziali da solo. `onPress` è opzionale (il menu, per esempio, gestisce
+// il tocco nel contenitore esterno, quindi qui non serve).
 // -----------------------------------------------------------------------------
+import React, { useState } from 'react';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import type { ViewStyle } from 'react-native';
+import { FONT } from '../theme';
 
 type Props = {
-  nick?: string | null;
+  avatarUrl?: string | null;
   nome?: string | null;
   cognome?: string | null;
-  avatarUrl?: string | null;
-  /** Diametro in px (default 40). */
-  dimensione?: number;
+  nick?: string | null;
+  dimensione?: number; // lato del cerchio in px (default 40)
+  onPress?: () => void;
+  style?: ViewStyle;
 };
 
-// Palette di sfondi: tinte piene che si sposano col tema teal-navy e reggono
-// bene il testo bianco sopra. L'indice è scelto in modo STABILE dal "seme"
-// (il nick), così lo stesso utente ha SEMPRE lo stesso colore.
-const SFONDI = [
-  '#2FA5B8', // teal
-  '#3D7EDB', // blu
-  '#7A6BE0', // viola
-  '#C063C0', // magenta
-  '#E0705A', // corallo
-  '#E0A23C', // ambra
-  '#3FB27A', // verde
-  '#5A93A8', // ottanio tenue
-];
+// Colori di sfondo per le iniziali (usati solo quando manca la foto).
+const PALETTE = ['#2A9D8F', '#457B9D', '#E9C46A', '#F4A261', '#E76F51', '#8AB17D', '#6D6875', '#4895EF'];
 
-// Iniziali: da nome+cognome se presenti, altrimenti dal nick (max 2 lettere).
-function iniziali(nick?: string | null, nome?: string | null, cognome?: string | null): string {
+function calcolaIniziali(nome?: string | null, cognome?: string | null, nick?: string | null): string {
   const n = (nome ?? '').trim();
   const c = (cognome ?? '').trim();
-  if (n || c) {
-    const a = n ? n[0] : '';
-    const b = c ? c[0] : '';
-    return (a + b || a || b).toUpperCase();
-  }
+  if (n && c) return (n[0] + c[0]).toUpperCase();
+  if (n) return n.slice(0, 2).toUpperCase();
   const k = (nick ?? '').trim();
-  if (!k) return '?';
-  return k.slice(0, 2).toUpperCase(); // prime due lettere del nick
+  if (k) return k.slice(0, 2).toUpperCase();
+  return '?';
 }
 
-// Hash semplice e deterministico → indice stabile nella palette.
-function indiceColore(seme: string): number {
-  let somma = 0;
-  for (let i = 0; i < seme.length; i++) somma = (somma + seme.charCodeAt(i)) % 1_000_000;
-  return somma % SFONDI.length;
+// Dallo stesso "seme" esce sempre lo stesso colore: l'avatar non "cambia colore".
+function coloreDa(seme: string): string {
+  let h = 0;
+  for (let i = 0; i < seme.length; i++) h = (h * 31 + seme.charCodeAt(i)) >>> 0;
+  return PALETTE[h % PALETTE.length];
 }
 
-export function Avatar({ nick, nome, cognome, avatarUrl, dimensione = 40 }: Props) {
-  const d = dimensione;
-  const raggio = d / 2;
+export function Avatar({ avatarUrl, nome, cognome, nick, dimensione = 40, onPress, style }: Props) {
+  const [erroreImg, setErroreImg] = useState(false);
+  const mostraFoto = !!avatarUrl && !erroreImg;
 
-  const contenitore: ViewStyle = {
-    width: d,
-    height: d,
-    borderRadius: raggio,
+  const iniziali = calcolaIniziali(nome, cognome, nick);
+  const sfondo = coloreDa((nick || `${nome ?? ''}${cognome ?? ''}` || 'x').toLowerCase());
+
+  const base: ViewStyle = {
+    width: dimensione,
+    height: dimensione,
+    borderRadius: dimensione / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: C.hair,
     overflow: 'hidden',
-    ...ombra(0.25, 8, 4),
+    backgroundColor: mostraFoto ? 'transparent' : sfondo,
   };
 
-  // Caso 1: foto disponibile.
-  if (avatarUrl) {
-    const img: ImageStyle = { width: d, height: d, borderRadius: raggio };
+  const contenuto = mostraFoto ? (
+    <Image
+      source={{ uri: avatarUrl! }}
+      style={{ width: dimensione, height: dimensione, borderRadius: dimensione / 2 }}
+      onError={() => setErroreImg(true)}
+    />
+  ) : (
+    <Text style={[styles.iniziali, { fontSize: dimensione * 0.4 }]}>{iniziali}</Text>
+  );
+
+  if (onPress) {
     return (
-      <View style={contenitore}>
-        <Image source={{ uri: avatarUrl }} style={img} />
-      </View>
+      <Pressable onPress={onPress} style={({ pressed }) => [base, style, pressed && { opacity: 0.8 }]}>
+        {contenuto}
+      </Pressable>
     );
   }
-
-  // Caso 2 (fallback): iniziali su sfondo colorato stabile.
-  const testo = iniziali(nick, nome, cognome);
-  const seme = `${nome ?? ''}${cognome ?? ''}${nick ?? ''}` || '?';
-  const sfondo = SFONDI[indiceColore(seme)];
-  const label: TextStyle = {
-    color: '#FFFFFF',
-    fontFamily: FONT.bold,
-    fontWeight: '800',
-    fontSize: Math.round(d * 0.4),
-    letterSpacing: 0.5,
-  };
-
-  return (
-    <View style={[contenitore, { backgroundColor: sfondo }]}>
-      <Text style={label} numberOfLines={1}>
-        {testo}
-      </Text>
-    </View>
-  );
+  return <View style={[base, style]}>{contenuto}</View>;
 }
+
+const styles = StyleSheet.create({
+  iniziali: { color: '#ffffff', fontFamily: FONT.bold, fontWeight: '800', includeFontPadding: false },
+});
