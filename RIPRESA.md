@@ -101,13 +101,25 @@ completato.)*
 - **A (code già pronto, resta da testare):** **3c — dev build + test del login Google
   su Android/iOS** (nessun codice nuovo, solo verifica sul telefono). Più avanti,
   eventuale **login Facebook** e verifica dell'**upload avatar da telefono**.
-- **C. Online** (peso grande, a sotto-passi): tabella `matches`, sfida in tempo reale
-  con Supabase Realtime (codice-stanza), **Edge Function anti-cheat** che tiene la
-  parola lato server, punteggi (10/0/5) e le due **classifiche** (`leaderboard_*`).
+- **C. Online — DECISO: si parte dalla v1** (peso medio). Struttura completa
+  (tabella `matches`, codice-stanza, **Realtime**, punteggi 10/0/5, due
+  **classifiche** `leaderboard_*`) ma **senza Edge Function**: la parola la sceglie e
+  la valuta il **client** (riuso del `core`, come nel single player). Introduce **una
+  sola** tecnologia nuova (Realtime) ed è provabile **su web** (due schede del
+  browser). Classifica v1 "sulla fiducia". Sotto-passi tipici: C1 tabella `matches` +
+  RLS → C2 crea/entra stanza col codice → C3 Realtime (vedersi i progressi) → C5
+  esito + punti → C6 classifiche → C7 casi limite (disconnessione/abbandono).
+- **C. Online v2 (in FUTURO):** quando servirà una classifica pubblica seria, si
+  sposteranno scelta parola + valutazione dentro un'**Edge Function** (parola solo
+  lato server, anti-cheat). Tabelle/Realtime/punteggi **restano identici**: la v1 è
+  ~90% della v2. Nota: cifrare la parola sul client non protegge (servirebbe anche la
+  chiave nel client), quindi l'unico anti-cheat vero è tenerla sul server.
 
 ## Come iniziare
 
 Per prima cosa: leggi la specifica, poi **riassumimi in poche righe dove siamo** (per
-confermare che il contesto è chiaro), e **chiedimi quale filone voglio affrontare**
-(il **dev build/test 3c** del filone A, oppure l'**online — filone C**). Quando ho
-scelto, partiamo dal **primo sotto-passo**, con lo stesso metodo qui sopra.
+confermare che il contesto è chiaro), e **chiedimi quale filone voglio affrontare**:
+il **dev build/test 3c** del filone A, oppure l'**online — filone C v1** (già deciso:
+parola sul client, niente Edge Function; la v2 anti-cheat è per il futuro). Quando ho
+scelto, partiamo dal **primo sotto-passo** (per il filone C è **C1 — tabella
+`matches` + RLS**), con lo stesso metodo qui sopra.

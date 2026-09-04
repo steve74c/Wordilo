@@ -15,7 +15,8 @@ conteggi dalla vista `user_stats`); **dizionario italiano reale** con **validazi
 attiva, **offline-first** (il single player gira anche senza rete); **login Google**
 funzionante **sul web** e **avatar** (foto Google o iniziali) con nick corretto per
 tutti. Ancora da fare: **test del login Google su Android/iOS** (serve un
-*development build*), **login Facebook**, e tutto l'**online**.
+*development build*), **login Facebook**, e tutto l'**online** (si parte da una **v1**
+con la parola sul client; l'anti-cheat server-side è rimandato alla **v2**).
 **Ultimo aggiornamento:** 2026-09-04
 
 ---
@@ -43,8 +44,10 @@ Gli stessi colori si applicano ai tasti della tastiera a schermo.
   dispositivo deve essere minimo o nullo.
 - **Parametri di gioco lato server** e modificabili senza ricompilare l'app
   (numero tentativi, secondi per tentativo, punti, soglie).
-- **Online anti-cheat**: la parola target non deve mai arrivare in chiaro al
-  client; la valutazione dei tentativi avviene lato server.
+- **Online anti-cheat** *(obiettivo v2)*: la parola target non deve mai arrivare in
+  chiaro al client; la valutazione dei tentativi avviene lato server. **La v1
+  dell'online rinuncia a questo** in cambio di semplicità (parola sul client,
+  classifica "sulla fiducia"); l'anti-cheat server-side arriva in **v2** — vedi §14.
 
 ---
 
@@ -394,6 +397,14 @@ leaderboard_skill (view)
 
 ## 11. Flusso della sfida online (codice-stanza)
 
+> **Nota v1 / v2.** La sequenza qui sotto descrive il traguardo **v2** (parola e
+> valutazione lato server). **La v1 — quella che costruiamo per prima —** è
+> identica nella struttura (tabella `matches`, codice-stanza, Realtime, punteggi,
+> classifiche), ma **senza Edge Function**: la parola la sceglie e la valuta il
+> **client** (riuso del `core`, come nel single player). Passare a v2 significherà
+> spostare **solo** i punti 2 e 3 (scelta parola + valutazione) dentro un'Edge
+> Function, senza rifare il resto.
+
 1. **Host crea** la stanza → `matches` con `room_code` generato, `guest_id` vuoto,
    `status = 'waiting'`.
 2. **Guest entra** col codice → si riempie `guest_id`, `status = 'playing'`.
@@ -409,6 +420,11 @@ leaderboard_skill (view)
 ---
 
 ## 12. Sicurezza (anti-cheat)
+
+> **Applicabile in v2.** In **v1** la parola sta sul **client**, quindi un utente
+> tecnico potrebbe leggerla: la classifica v1 è "sulla fiducia" (online amichevole
+> col codice-stanza). I punti sotto sono il modello **v2**, che blinda le
+> classifiche pubbliche.
 
 - Parola target **solo lato server**; al client va solo la lunghezza.
 - Valutazione tentativi via **Edge Function**; il client riceve solo i colori.
@@ -514,6 +530,16 @@ che alla vecchia lista di prova.
   foto, con spinner durante il caricamento.
 - **Nick nel menu** letto dal **profilo** (`ProfiloContext`), valido per tutti
   (anche Google), con ripiego sui metadati di Auth finché il profilo carica.
+- **Online in due tappe (decisione):** si costruisce prima una **v1** senza
+  Edge Function — parola scelta e valutata **sul client** (riuso del `core`), sfida
+  col codice-stanza e **Realtime** per vedersi i progressi. Vantaggio: introduce
+  **una sola** tecnologia nuova (Realtime) e resta tutta debuggabile lato client;
+  costo: la classifica v1 è "sulla fiducia". La **v2** (in futuro) sposta scelta
+  parola + valutazione dentro un'**Edge Function** per rendere le classifiche
+  pubbliche non falsificabili — **senza** rifare tabelle/Realtime/punteggi, che
+  restano identici (la v1 è ~90% della v2). Motivazione tecnica: cifrare la parola
+  sul client **non** protegge (il client dovrebbe avere anche la chiave, quindi è
+  leggibile) → l'unico anti-cheat vero è tenerla sul server.
 - App su **Expo SDK 57** (React Native 0.86); l'app importa il core come
   `@wordilo/core` via alias Metro (`extraNodeModules`) + `paths` di TypeScript.
 - Grafica e interfaccia: stile **flat** allineato al riferimento condiviso — celle
@@ -562,9 +588,14 @@ che alla vecchia lista di prova.
   - 🟡 In sospeso nel filone A: **test del login Google su Android/iOS** (passo 3c —
     richiede un **development build**); **login Facebook**; verifica dell'**upload
     avatar da telefono**.
-  - ⏭️ Prossimo: l'**online** (filone C) — tabella `matches`, sfida in tempo reale con
-    Realtime (codice-stanza), **Edge Function anti-cheat** (parola lato server),
-    punteggi 10/0/5 e le due **classifiche** (`leaderboard_*`).
+  - ⏭️ Prossimo: l'**online — filone C, versione v1** (parola sul client, niente
+    Edge Function): tabella `matches`, sfida in tempo reale con Realtime
+    (codice-stanza), valutazione col `core` sul dispositivo, punteggi 10/0/5 e le due
+    **classifiche** (`leaderboard_*`). Il grosso è provabile **su web** (due schede
+    del browser). Casi limite (disconnessione/abbandono) da definire.
+  - 🔮 Futuro: **online v2 (anti-cheat)** — spostare scelta parola + valutazione in
+    un'**Edge Function** (parola solo lato server) per rendere le classifiche
+    pubbliche non falsificabili. Struttura invariata rispetto alla v1.
 
 ---
 
