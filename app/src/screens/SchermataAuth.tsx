@@ -28,6 +28,8 @@ export function SchermataAuth() {
   const { accedi, registrati } = useAuth();
   const [modo, setModo] = useState<Modo>('accedi');
   const [nick, setNick] = useState('');
+  const [nome, setNome] = useState('');
+  const [cognome, setCognome] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errore, setErrore] = useState<string | null>(null);
@@ -49,6 +51,10 @@ export function SchermataAuth() {
       setErrore('Il nickname deve avere almeno 3 caratteri.');
       return;
     }
+    if (registra && (!nome.trim() || !cognome.trim())) {
+      setErrore('Inserisci nome e cognome.');
+      return;
+    }	
     if (!email.trim() || !password) {
       setErrore('Inserisci email e password.');
       return;
@@ -60,7 +66,7 @@ export function SchermataAuth() {
 
     setBusy(true);
     const { errore: err } = registra
-      ? await registrati(nick, email, password)
+      ? await registrati(nick, nome, cognome, email, password)
       : await accedi(email, password);
     setBusy(false);
     if (err) setErrore(err);
@@ -105,7 +111,30 @@ export function SchermataAuth() {
                 onChangeText={setNick}
               />
             )}
-
+            {registra && (
+              <TextInput
+                style={styles.input}
+                placeholder="Nome"
+                placeholderTextColor={C.testoTenue}
+                autoCapitalize="words"
+                autoCorrect={false}
+                maxLength={30}
+                value={nome}
+                onChangeText={setNome}
+              />
+            )}
+            {registra && (
+              <TextInput
+                style={styles.input}
+                placeholder="Cognome"
+                placeholderTextColor={C.testoTenue}
+                autoCapitalize="words"
+                autoCorrect={false}
+                maxLength={30}
+                value={cognome}
+                onChangeText={setCognome}
+              />
+            )}
             <TextInput
               style={styles.input}
               placeholder="Email"

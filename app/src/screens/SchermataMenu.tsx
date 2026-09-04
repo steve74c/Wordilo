@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Colore, LunghezzaParola, Modalita } from '@wordilo/core';
 import { C, coloreDiSfondo, FONT, GRAD, ombra, RAGGIO, bagliore } from '../theme';
 import { useStatistiche } from '../stats/statistiche';
 import { useAuth } from '../auth/AuthContext';
+import { Avatar } from '../components/Avatar';
+import { useProfilo } from '../profilo/ProfiloContext';
 
 // -----------------------------------------------------------------------------
 // Prima "finestra" (stile vetro): titolo serif con bagliore, card traslucida
@@ -92,15 +94,31 @@ export function SchermataMenu({
   const [modalita, setModalita] = useState<Modalita>(modalitaIniziale);
   const { giocate, vinte, perse } = useStatistiche();
   const { sessione, esci } = useAuth();
+  const { avatarUrl, nome, cognome, caricando, cambiaAvatar } = useProfilo();
   const nick = (sessione?.user?.user_metadata?.nick as string | undefined) ?? 'Giocatore';
 
   return (
     <LinearGradient colors={GRAD.sfondo} style={styles.sfondo}>
       <SafeAreaView style={styles.safe}>
         <View style={styles.barraTop}>
-          <Text style={styles.saluto} numberOfLines={1}>
-            Ciao, <Text style={styles.salutoNick}>{nick}</Text>
-          </Text>
+          <View style={styles.salutoGruppo}>
+            <Pressable
+              onPress={cambiaAvatar}
+              disabled={caricando}
+              hitSlop={6}
+              style={styles.avatarWrap}
+            >
+              <Avatar nick={nick} nome={nome} cognome={cognome} avatarUrl={avatarUrl} dimensione={40} />
+              {caricando && (
+                <View style={styles.avatarOverlay}>
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                </View>
+              )}
+            </Pressable>
+            <Text style={styles.saluto} numberOfLines={1}>
+              Ciao, <Text style={styles.salutoNick}>{nick}</Text>
+            </Text>
+          </View>
           <Pressable
             onPress={esci}
             hitSlop={8}
@@ -194,7 +212,7 @@ const styles = StyleSheet.create({
   sfondo: { flex: 1 },
   safe: { flex: 1 },
 
-  // Barra in alto: saluto col nick a sinistra, pulsante Esci a destra.
+  // Barra in alto: avatar + saluto col nick a sinistra, pulsante Esci a destra.
   barraTop: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -205,6 +223,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingTop: 10,
     gap: 12,
+  },
+  salutoGruppo: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  // Avatar toccabile: contenitore relativo per poterci mettere sopra lo spinner.
+  avatarWrap: { position: 'relative' },
+  avatarOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(4,9,12,0.55)',
   },
   saluto: { flexShrink: 1, color: C.testo, fontSize: 15, fontFamily: FONT.medium, fontWeight: '600' },
   salutoNick: { color: C.accentoSoft, fontFamily: FONT.bold, fontWeight: '800' },

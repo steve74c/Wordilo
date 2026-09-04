@@ -11,6 +11,7 @@ import { useEffect } from 'react';
 import { ConfigProvider } from './src/config/ConfigContext';
 import { AuthProvider } from './src/auth/AuthContext';
 import { PortaAuth } from './src/auth/PortaAuth';
+import { ProfiloProvider } from './src/profilo/ProfiloContext';
 
 export default function App() {
 
@@ -43,13 +44,15 @@ export default function App() {
 		  <SafeAreaProvider>
 			<StatusBar style="light" />
 			<StatisticheProvider>
-			  {caricati ? (
-				<PortaAuth>
-				  <Wordilo />
-				</PortaAuth>
-			  ) : (
-				<LoadingScreen />
-			  )}
+			  <ProfiloProvider>
+				{caricati ? (
+				  <PortaAuth>
+					<Wordilo />
+				  </PortaAuth>
+				) : (
+				  <LoadingScreen />
+				)}
+			  </ProfiloProvider>
 			</StatisticheProvider>
 		  </SafeAreaProvider>
 		</AuthProvider>

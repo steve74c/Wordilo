@@ -3,8 +3,8 @@
 //
 // Tiene la "sessione" di Supabase (chi è loggato) e resta in ascolto dei cambi
 // (login, logout, rinnovo token). Espone tre azioni: registrati, accedi, esci.
-// Il nickname passato alla registrazione finisce nei metadati dell'utente: il
-// trigger creato al passo 5a lo legge per creare in automatico la riga profiles.
+// Nick, nome e cognome passati alla registrazione finiscono nei metadati
+// dell'utente: il trigger handle_new_user li legge per creare la riga profiles.
 // -----------------------------------------------------------------------------
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
@@ -15,7 +15,13 @@ type RisultatoAuth = { errore: string | null };
 type ValoreAuth = {
   sessione: Session | null;
   caricata: boolean; // true quando lo stato iniziale è stato determinato
-  registrati: (nick: string, email: string, password: string) => Promise<RisultatoAuth>;
+  registrati: (
+    nick: string,
+    nome: string,
+    cognome: string,
+    email: string,
+    password: string,
+  ) => Promise<RisultatoAuth>;
   accedi: (email: string, password: string) => Promise<RisultatoAuth>;
   esci: () => Promise<void>;
 };
@@ -57,13 +63,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const registrati = async (
     nick: string,
+    nome: string,
+    cognome: string,
     email: string,
     password: string,
   ): Promise<RisultatoAuth> => {
     const { error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
-      options: { data: { nick: nick.trim() } }, // letto dal trigger per creare il profilo
+      options: {
+        // Questi dati vengono letti dal trigger per creare la riga profiles.
+        data: {
+          nick: nick.trim(),
+          nome: nome.trim(),
+          cognome: cognome.trim(),
+        },
+      },
     });
     return { errore: error ? traduciErrore(error.message) : null };
   };
