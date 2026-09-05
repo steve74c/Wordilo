@@ -8,8 +8,6 @@ import { useStatistiche } from '../stats/statistiche';
 import { useAuth } from '../auth/AuthContext';
 import { Avatar } from '../components/Avatar';
 import { useProfilo } from '../profilo/ProfiloContext';
-import { BancoProvaStanze } from '../online/BancoProvaStanze';
-import type { Sfida } from '../online/stanze';
 
 
 // -----------------------------------------------------------------------------
@@ -24,7 +22,7 @@ import type { Sfida } from '../online/stanze';
 
 type Props = {
   onGioca: (modalita: Modalita, lunghezza: LunghezzaParola) => void;
-  onEntraInPartita?: (sfida: Sfida) => void; // NEW (D3): passa la sfida al router
+  onSfidaOnline?: (modalita: Modalita, lunghezza: LunghezzaParola) => void; // NEW (1b): apre la lobby
   onClassifiche?: () => void;                // NEW (C6): apre la schermata classifiche
   lunghezzaIniziale?: LunghezzaParola;
   modalitaIniziale?: Modalita;
@@ -92,6 +90,7 @@ function CartaStat({ numero, label, colore }: { numero: number; label: string; c
 
 export function SchermataMenu({
   onGioca,
+  onSfidaOnline,
   onEntraInPartita,
   onClassifiche,
   lunghezzaIniziale = 5,
@@ -204,14 +203,26 @@ export function SchermataMenu({
             <CartaStat numero={perse} label="Perse" colore={C.arancione} />
           </View>
 
-          {/* Classifiche (C6) */}
-          {onClassifiche && (
-            <Pressable
-              onPress={onClassifiche}
-              style={({ pressed }) => [styles.classificheBtn, { opacity: pressed ? 0.8 : 1 }]}
-            >
-              <Text style={styles.classificheTesto}>🏆  Classifica</Text>
-            </Pressable>
+          {/* Azioni: Sfida online + Classifica, affiancati (C6 + 1b) */}
+          {(onSfidaOnline || onClassifiche) && (
+            <View style={styles.azioni}>
+              {onSfidaOnline && (
+                <Pressable
+                  onPress={() => onSfidaOnline(modalita, lunghezza)}
+                  style={({ pressed }) => [styles.azioneBtn, { opacity: pressed ? 0.8 : 1 }]}
+                >
+                  <Text style={styles.azioneTesto}>⚔️  Sfida online</Text>
+                </Pressable>
+              )}
+              {onClassifiche && (
+                <Pressable
+                  onPress={onClassifiche}
+                  style={({ pressed }) => [styles.azioneBtn, { opacity: pressed ? 0.8 : 1 }]}
+                >
+                  <Text style={styles.azioneTesto}>🏆  Classifica</Text>
+                </Pressable>
+              )}
+            </View>
           )}
 
           {/* Legenda */}
@@ -223,8 +234,6 @@ export function SchermataMenu({
               </View>
             ))}
           </View>
-          {/* TEMPORANEO — banco di prova online, da togliere dopo il test */}
-          <BancoProvaStanze onEntraInPartita={onEntraInPartita} />
         </View>
       </SafeAreaView>
     </LinearGradient>
@@ -372,17 +381,21 @@ const styles = StyleSheet.create({
   statPunto: { width: 8, height: 8, borderRadius: 4 },
   statNum: { color: C.testo, fontSize: 20, fontFamily: FONT.black, fontWeight: '800' },
   statLab: { marginTop: 4, color: C.testoTenue, fontSize: 12, fontFamily: FONT.medium, fontWeight: '500' },
-  classificheBtn: {
-    alignSelf: 'center',
+
+  // Azioni affiancate (Sfida online + Classifica)
+  azioni: { flexDirection: 'row', gap: 11 },
+  azioneBtn: {
+    flex: 1,
     backgroundColor: C.superficieAlta,
     borderWidth: 1,
     borderColor: C.hair,
     borderRadius: 14,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
   },
-  classificheTesto: { color: C.testo, fontSize: 15, fontFamily: FONT.bold, fontWeight: '700' },
-  legenda: { flexDirection: 'row', justifyContent: 'center', gap: 20 },
+  azioneTesto: { color: C.testo, fontSize: 15, fontFamily: FONT.bold, fontWeight: '700' },
+
   legenda: { flexDirection: 'row', justifyContent: 'center', gap: 20 },
   legendaItem: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   quadratino: { width: 14, height: 14, borderRadius: 4 },

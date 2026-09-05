@@ -19,8 +19,9 @@ cose in modo semplice e **procediamo un passo alla volta**.
   pop-up in stile flat), config dal DB (`game_settings`), **login email/password**,
   **statistiche reali** (`games` + vista `user_stats`), **dizionario italiano reale**
   con validazione **offline-first**, **login Google (web)** + **avatar**.
-- **Online — filone C v1: la sfida è COMPLETA e giocabile dall'inizio alla fine**
-  (testata su web con due browser, account diversi). In dettaglio:
+- **Online — filone C v1: COMPLETO e CHIUSO** — la sfida è giocabile dall'inizio alla
+  fine, con **lobby vera dal menu** e **pulizia/scadenza delle stanze** (testata su web
+  con due browser, account diversi). In dettaglio:
   - **C1** ✅ tabella `matches` + RLS (vincoli e policy verificati).
   - **C2** ✅ crea/entra stanza col **codice** (`app/src/online/stanze.ts`:
     `creaStanza`/`entraInStanza`; la parola la sceglie il **DB** con `parola_casuale`,
@@ -59,28 +60,40 @@ cose in modo semplice e **procediamo un passo alla volta**.
     `matches` anche il guest, la RLS lo consente). **Testato** (uscita e disconnessione).
     *Limiti v1 noti:* chi **crolla** (scheda chiusa) non scrive la riga `lost`; la
     Presence reagisce dopo ~10-20s. L'uscita esplicita è immediata.
+  - **Lobby (1b)** ✅ **lobby vera dal menu** (`app/src/screens/SchermataLobby.tsx`):
+    dal pulsante **⚔️ Sfida online** si crea/entra col codice; l'host vede il codice e
+    attende, il guest entra, e l'**ingresso in partita è automatico** (riuso della
+    stretta di mano `guest-entrato`/`host-ok`; `annunciaIngresso` ora ha la callback
+    `onConfermato`). **Banco di prova rimosso.** **Testato su web.**
+  - **Pulizia/scadenza stanze (2c)** ✅ residui dei test ripuliti; policy **DELETE** su
+    `matches` allargata (`status<>'finished'` + oltre 10 min); `pulisciStanzeVecchie`
+    chiamata all'apertura della lobby; `annullaStanza` **chiude** la stanza a `finished`
+    (non la cancella). **Testato** (Annulla + scadenza forzata). **Filone C v1 chiuso.**
 
-**File nuovi in `app/src/online/`**: `stanze.ts`, `canaleStanza.ts`, `classifiche.ts`,
-`SchermataGiocoOnline.tsx`, `BancoProvaStanze.tsx` (**temporaneo**). Nuova schermata:
-`app/src/screens/SchermataClassifiche.tsx`. Modificati di recente:
-`app/src/screens/SchermataMenu.tsx` (pulsante 🏆 Classifica),
-`app/src/screens/Wordilo.tsx` (routing classifiche + sfida online). Nel DB: vista
-`user_stats` estesa; create `leaderboard_points` e `leaderboard_skill`;
-`app_config.skill_min_games` = 10.
+**File nuovi in `app/src/online/`**: `stanze.ts` (con `annullaStanza` +
+`pulisciStanzeVecchie`), `canaleStanza.ts`, `classifiche.ts`,
+`SchermataGiocoOnline.tsx`. Nuove schermate: `app/src/screens/SchermataClassifiche.tsx`,
+`app/src/screens/SchermataLobby.tsx`. **Rimosso:** `app/src/online/BancoProvaStanze.tsx`.
+Modificati di recente: `app/src/screens/SchermataMenu.tsx` (pulsanti ⚔️ Sfida online +
+🏆 Classifica affiancati), `app/src/screens/Wordilo.tsx` (routing classifiche + lobby +
+sfida online). Nel DB: vista `user_stats` estesa; create `leaderboard_points` e
+`leaderboard_skill`; `app_config.skill_min_games` = 10; **quarta policy DELETE** su
+`matches` (`"host cancella stanze proprie non finite"`).
 
 Per i dettagli completi vedi la specifica (§3 struttura file, §10 modello dati/viste,
 §13 core, §14 decisioni, §15 stato/ordine di sviluppo).
 
-## Come si prova l'online (per ora)
+## Come si prova l'online
 
-Non c'è ancora la lobby nel menu: si usa il **banco di prova temporaneo**
-(`BancoProvaStanze`, riquadro arancione in fondo al menu). Serve **web** con **due
-browser** (uno in incognito), ognuno loggato con **un account diverso**. Flusso:
-Browser A "Crea stanza" (resta in attesa) → Browser B "Entra" col codice → A passa a
-`playing` **da solo** → entrambi "▶ Entra in partita" → si gioca la **stessa parola**;
-i **pallini** dell'avversario compaiono a sinistra; a fine partita **entrambi** vedono
-lo stesso esito, che viene **scritto** in `games`/`matches`. Le **classifiche** si
-aprono dal menu col pulsante 🏆.
+C'è la **lobby vera nel menu** (il banco di prova è stato rimosso). Serve **web** con
+**due browser** (uno in incognito), ognuno loggato con **un account diverso**. Flusso:
+dal menu si scelgono lunghezza/modalità con le pillole, poi Browser A **⚔️ Sfida
+online → Crea stanza** (compare il **codice**, resta in attesa) → Browser B **⚔️ Sfida
+online → Entra** col codice → **entrambi entrano in partita in automatico** (nessun
+bottone da premere) sulla **stessa parola**; i **pallini** dell'avversario compaiono a
+sinistra; a fine partita **entrambi** vedono lo stesso esito, che viene **scritto** in
+`games`/`matches`. L'**Annulla** (Indietro dell'host in attesa) chiude la stanza. Le
+**classifiche** si aprono dal menu col pulsante 🏆.
 
 ## Stack e convenzioni da rispettare
 
@@ -131,17 +144,11 @@ aprono dal menu col pulsante 🏆.
 
 ## Cosa manca (prossimi passi)
 
-Ordine consigliato (da §15 della specifica):
+Il **filone C v1 è chiuso** (sfida completa + lobby + pulizia stanze). Resta:
 
-1. **Lobby vera dal menu** (punto di ripartenza): crea/entra stanza + **attesa
-   avversario in Realtime** direttamente dal menu, al posto del banco di prova. Poi
-   **rimozione del banco** (`BancoProvaStanze` + le righe di innesto in `SchermataMenu`
-   e l'import in `Wordilo`). Con questo il **filone C v1 è chiuso**.
-2. **Pulizia/robustezza stanze**: ripulire i **residui** `playing`/`waiting` vecchi in
-   `matches` (test pre-C7) con una `delete` mirata, e definire lo **scadere** delle
-   stanze mai chiuse.
-3. Eventuale rifinitura classifiche: mostrare anche la **bravura** in UI (la vista
-   `leaderboard_skill` è già pronta lato DB), tab punti/bravura nella schermata.
+1. **Rifinitura classifiche (opzionale, dentro l'online)**: mostrare anche la
+   **bravura** in UI (la vista `leaderboard_skill` è già pronta lato DB) — tab
+   Punti/Bravura in `SchermataClassifiche`. È l'unica cosa rimasta dell'online v1.
 
 Fuori dall'online (quando vorrò): **3c** dev build + test **login Google su telefono**;
 **login Facebook**; verifica **upload avatar da telefono**. In **futuro**: online v2
@@ -151,6 +158,10 @@ classifica bravura tipo Elo, pubblicazione sugli store (EAS build, icone/splash)
 ## Come iniziare
 
 Per prima cosa: leggi la specifica, poi **riassumimi in poche righe dove siamo** (per
-confermare che il contesto è chiaro). Poi ripartiamo dalla **Lobby vera dal menu**
-(crea/entra + attesa avversario in Realtime, al posto del banco di prova), con lo stesso
-metodo qui sopra: un sotto-passo alla volta, chiedendomi i file prima di modificarli.
+confermare che il contesto è chiaro). Il **filone C v1 online è chiuso**; il prossimo
+passo naturale è la **rifinitura opzionale delle classifiche** (mostrare anche la
+**bravura** in UI, con tab Punti/Bravura in `SchermataClassifiche`; la vista
+`leaderboard_skill` è già pronta lato DB). In alternativa possiamo passare ai fronti
+fuori dall'online (dev build + Google/Facebook su telefono) o alla **v2 anti-cheat**.
+Dimmi tu da dove ripartire, con lo stesso metodo qui sopra: un sotto-passo alla volta,
+chiedendomi i file prima di modificarli.

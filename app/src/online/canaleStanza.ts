@@ -32,7 +32,7 @@ export type MotivoAssenza = 'uscito' | 'caduto';
 
 export type ConnessioneStanza = {
   inviaRiga: (riga: number, verdi: number, arancioni: number) => void;
-  annunciaIngresso: (mioId: string) => void; // lo chiama il GUEST dopo essere entrato
+    annunciaIngresso: (mioId: string, onConfermato?: () => void) => void; 
   inviaFinito: (indovinato: boolean, tentativi: number) => void; // "ho finito"
   inviaEsito: (winnerId: string | null, pareggio: boolean) => void; // solo l'HOST
   inviaAbbandono: () => void; // [C7] "me ne vado" (uscita esplicita)
@@ -161,12 +161,15 @@ export function apriCanaleStanza(
   };
 
   // Il GUEST: annuncia l'ingresso e RIBATTE finché l'host non conferma.
-  const annunciaIngresso = (idGuest: string) => {
+  const annunciaIngresso = (idGuest: string, onConfermato?: () => void) => {
     let confermato = false;
     let tentativi = 0;
 
     canale.on('broadcast', { event: 'host-ok' }, ({ payload }) => {
-      if ((payload as { versoGuest: string })?.versoGuest === idGuest) confermato = true;
+      if ((payload as { versoGuest: string })?.versoGuest === idGuest && !confermato) {
+        confermato = true;
+        onConfermato?.();
+      }
     });
 
     const invia = () => {

@@ -23,10 +23,15 @@ per primo") che ora viene **scritto su DB** (C5b: due righe in `games` + `matche
 `finished`); ci sono le **classifiche** (C6: `user_stats` estesa + viste
 `leaderboard_points`/`leaderboard_skill` + schermata Classifiche dal menu, per ora solo
 a punti) e la gestione dei **casi limite** (C7: chi lascia perde — via `abbandono` +
-Presence). **Unico passo online rimasto:** la **lobby vera dal menu** al posto del banco
-di prova temporaneo (poi rimuovere il banco). Ancora da fare fuori dall'online: **test
-del login Google su Android/iOS** (serve un *development build*) e **login Facebook**.
-L'anti-cheat server-side resta rimandato alla **v2**.
+Presence). **Online — filone C v1 COMPLETO e CHIUSO:** aggiunta la **lobby vera dal
+menu** (`SchermataLobby`: crea/entra + attesa avversario in Realtime + **ingresso
+automatico** in partita), **rimosso il banco di prova** e implementata la
+**pulizia/scadenza delle stanze** (policy DELETE allargata + `pulisciStanzeVecchie`
+all'apertura della lobby + `annullaStanza` che **chiude** la stanza invece di
+cancellarla). Manca solo, come rifinitura **opzionale**, mostrare in UI anche la
+**classifica bravura** (`leaderboard_skill`, già pronta lato DB). Ancora da fare fuori
+dall'online: **test del login Google su Android/iOS** (serve un *development build*) e
+**login Facebook**. L'anti-cheat server-side resta rimandato alla **v2**.
 **Ultimo aggiornamento:** 2026-09-05
 
 ---
@@ -102,16 +107,16 @@ over-the-air del codice JS senza ripassare dagli store.
   src/components/Griglia.tsx   griglia di celle colorate (+ countdown esperto, + pallini avversario online a sinistra riga)
   src/components/Tastiera.tsx  tastiera a schermo (neutri bianchi, OK teal)
   src/components/Coriandoli.tsx  particelle leggere per la vittoria
-  src/screens/Wordilo.tsx      router minimale menu ↔ partita ↔ classifiche ↔ sfida online (senza librerie di navigazione)
+  src/screens/Wordilo.tsx      router minimale menu ↔ partita ↔ classifiche ↔ lobby ↔ sfida online (senza librerie di navigazione)
   src/screens/SchermataAuth.tsx  accesso/registrazione (email/password)
-  src/screens/SchermataMenu.tsx  saluto+logout, scelta lunghezza/modalità, contatori, legenda, pulsante 🏆 Classifica
+  src/screens/SchermataMenu.tsx  saluto+logout, scelta lunghezza/modalità, contatori, legenda, pulsanti ⚔️ Sfida online + 🏆 Classifica affiancati (la modalità/lunghezza scelte valgono anche per l'online)
   src/screens/SchermataClassifiche.tsx  schermata Classifiche (C6): legge leaderboard_points, lista con medaglie/avatar/punti, evidenzia la propria riga [FILONE C]
+  src/screens/SchermataLobby.tsx  lobby online (1b): crea/entra stanza col codice + attesa avversario in Realtime + INGRESSO AUTOMATICO in partita; Indietro dell'host → annullaStanza; all'apertura chiama pulisciStanzeVecchie (2c) [FILONE C]
   src/screens/SchermataGioco.tsx  props ONLINE opzionali (parolaForzata, online, onRigaConfermata, righeAvversario, onPartitaFinita, esitoOnline); senza, è il single player di sempre
-  src/online/stanze.ts         creaStanza/entraInStanza: parola dal DB (parola_casuale), codice-stanza, scrittura in matches [FILONE C]
+  src/online/stanze.ts         creaStanza/entraInStanza (parola dal DB via parola_casuale, codice-stanza, scrittura in matches) + annullaStanza (chiude la stanza a 'finished') + pulisciStanzeVecchie (2c: rimuove i residui propri non finiti >10 min) [FILONE C]
   src/online/canaleStanza.ts   canale Realtime broadcast: inviaRiga (riepiloghi) + ingresso guest (guest-entrato/host-ok) + fine partita (finito/esito) + abbandono/Presence (C7) [FILONE C]
   src/online/classifiche.ts    leggiClassificaPunti: legge la vista leaderboard_points → voci pronte per la UI [FILONE C]
   src/online/SchermataGiocoOnline.tsx  contenitore sfida online: apre il canale, monta SchermataGioco sulla parola condivisa, passa righeAvversario (pallini), fa da ARBITRO dell'esito (host) → esitoOnline condiviso, SCRIVE l'esito (C5b: games + matches finished) e gestisce abbandono/disconnessione (C7) [FILONE C]
-  src/online/BancoProvaStanze.tsx  BANCO DI PROVA TEMPORANEO (crea/entra stanza, invia riga finta, entra in partita) — da rimuovere a lobby pronta
   src/LoadingScreen.tsx        schermata di caricamento brandizzata
   src/theme.ts                 colori, font, ombre (stile flat)
   assets/fonts/                font Poppins incorporati (.ttf)
@@ -426,6 +431,16 @@ leaderboard_skill (view)
   due viste classifiche** `leaderboard_points` e `leaderboard_skill` (pubbliche; la
   soglia bravura arriva da `app_config.skill_min_games`). Resta da verificare il bucket
   **`avatars`** (l'upload avatar su web funziona già via Storage).
+  **Aggiornamento lobby/pulizia stanze (1b/2c):** aggiunta a `matches` una **quarta
+  policy — DELETE** `"host cancella stanze proprie non finite"`
+  (`host_id = auth.uid()` **e** `status <> 'finished'` **e**
+  `created_at < now() - interval '10 minutes'`): permette al proprietario di rimuovere
+  le proprie stanze residue non finite oltre i 10 minuti, mai una sfida in corso (che
+  dura pochi minuti). Su questa policy si appoggia `pulisciStanzeVecchie`. L'**Annulla**
+  dell'host in lobby (stanza appena creata, 0 minuti → fuori dalla finestra DELETE) NON
+  cancella ma **chiude** la stanza a `finished` via la policy di UPDATE dell'host.
+  Fatta anche una **pulizia una-tantum** dei residui `playing` dei test (con le relative
+  righe `games` collegate).
 
 ---
 
@@ -653,6 +668,24 @@ che alla vecchia lista di prova.
   `won` di chi rimane (match e classifica del vincitore comunque corretti). Altro limite
   noto: la Presence vede la caduta solo dopo la scadenza dei "battiti" (~10-20s con la
   grazia); l'uscita esplicita è invece immediata. Le due strade si coprono a vicenda.
+- **Lobby vera dal menu (1b) — chiude il filone C v1:** nuova `SchermataLobby` aperta
+  dal pulsante **⚔️ Sfida online** del menu, che eredita **modalità e lunghezza** già
+  scelte con le pillole (nessun selettore duplicato). L'host crea, vede il **codice** e
+  attende; il guest entra col codice. L'**ingresso in partita è automatico**: riuso la
+  stretta di mano collaudata (`guest-entrato`/`host-ok`), sostituendo i vecchi bottoni
+  manuali del banco con l'auto-ingresso. Regola ferrea: nessuno entra prima che la
+  stretta di mano sia completa (l'host attende `guest-entrato` e resta un attimo per far
+  arrivare `host-ok`; il guest attende `host-ok`, con `annunciaIngresso` che ora accetta
+  una callback `onConfermato`). Il **banco di prova è stato rimosso**
+  (`BancoProvaStanze.tsx` + innesti in `SchermataMenu`/`Wordilo`).
+- **Pulizia/scadenza stanze (2c):** scelta la **Strada 1** (pulizia dall'app, niente
+  `pg_cron`): all'apertura della lobby `pulisciStanzeVecchie` rimuove le **proprie**
+  stanze non finite più vecchie di **10 minuti** (una partita dura pochi minuti → oltre
+  quella soglia è per forza un residuo). La policy **DELETE** su `matches` è stata
+  allargata di conseguenza (`status <> 'finished'` + finestra 10 min). L'**Annulla**
+  dell'host non usa più la DELETE (0 minuti la escluderebbe) ma **chiude** la stanza a
+  `finished` via UPDATE. La Strada 2 (job schedulato `pg_cron` lato Supabase) resta in
+  tasca per il futuro se servirà.
 
 ---
 
@@ -663,9 +696,9 @@ che alla vecchia lista di prova.
   di `is_solution` (le parole restano comunque valide come tentativo).
 - **Classifica bravura**: soglia secca ora; valutare in futuro Elo/media pesata.
 - **Gestione disconnessione** in una sfida online: ✅ **risolto in C7** (chi lascia
-  perde, l'altro vince; via broadcast `abbandono` + Presence con grazia). Restano da
-  definire il **timeout/scadenza delle stanze** (`waiting`/`playing` mai chiuse) e la
-  **pulizia dei residui** in `matches` dai test.
+  perde, l'altro vince; via broadcast `abbandono` + Presence con grazia). **Scadenza
+  stanze e pulizia residui**: ✅ **risolti in 2c** (`pulisciStanzeVecchie` all'apertura
+  della lobby + policy DELETE con finestra 10 min; residui dei test già ripuliti).
 - **Ordine di sviluppo**: si parte dal **single player**.
   - ✅ Fatto: modulo `core` (logica colori + motore di gioco + test).
   - ✅ Fatto: app Expo + schermata **principiante** (griglia + tastiera) su web e
@@ -699,9 +732,10 @@ che alla vecchia lista di prova.
     avatar da telefono**.
   - 🔵 **Online — filone C, versione v1** (parola sul client, niente Edge Function):
     **la sfida è completa e giocabile** — creazione/ingresso, parola condivisa,
-    riepiloghi/pallini, esito arbitrato **scritto** su DB, classifiche e casi limite.
-    Provato **su web** con due browser (account diversi). Manca solo la **lobby** dal
-    menu (sotto). Dettaglio:
+    riepiloghi/pallini, esito arbitrato **scritto** su DB, classifiche e casi limite,
+    **lobby dal menu** e **pulizia/scadenza stanze**. Provato **su web** con due browser
+    (account diversi). **Filone C v1 CHIUSO** (resta solo la rifinitura opzionale della
+    classifica bravura in UI). Dettaglio:
     - ✅ **C1** — tabella `matches` + RLS (vincoli e policy verificati).
     - ✅ **C2** — crea/entra stanza col **codice** (`stanze.ts`: `creaStanza`/
       `entraInStanza`, parola dal DB uguale per i due). Lungo la strada risolto un
@@ -753,11 +787,17 @@ che alla vecchia lista di prova.
       scrivendo/chiudendo (in abbandono può chiudere `matches` anche il guest). Limiti
       v1 noti: chi crolla non scrive la riga `lost`; la Presence reagisce dopo ~10-20s.
       **Testato su web** (uscita esplicita e disconnessione).
-    - ⏭️ **Lobby vera dal menu** (crea/entra stanza + attesa avversario in Realtime) al
-      posto del **banco di prova**, e poi **rimozione del banco** (`BancoProvaStanze` +
-      le due righe di innesto in `SchermataMenu`, l'import in `Wordilo`). **Unico passo
-      rimasto** per chiudere il filone C v1. In sospeso anche la **pulizia dei residui**
-      `playing`/`waiting` in `matches` (test pre-C7) e lo **scadere delle stanze**.
+    - ✅ **Lobby vera dal menu (1b)** — `SchermataLobby` (crea/entra col codice +
+      attesa avversario in Realtime + **ingresso automatico** in partita) al posto del
+      **banco di prova**, poi **banco rimosso** (`BancoProvaStanze` + innesti in
+      `SchermataMenu`/`Wordilo`). Ritocco additivo a `canaleStanza.annunciaIngresso`
+      (callback `onConfermato`). **Testato su web** (crea→entra→gioco automatico).
+    - ✅ **Pulizia/scadenza stanze (2c)** — residui dei test ripuliti; policy **DELETE**
+      allargata (`status<>'finished'` + 10 min); `pulisciStanzeVecchie` all'apertura
+      lobby; `annullaStanza` chiude la stanza a `finished`. **Testato** (Annulla +
+      scadenza forzata). **Con questo il filone C v1 è CHIUSO.**
+    - ⏭️ **Rifinitura opzionale** — mostrare in UI anche la **classifica bravura**
+      (`leaderboard_skill` già pronta lato DB): tab Punti/Bravura in `SchermataClassifiche`.
   - 🔮 Futuro: **online v2 (anti-cheat)** — spostare scelta parola + valutazione in
     un'**Edge Function** (parola solo lato server) per rendere le classifiche
     pubbliche non falsificabili. Struttura invariata rispetto alla v1.

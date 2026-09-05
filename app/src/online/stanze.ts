@@ -179,3 +179,47 @@ export async function entraInStanza(codiceGrezzo: string): Promise<RisultatoStan
     },
   };
 }
+
+
+/**
+ * PULISCE le stanze vecchie non finite dell'utente corrente.
+ * Le partite online durano pochi minuti: qualsiasi stanza propria non 'finished'
+ * più vecchia di 10 minuti è per forza un residuo mai chiuso. La RLS permette
+ * questa delete solo sulle PROPRIE stanze oltre la finestra dei 10 minuti, quindi
+ * non tocca mai una sfida in corso. Va chiamata all'apertura della lobby.
+ */
+export async function pulisciStanzeVecchie(): Promise<void> {
+  try {
+    const { data: auth } = await supabase.auth.getUser();
+    const utente = auth?.user;
+    if (!utente) return;
+
+    await supabase
+      .from('matches')
+      .delete()
+      .eq('host_id', utente.id)
+      .neq('status', 'finished')
+      .lt('created_at', new Date(Date.now() - 10 * 60 * 1000).toISOString());
+  } catch {
+    // pulizia "best effort": un errore qui non deve bloccare la lobby
+  }
+}
+
+/**
+ * ANNULLA STANZA (host) — quando preme "Indietro" mentre attende.
+ * La stanza è appena creata (0 minuti), quindi la delete NON passerebbe la RLS
+ * (che ora richiede >10 minuti). La chiudiamo invece portandola a 'finished' con
+ * la policy di UPDATE già esistente dell'host: esce dalle "in attesa" e non
+ * intercetta più nessun guest. Il residuo 'finished' è ignorato ovunque.
+ */
+export async function annullaStanza(idSfida: string): Promise<void> {
+  try {
+    await supabase
+      .from('matches')
+      .update({ status: 'finished', finished_at: new Date().toISOString() })
+      .eq('id', idSfida)
+      .eq('status', 'waiting');
+  } catch {
+    // se non riesce, la stanza scadrà comunque con pulisciStanzeVecchie
+  }
+}
