@@ -8,6 +8,9 @@ import { useStatistiche } from '../stats/statistiche';
 import { useAuth } from '../auth/AuthContext';
 import { Avatar } from '../components/Avatar';
 import { useProfilo } from '../profilo/ProfiloContext';
+import { BancoProvaStanze } from '../online/BancoProvaStanze';
+import type { Sfida } from '../online/stanze';
+
 
 // -----------------------------------------------------------------------------
 // Prima "finestra" (stile vetro): titolo serif con bagliore, card traslucida
@@ -21,6 +24,8 @@ import { useProfilo } from '../profilo/ProfiloContext';
 
 type Props = {
   onGioca: (modalita: Modalita, lunghezza: LunghezzaParola) => void;
+  onEntraInPartita?: (sfida: Sfida) => void; // NEW (D3): passa la sfida al router
+  onClassifiche?: () => void;                // NEW (C6): apre la schermata classifiche
   lunghezzaIniziale?: LunghezzaParola;
   modalitaIniziale?: Modalita;
 };
@@ -87,6 +92,8 @@ function CartaStat({ numero, label, colore }: { numero: number; label: string; c
 
 export function SchermataMenu({
   onGioca,
+  onEntraInPartita,
+  onClassifiche,
   lunghezzaIniziale = 5,
   modalitaIniziale = 'principiante',
 }: Props) {
@@ -197,6 +204,16 @@ export function SchermataMenu({
             <CartaStat numero={perse} label="Perse" colore={C.arancione} />
           </View>
 
+          {/* Classifiche (C6) */}
+          {onClassifiche && (
+            <Pressable
+              onPress={onClassifiche}
+              style={({ pressed }) => [styles.classificheBtn, { opacity: pressed ? 0.8 : 1 }]}
+            >
+              <Text style={styles.classificheTesto}>🏆  Classifica</Text>
+            </Pressable>
+          )}
+
           {/* Legenda */}
           <View style={styles.legenda}>
             {LEGENDA.map((v) => (
@@ -206,6 +223,8 @@ export function SchermataMenu({
               </View>
             ))}
           </View>
+          {/* TEMPORANEO — banco di prova online, da togliere dopo il test */}
+          <BancoProvaStanze onEntraInPartita={onEntraInPartita} />
         </View>
       </SafeAreaView>
     </LinearGradient>
@@ -353,7 +372,17 @@ const styles = StyleSheet.create({
   statPunto: { width: 8, height: 8, borderRadius: 4 },
   statNum: { color: C.testo, fontSize: 20, fontFamily: FONT.black, fontWeight: '800' },
   statLab: { marginTop: 4, color: C.testoTenue, fontSize: 12, fontFamily: FONT.medium, fontWeight: '500' },
-
+  classificheBtn: {
+    alignSelf: 'center',
+    backgroundColor: C.superficieAlta,
+    borderWidth: 1,
+    borderColor: C.hair,
+    borderRadius: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  classificheTesto: { color: C.testo, fontSize: 15, fontFamily: FONT.bold, fontWeight: '700' },
+  legenda: { flexDirection: 'row', justifyContent: 'center', gap: 20 },
   legenda: { flexDirection: 'row', justifyContent: 'center', gap: 20 },
   legendaItem: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   quadratino: { width: 14, height: 14, borderRadius: 4 },

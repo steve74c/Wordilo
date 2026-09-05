@@ -8,6 +8,9 @@ type StatoCella =
   | { tipo: 'inserita'; lettera: string }
   | { tipo: 'valutata'; lettera: string; colore: Colore };
 
+// Riepilogo dell'avversario per una riga (solo conteggi, mai le lettere).
+type RiepilogoAvversario = { verdi: number; arancioni: number };
+
 function celleDi(stato: StatoGioco): StatoCella[][] {
   const rigaAttiva = stato.esito === 'in_corso' ? stato.righe.length : -1;
   const righe: StatoCella[][] = [];
@@ -141,16 +144,46 @@ function Countdown({ secondi, lato }: { secondi: number; lato: number }) {
   );
 }
 
+// Un singolo pallino con dentro un numero.
+function Pallino({ numero, colore, size }: { numero: number; colore: string; size: number }) {
+  return (
+    <View style={[styles.pallino, { width: size, height: size, borderRadius: size / 2, backgroundColor: colore }]}>
+      <Text style={[styles.pallinoTesto, { fontSize: Math.round(size * 0.5) }]}>{numero}</Text>
+    </View>
+  );
+}
+
+// Pallini dell'avversario (online): due cerchietti a SINISTRA della riga —
+// verde = lettere corrette, arancione = presenti ma fuori posizione. Come il
+// Countdown: figlio della riga + absolute (fuori dal flow), così non sposta le
+// celle centrate. Ancorato al bordo sinistro (right:'100%') e spinto un filo più
+// a sinistra. Colori identici alle celle (coloreDiSfondo).
+function PalliniAvversario({ verdi, arancioni, lato }: { verdi: number; arancioni: number; lato: number }) {
+  const size = Math.max(18, Math.round(lato * 0.52));
+  const gap = Math.max(6, Math.round(lato * 0.16));
+  return (
+    <View
+      pointerEvents="none"
+      style={[styles.palliniAvv, { top: (lato - size) / 2, transform: [{ translateX: -gap }] }]}
+    >
+      <Pallino numero={verdi} colore={coloreDiSfondo('green')} size={size} />
+      <Pallino numero={arancioni} colore={coloreDiSfondo('orange')} size={size} />
+    </View>
+  );
+}
+
 export function Griglia({
   stato,
   lato,
   scossa,
   secondiRimasti,
+  righeAvversario,
 }: {
   stato: StatoGioco;
   lato: number;
   scossa: number;
   secondiRimasti?: number | null;
+  righeAvversario?: Record<number, RiepilogoAvversario>; // online: pallini per riga
 }) {
   const righe = celleDi(stato);
   const shake = useRef(new Animated.Value(0)).current;
@@ -179,14 +212,20 @@ export function Griglia({
         const contenuto = colonne.map((cella, c) => (
           <Cella key={c} cella={cella} lato={lato} indiceColonna={c} />
         ));
+        const avv = righeAvversario?.[r];
+        const pallini = avv ? (
+          <PalliniAvversario verdi={avv.verdi} arancioni={avv.arancioni} lato={lato} />
+        ) : null;
         const stile = [styles.riga, { marginBottom: Math.max(6, Math.round(lato * 0.14)) }];
         return r === rigaAttiva ? (
           <Animated.View key={r} style={[stile, { transform: [{ translateX }] }]}>
+            {pallini}
             {contenuto}
             {secondiRimasti != null && <Countdown secondi={secondiRimasti} lato={lato} />}
           </Animated.View>
         ) : (
           <View key={r} style={stile}>
+            {pallini}
             {contenuto}
           </View>
         );
@@ -210,4 +249,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(120,236,220,0.10)',
   },
   countdownTesto: { fontFamily: FONT.bold, fontWeight: '800' },
+  // Pallini avversario: ancorati al bordo sinistro della riga (right:'100%'), fuori flow.
+  palliniAvv: {
+    position: 'absolute',
+    right: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  pallino: { alignItems: 'center', justifyContent: 'center' },
+  pallinoTesto: { color: '#FFFFFF', fontFamily: FONT.bold, fontWeight: '800' },
 });

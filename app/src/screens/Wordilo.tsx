@@ -1,33 +1,57 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { LunghezzaParola, Modalita } from '@wordilo/core';
+import { supabase } from '../lib/supabase';
 import { SchermataMenu } from './SchermataMenu';
 import { SchermataGioco } from './SchermataGioco';
-
-// -----------------------------------------------------------------------------
-// Router minimale (senza dipendenze di navigazione): finché `config` è null
-// mostra il menu; appena si preme "Gioca" si passa alla partita. Il tasto
-// indietro nell'header della partita riporta `config` a null → torna al menu.
-//
-// Da usare al posto di <SchermataGioco/> nel tuo App.tsx, DOPO il caricamento
-// dei font (dove oggi mostri la LoadingScreen).
-// -----------------------------------------------------------------------------
+import { SchermataClassifiche } from './SchermataClassifiche';
+import { SchermataGiocoOnline } from '../online/SchermataGiocoOnline';
+import type { Sfida } from '../online/stanze';
 
 type Config = { modalita: Modalita; lunghezza: LunghezzaParola };
 
 export function Wordilo() {
   const [config, setConfig] = useState<Config | null>(null);
+  const [sfidaOnline, setSfidaOnline] = useState<Sfida | null>(null); // NEW (D3)
+  const [vediClassifiche, setVediClassifiche] = useState(false);      // NEW (C6)
+  const [mioUserId, setMioUserId] = useState<string | null>(null);    // NEW (C6): evidenzia la mia riga
+
+  // Chi sono (serve solo per evidenziare la propria riga in classifica).
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setMioUserId(data?.user?.id ?? null));
+  }, []);
+
+  // NEW (C6): schermata classifiche a tutto schermo.
+  if (vediClassifiche) {
+    return (
+      <SchermataClassifiche
+        mioUserId={mioUserId}
+        onIndietro={() => setVediClassifiche(false)}
+      />
+    );
+  }
+
+  // NEW (D3): se c'è una sfida online attiva, mostra la partita online a tutto schermo.
+  if (sfidaOnline) {
+    return (
+      <SchermataGiocoOnline
+        sfida={sfidaOnline}
+        onIndietro={() => setSfidaOnline(null)}
+      />
+    );
+  }
 
   if (!config) {
     return (
       <SchermataMenu
         onGioca={(modalita, lunghezza) => setConfig({ modalita, lunghezza })}
+        onEntraInPartita={(sfida) => setSfidaOnline(sfida)}   // NEW (D3)
+        onClassifiche={() => setVediClassifiche(true)}         // NEW (C6)
       />
     );
   }
 
   return (
     <SchermataGioco
-      // `key` forza una partita pulita ogni volta che cambia la configurazione.
       key={`${config.modalita}-${config.lunghezza}`}
       modalita={config.modalita}
       lunghezza={config.lunghezza}

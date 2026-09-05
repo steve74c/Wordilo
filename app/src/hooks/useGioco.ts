@@ -35,14 +35,23 @@ export function useGioco(
   modalita: Modalita,
   lunghezza: LunghezzaParola,
   onFine?: (fine: FinePartita) => void,
+  parolaForzata?: string, // ← online: usa QUESTA parola invece di pescarne una a caso
 ) {
   // La config arriva dal provider (Supabase, con fallback ai default): il timer
   // di 25s e gli altri numeri vengono dal database, non più da CONFIG_DEFAULT.
   const { config } = useConfig();
 
   const nuovoStato = useCallback(
-    () => creaStato(config, modalita, pescaParolaCasuale(lunghezza), lunghezza),
-    [config, modalita, lunghezza],
+    () =>
+      creaStato(
+        config,
+        modalita,
+        // Online: la parola è fissata dalla stanza (uguale per i due giocatori).
+        // Single player: nessuna parola forzata → si pesca a caso come sempre.
+        parolaForzata ?? pescaParolaCasuale(lunghezza),
+        lunghezza,
+      ),
+    [config, modalita, lunghezza, parolaForzata],
   );
 
   const [stato, setStato] = useState<StatoGioco>(nuovoStato);

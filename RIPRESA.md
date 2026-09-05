@@ -14,71 +14,108 @@ cose in modo semplice e **procediamo un passo alla volta**.
 
 ## Dove sono arrivato (già fatto e funzionante)
 
-- **Core** (`@wordilo/core`, TypeScript puro): logica colori + motore di gioco puro
-  (crea stato, digita/cancella, `svuotaRiga`, `confermaTentativo`, `timeoutTentativo`,
-  `coloriTastiera`) con test.
-- **App Expo single player COMPLETA**: menu di scelta (5/6 lettere + modalità),
-  modalità **principiante** ed **esperto** (con **timer/countdown** per tentativo),
-  griglia + tastiera, animazioni, pop-up di fine partita, stile "flat".
-- **Supabase collegato**:
-  - client unico in `app/src/lib/supabase.ts`, chiavi nel file **`app/.env`**
-    (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`), fuori da Git;
-  - **schema del DB creato** (tabelle §10 con **RLS attiva**, trigger
-    `handle_new_user`, seed di `game_settings`/`app_config` con **esperto = 25s**,
-    **dizionario italiano reale** in `words` + funzione `parola_casuale`, vista
-    **`user_stats`**);
-  - **config dal database**: `game_settings` letto via `ConfigProvider`/`useConfig`,
-    con `CONFIG_DEFAULT` del core come fallback offline;
-  - **login obbligatorio** email/password: `AuthProvider` + `PortaAuth` +
-    `SchermataAuth`; profilo creato in automatico via trigger; **conferma email
-    disattivata in sviluppo**; saluto col nick + pulsante **Esci** nel menu;
-  - **statistiche reali per-utente**: a fine partita si scrive in `games`, i
-    contatori si leggono dalla vista `user_stats`.
-- **Dizionario reale + validazione (offline-first)** — filone B COMPLETO: dizionario
-  italiano vero in `words` (26.793 parole; 3.157 bersagli per frequenza). Target e
-  validazione **in locale** dal dizionario incluso nell'app
-  (`core/src/dizionarioDati.ts`): **si gioca anche senza rete**. Il DB resta la fonte
-  di verità; la funzione SQL `parola_casuale` è pronta per l'online.
-- **Login Google + avatar (web)** — filone A COMPLETO sul web:
-  - **Google su Supabase** attivo (client OAuth *Web application*; il *client secret*
-    sta **solo** su Supabase, mai nell'app). `accediConGoogle` in
-    `app/src/auth/AuthContext.tsx` + pulsante in `SchermataAuth`. Su **web** il login
-    funziona end-to-end.
-  - Il codice di `accediConGoogle` è **universale**: su iOS/Android apre un browser
-    interno e rientra via **deep link** (`scheme: "wordilo"` in `app.json`, redirect
-    `wordilo://auth-callback` tra i *Redirect URLs* di Supabase), usando
-    `expo-web-browser` + `expo-auth-session`.
-  - **Trigger `handle_new_user` aggiornato**: se il nick manca (login social) ne
-    **genera uno univoco** dall'email e importa **nome/cognome/foto** da Google.
-  - **Avatar**: componente `app/src/components/Avatar.tsx` (foto se c'è, altrimenti
-    **iniziali** su sfondo colorato). `ProfiloContext` espone
-    **nick/nome/cognome/avatarUrl** + `cambiaAvatar` (selettore foto + upload su
-    Storage). Nel menu l'avatar è **toccabile** per cambiare foto. Il **nick** nel
-    menu viene letto dal profilo (giusto per tutti, anche Google).
+- **Single player COMPLETO** e collegato a Supabase: core puro con test, app Expo
+  (menu 5/6 lettere, principiante ed esperto con timer, griglia/tastiera/animazioni/
+  pop-up in stile flat), config dal DB (`game_settings`), **login email/password**,
+  **statistiche reali** (`games` + vista `user_stats`), **dizionario italiano reale**
+  con validazione **offline-first**, **login Google (web)** + **avatar**.
+- **Online — filone C v1: la sfida è COMPLETA e giocabile dall'inizio alla fine**
+  (testata su web con due browser, account diversi). In dettaglio:
+  - **C1** ✅ tabella `matches` + RLS (vincoli e policy verificati).
+  - **C2** ✅ crea/entra stanza col **codice** (`app/src/online/stanze.ts`:
+    `creaStanza`/`entraInStanza`; la parola la sceglie il **DB** con `parola_casuale`,
+    così è **uguale** per i due).
+  - **C3** ✅ **Realtime** broadcast (`app/src/online/canaleStanza.ts`): i riepiloghi
+    **verdi/arancioni** viaggiano tra i due (solo conteggi, mai le lettere), più
+    l'**avviso ingresso guest** (`guest-entrato`/`host-ok`): quando il guest entra,
+    l'host passa a `playing` **da solo**.
+  - **D1–D2** ✅ `useGioco` accetta una **parola forzata**; `SchermataGioco` ha props
+    **online opzionali** (senza, è il single player di sempre) e a ogni riga chiama
+    `onRigaConfermata(riga, verdi, arancioni)` (usa `contaColori`, nel core).
+  - **D3–D4** ✅ contenitore `app/src/online/SchermataGiocoOnline.tsx` (apre il canale +
+    monta la partita sulla parola condivisa), routing in `app/src/screens/Wordilo.tsx`;
+    **pallini dell'avversario** a **sinistra** delle righe nella `Griglia`
+    (verde=corrette, arancione=fuori posizione). **Testato.**
+  - **C5a** ✅ **esito condiviso** arbitrato dall'**host** ("vince chi indovina **per
+    primo**"); i due mostrano lo **stesso** pop-up (Hai vinto / Hai perso / Pareggio).
+    **Testato** (vittoria, sconfitta, pareggio, fotofinish).
+  - **C5b** ✅ **scrittura dell'esito**: a fine sfida ciascun client scrive la **propria
+    riga** in `games` (`result` won/lost/draw, `points` 10/0/5 letti da `game_settings`
+    con fallback, `mode='online'`, `match_id`, `word_length`), con **guardia
+    anti-doppione**; l'**host** porta `matches` a **`finished`** (`winner_id`/`is_draw`/
+    `finished_at`). La **RLS era già sufficiente** (verificata, nessuna modifica).
+    **Testato** (due righe in `games` con stesso `match_id`; `matches` a `finished`).
+  - **C6** ✅ **classifiche**: vista `user_stats` **estesa** (pareggiate, giocate_online,
+    win_rate, punti_totali) senza rompere il menu; create le viste **pubbliche**
+    `leaderboard_points` e `leaderboard_skill` (soglia bravura da `app_config`). **UI:**
+    modulo `app/src/online/classifiche.ts` + **schermata `SchermataClassifiche`**
+    (medaglie/avatar/punti, riga propria evidenziata), aperta dal menu col pulsante 🏆.
+    Per ora si mostra **solo la classifica a punti**. **Testato.**
+  - **C7** ✅ **casi limite** (abbandono/disconnessione): regola **"chi lascia perde,
+    l'altro vince"**. In `canaleStanza.ts` aggiunti messaggio `abbandono` + **Presence**
+    (join/leave con **grazia** ~6s per i blip di rete); in `SchermataGiocoOnline`
+    l'**uscita esplicita** (Indietro → abbandono + riga `lost`) e la **disconnessione
+    vera** confluiscono in "io vinco" e scrivono/chiudono (in abbandono può chiudere
+    `matches` anche il guest, la RLS lo consente). **Testato** (uscita e disconnessione).
+    *Limiti v1 noti:* chi **crolla** (scheda chiusa) non scrive la riga `lost`; la
+    Presence reagisce dopo ~10-20s. L'uscita esplicita è immediata.
 
-Con questo, **single player + account (email + Google web) + statistiche + dizionario
-reale + avatar è finito e collegato al DB** (e il single player gira anche offline).
-Per i dettagli completi vedi la specifica (§3 struttura file, §4 account/profilo,
-§10 modello dati, §13 core, §14 decisioni, §15 stato/ordine di sviluppo).
+**File nuovi in `app/src/online/`**: `stanze.ts`, `canaleStanza.ts`, `classifiche.ts`,
+`SchermataGiocoOnline.tsx`, `BancoProvaStanze.tsx` (**temporaneo**). Nuova schermata:
+`app/src/screens/SchermataClassifiche.tsx`. Modificati di recente:
+`app/src/screens/SchermataMenu.tsx` (pulsante 🏆 Classifica),
+`app/src/screens/Wordilo.tsx` (routing classifiche + sfida online). Nel DB: vista
+`user_stats` estesa; create `leaderboard_points` e `leaderboard_skill`;
+`app_config.skill_min_games` = 10.
+
+Per i dettagli completi vedi la specifica (§3 struttura file, §10 modello dati/viste,
+§13 core, §14 decisioni, §15 stato/ordine di sviluppo).
+
+## Come si prova l'online (per ora)
+
+Non c'è ancora la lobby nel menu: si usa il **banco di prova temporaneo**
+(`BancoProvaStanze`, riquadro arancione in fondo al menu). Serve **web** con **due
+browser** (uno in incognito), ognuno loggato con **un account diverso**. Flusso:
+Browser A "Crea stanza" (resta in attesa) → Browser B "Entra" col codice → A passa a
+`playing` **da solo** → entrambi "▶ Entra in partita" → si gioca la **stessa parola**;
+i **pallini** dell'avversario compaiono a sinistra; a fine partita **entrambi** vedono
+lo stesso esito, che viene **scritto** in `games`/`matches`. Le **classifiche** si
+aprono dal menu col pulsante 🏆.
 
 ## Stack e convenzioni da rispettare
 
 - **Expo SDK 57 / React Native 0.86**, TypeScript. Monorepo: `/core`, `/app`,
-  `/backend` (quest'ultimo non ancora creato). L'app importa il core come
-  `@wordilo/core` (alias Metro + `paths` di tsconfig).
+  `/backend` (quest'ultimo serve solo alla **v2** anti-cheat, non ancora creato).
+  L'app importa il core come `@wordilo/core` (alias Metro + `paths` di tsconfig).
 - **Backend**: Supabase (Auth, Postgres, Realtime, Storage, Edge Functions).
-- **Nomi in italiano** nel codice (funzioni, variabili, tipi) — mantieni lo stile
-  esistente.
-- **Il `core` resta puro**: niente effetti/React lì dentro. Gli effetti (es. il
-  timer) vivono nei hook/provider dell'app.
+- **Nomi in italiano** nel codice — mantieni lo stile esistente.
+- **Il `core` resta puro**: niente effetti/React lì dentro (il timer, il canale e
+  l'arbitrato dell'esito vivono nei hook/contenitori dell'app).
+- **Online v1 = parola sul client** (classifica "sulla fiducia"); l'anti-cheat vero
+  (parola solo lato server, Edge Function) è la **v2**, rimandata. Cifrare la parola
+  sul client NON protegge (servirebbe anche la chiave nel client).
+- **Esito arbitrato dall'host**: i due dispositivi non hanno un orologio comune, quindi
+  a decidere è **sempre l'host** e l'altro accetta il verdetto (→ sempre d'accordo).
+  Limite noto v1: nelle gare al millesimo può vincere l'host per il ritardo di rete.
+- **Abbandono/disconnessione (C7)**: chi lascia perde. Rilevato via broadcast
+  `abbandono` (uscita esplicita, immediato) **e** via **Presence** del canale
+  (disconnessione vera, con grazia ~6s). Chi resta si auto-dichiara vincitore e in
+  quel caso può chiudere `matches` anche il guest.
+- **Scritture su DB dell'esito (C5b)**: avvengono nell'imbuto unico `applicaEsito` con
+  **guardia sincrona** anti-doppione (l'esito rimbalza per le ribattute). Ogni client
+  scrive **solo la propria** riga in `games`; `matches` la chiude l'host (o il guest in
+  caso di abbandono).
 - **Sicurezza**: la chiave `anon` sta nell'app ed è protetta dalla **RLS**; la chiave
-  `service_role` e il **client secret di Google** NON vanno mai nell'app (solo lato
-  server/Supabase). I segreti restano nel `.env` locale/pannelli, mai in chat né in Git.
-- Gotcha già incontrati: l'URL Supabase è **solo** `https://<progetto>.supabase.co`
-  (niente `/rest/v1`, niente slash finale); il **`.env` si legge solo all'avvio**
-  (dopo averlo modificato, riavviare Expo). Quando **cambi o aggiungi file nel
-  `core`**, riavvia con **`npx expo start -c`**. Il **login Google su telefono NON
-  funziona in Expo Go** (serve un development build, per via dello scheme `wordilo`).
+  `service_role` e il **client secret di Google** NON vanno mai nell'app. I segreti
+  restano nel `.env` locale/pannelli, mai in chat né in Git.
+- Gotcha già incontrati: l'URL Supabase è **solo** `https://<progetto>.supabase.co`;
+  il **`.env` si legge solo all'avvio**; quando **cambi/aggiungi file nel `core`**
+  riavvia con **`npx expo start -c`** (se tocchi solo l'`app`, NON serve `-c`); il
+  **login Google su telefono NON funziona in Expo Go** (serve un dev build);
+  **broadcast Realtime non conserva i messaggi** (di qui le "ribattute" di guest ed
+  esito); le **viste pubbliche** (`leaderboard_*`) NON usano `security_invoker` (una
+  classifica è pubblica), mentre `user_stats` sì; attenzione ai **copia-incolla di
+  `useState<...>` su più righe** (un refuso di sintassi ci ha già fatto perdere tempo).
 
 ## Come voglio che lavoriamo (metodo)
 
@@ -88,38 +125,32 @@ Per i dettagli completi vedi la specifica (§3 struttura file, §4 account/profi
    incollartelo**. Consegnami **file completi "drop-in"** oppure modifiche puntuali
    chiarissime.
 3. **Verifica a ogni passo**: dimmi cosa devo vedere/controllare (in app e, se serve,
-   nel pannello Supabase).
+   nel pannello Supabase). Le query sul DB **di sola lettura** prima, le modifiche dopo.
 4. **Spiega con parole semplici** le parti backend/SQL: sto imparando.
 5. Se qualcosa dà errore, te lo incollo e lo risolviamo prima di proseguire.
 
-## Cosa manca (prossimi passi possibili)
+## Cosa manca (prossimi passi)
 
-Da §15 della specifica. Sceglierò io da dove ripartire.
-*(Filone B — dizionario reale: già completato. Filone A — Google web + avatar: già
-completato.)*
+Ordine consigliato (da §15 della specifica):
 
-- **A (code già pronto, resta da testare):** **3c — dev build + test del login Google
-  su Android/iOS** (nessun codice nuovo, solo verifica sul telefono). Più avanti,
-  eventuale **login Facebook** e verifica dell'**upload avatar da telefono**.
-- **C. Online — DECISO: si parte dalla v1** (peso medio). Struttura completa
-  (tabella `matches`, codice-stanza, **Realtime**, punteggi 10/0/5, due
-  **classifiche** `leaderboard_*`) ma **senza Edge Function**: la parola la sceglie e
-  la valuta il **client** (riuso del `core`, come nel single player). Introduce **una
-  sola** tecnologia nuova (Realtime) ed è provabile **su web** (due schede del
-  browser). Classifica v1 "sulla fiducia". Sotto-passi tipici: C1 tabella `matches` +
-  RLS → C2 crea/entra stanza col codice → C3 Realtime (vedersi i progressi) → C5
-  esito + punti → C6 classifiche → C7 casi limite (disconnessione/abbandono).
-- **C. Online v2 (in FUTURO):** quando servirà una classifica pubblica seria, si
-  sposteranno scelta parola + valutazione dentro un'**Edge Function** (parola solo
-  lato server, anti-cheat). Tabelle/Realtime/punteggi **restano identici**: la v1 è
-  ~90% della v2. Nota: cifrare la parola sul client non protegge (servirebbe anche la
-  chiave nel client), quindi l'unico anti-cheat vero è tenerla sul server.
+1. **Lobby vera dal menu** (punto di ripartenza): crea/entra stanza + **attesa
+   avversario in Realtime** direttamente dal menu, al posto del banco di prova. Poi
+   **rimozione del banco** (`BancoProvaStanze` + le righe di innesto in `SchermataMenu`
+   e l'import in `Wordilo`). Con questo il **filone C v1 è chiuso**.
+2. **Pulizia/robustezza stanze**: ripulire i **residui** `playing`/`waiting` vecchi in
+   `matches` (test pre-C7) con una `delete` mirata, e definire lo **scadere** delle
+   stanze mai chiuse.
+3. Eventuale rifinitura classifiche: mostrare anche la **bravura** in UI (la vista
+   `leaderboard_skill` è già pronta lato DB), tab punti/bravura nella schermata.
+
+Fuori dall'online (quando vorrò): **3c** dev build + test **login Google su telefono**;
+**login Facebook**; verifica **upload avatar da telefono**. In **futuro**: online v2
+anti-cheat (Edge Function, parola solo lato server), affinamento bersagli dizionario,
+classifica bravura tipo Elo, pubblicazione sugli store (EAS build, icone/splash).
 
 ## Come iniziare
 
 Per prima cosa: leggi la specifica, poi **riassumimi in poche righe dove siamo** (per
-confermare che il contesto è chiaro), e **chiedimi quale filone voglio affrontare**:
-il **dev build/test 3c** del filone A, oppure l'**online — filone C v1** (già deciso:
-parola sul client, niente Edge Function; la v2 anti-cheat è per il futuro). Quando ho
-scelto, partiamo dal **primo sotto-passo** (per il filone C è **C1 — tabella
-`matches` + RLS**), con lo stesso metodo qui sopra.
+confermare che il contesto è chiaro). Poi ripartiamo dalla **Lobby vera dal menu**
+(crea/entra + attesa avversario in Realtime, al posto del banco di prova), con lo stesso
+metodo qui sopra: un sotto-passo alla volta, chiedendomi i file prima di modificarli.

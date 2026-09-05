@@ -173,3 +173,20 @@ export function coloriTastiera(stato: StatoGioco): Record<string, Colore> {
   }
   return mappa;
 }
+
+
+/**
+ * Riepilogo di UNA riga per l'online: quante lettere verdi e quante arancioni.
+ * Serve a comunicare all'avversario l'andamento SENZA rivelare le lettere
+ * (regola v1/§5.3: si trasmettono solo i conteggi). Una riga persa per timeout
+ * ha `colori: []` → 0 e 0.
+ */
+export function contaColori(riga: Riga): { verdi: number; arancioni: number } {
+  let verdi = 0;
+  let arancioni = 0;
+  for (const c of riga.colori) {
+    if (c === 'green') verdi++;
+    else if (c === 'orange') arancioni++;
+  }
+  return { verdi, arancioni };
+}

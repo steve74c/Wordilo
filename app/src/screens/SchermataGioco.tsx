@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { contaColori } from '@wordilo/core';
 import type { LunghezzaParola, Modalita } from '@wordilo/core';
 import { useGioco } from '../hooks/useGioco';
 import { useStatistiche } from '../stats/statistiche';
@@ -23,6 +24,14 @@ type Props = {
   modalita?: Modalita;
   lunghezza?: LunghezzaParola;
   onIndietro?: () => void; // torna al menu (foto 1)
+
+  // --- Online (tutte opzionali: se assenti, la schermata è il single player di sempre) ---
+  parolaForzata?: string;   // la parola condivisa della stanza
+  online?: boolean;         // true = sfida online (cambia testi e nasconde "nuova partita")
+  onRigaConfermata?: (riga: number, verdi: number, arancioni: number) => void; // → invia al canale
+  righeAvversario?: Record<number, { verdi: number; arancioni: number }>; // online: pallini avversario
+  onPartitaFinita?: (indovinato: boolean, tentativi: number) => void; // online: avvisa che ho finito
+  esitoOnline?: 'vinta' | 'persa' | 'pareggio' | null; // online: verdetto condiviso deciso dall'host
 };
 
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
@@ -37,12 +46,26 @@ function IconaGomma() {
   );
 }
 
-export function SchermataGioco({ modalita = 'principiante', lunghezza = 5, onIndietro }: Props) {
+export function SchermataGioco({
+  modalita = 'principiante',
+  lunghezza = 5,
+  onIndietro,
+  parolaForzata,
+  online = false,
+  onRigaConfermata,
+  righeAvversario,
+  onPartitaFinita,
+  esitoOnline,
+}: Props) {
   const { registra } = useStatistiche();
   const { stato, problema, scossa, secondiRimasti, tastiera, digita, cancella, svuotaRiga, conferma, nuovaPartita } =
-    useGioco(modalita, lunghezza, registra);
+    useGioco(modalita, lunghezza, registra, parolaForzata); // ← 4° argomento: la parola online
   const finita = stato.esito !== 'in_corso';
   const vinta = stato.esito === 'won';
+
+  // Online: la partita è "bloccata" se ho finito io OPPURE se è arrivato il verdetto
+  // (es. l'avversario ha indovinato per primo mentre stavo ancora giocando).
+  const bloccato = finita || (online && esitoOnline != null);
 
   const { width, height } = useWindowDimensions();
   const righe = stato.maxTentativi;
@@ -71,24 +94,56 @@ export function SchermataGioco({ modalita = 'principiante', lunghezza = 5, onInd
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const onKey = (e: KeyboardEvent) => {
-      if (finita) return;
+      if (bloccato) return;
       if (e.key === 'Enter') conferma();
       else if (e.key === 'Backspace') cancella();
       else if (/^[a-zA-Zàèéìòù]$/.test(e.key)) digita(e.key);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [finita, conferma, cancella, digita]);
+  }, [bloccato, conferma, cancella, digita]);
 
+  // Online: ogni volta che compare una NUOVA riga confermata, spedisci il suo
+  // riepilogo (verdi/arancioni) al canale. Salta le righe perse per timeout.
+  const righeInviate = useRef(0);
+  useEffect(() => {
+    if (!onRigaConfermata) return;
+    for (let i = righeInviate.current; i < stato.righe.length; i++) {
+      const riga = stato.righe[i];
+      if (!riga.persaPerTimeout) {
+        const { verdi, arancioni } = contaColori(riga);
+        onRigaConfermata(i, verdi, arancioni);
+      }
+    }
+    righeInviate.current = stato.righe.length;
+  }, [stato.righe, onRigaConfermata]);
+
+  // Online: appena la MIA partita finisce, avvisa il contenitore (una volta sola).
+  const notificato = useRef(false);
+  useEffect(() => {
+    if (!online || !onPartitaFinita) return;
+    if (finita && !notificato.current) {
+      notificato.current = true;
+      onPartitaFinita(vinta, stato.righe.length);
+    }
+  }, [online, finita, vinta, onPartitaFinita, stato.righe.length]);
+
+  // Esito da mostrare nel pop-up: online = verdetto condiviso; altrimenti locale.
+  const esitoFin: 'vinta' | 'persa' | 'pareggio' =
+    online ? esitoOnline ?? 'persa' : vinta ? 'vinta' : 'persa';
+  const haVinto = esitoFin === 'vinta';
+
+  // Quando aprire il pop-up: single → appena finisco; online → all'arrivo dell'esito.
+  const prontoPopup = online ? esitoOnline != null : finita;
   const [popup, setPopup] = useState(false);
   useEffect(() => {
-    if (!finita) {
+    if (!prontoPopup) {
       setPopup(false);
       return;
     }
     const t = setTimeout(() => setPopup(true), 780);
     return () => clearTimeout(t);
-  }, [finita]);
+  }, [prontoPopup]);
 
   const anim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -99,15 +154,16 @@ export function SchermataGioco({ modalita = 'principiante', lunghezza = 5, onInd
   }, [popup, anim]);
 
   const avviso =
-    problema === 'incompleta'
-      ? 'Parola incompleta'
-      : problema === 'non_valida'
-        ? 'Parola non valida'
-        : null;
+    online && bloccato && esitoOnline == null
+      ? 'Hai finito · in attesa dell\'avversario…'
+      : problema === 'incompleta'
+        ? 'Parola incompleta'
+        : problema === 'non_valida'
+          ? 'Parola non valida'
+          : null;
 
   const cardScale = anim.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1] });
 
-  // Numero tentativo mostrato in intestazione (es. "tentativo 1/6").
   const tentativoCorrente = finita
     ? stato.righe.length
     : Math.min(stato.righe.length + 1, stato.maxTentativi);
@@ -160,7 +216,13 @@ export function SchermataGioco({ modalita = 'principiante', lunghezza = 5, onInd
                 </View>
               )}
             </View>
-            <Griglia stato={stato} lato={lato} scossa={scossa} secondiRimasti={secondiRimasti} />
+            <Griglia
+              stato={stato}
+              lato={lato}
+              scossa={scossa}
+              secondiRimasti={secondiRimasti}
+              righeAvversario={righeAvversario}
+            />
           </View>
 
           <Tastiera
@@ -168,36 +230,54 @@ export function SchermataGioco({ modalita = 'principiante', lunghezza = 5, onInd
             onLettera={digita}
             onInvio={conferma}
             onCancella={cancella}
-            disabilitata={finita}
+            disabilitata={bloccato}
             altezzaTasto={altezzaTasto}
           />
         </View>
 
-        <Modal visible={popup} transparent animationType="fade" onRequestClose={nuovaPartita}>
+        <Modal visible={popup} transparent animationType="fade" onRequestClose={online ? onIndietro : nuovaPartita}>
           <View style={styles.scrim}>
-            <Coriandoli attivo={vinta} />
+            <Coriandoli attivo={haVinto} />
             <Animated.View style={[styles.card, ombra(0.45, 26, 14, 16), { transform: [{ scale: cardScale }] }]}>
-              <Text style={styles.emoji}>{vinta ? '🎉' : '😕'}</Text>
-              <Text style={styles.esitoTitolo}>{vinta ? 'Indovinata!' : 'Peccato!'}</Text>
+              <Text style={styles.emoji}>{haVinto ? '🎉' : esitoFin === 'pareggio' ? '🤝' : '😕'}</Text>
+              <Text style={styles.esitoTitolo}>
+                {online
+                  ? haVinto
+                    ? 'Hai vinto!'
+                    : esitoFin === 'pareggio'
+                      ? 'Pareggio!'
+                      : 'Hai perso!'
+                  : haVinto
+                    ? 'Indovinata!'
+                    : 'Peccato!'}
+              </Text>
               <Text style={styles.esitoSub}>
-                {vinta
-                  ? `In ${stato.righe.length} ${stato.righe.length === 1 ? 'tentativo' : 'tentativi'}`
-                  : `La parola era ${stato.target}`}
+                {online
+                  ? haVinto
+                    ? `In ${stato.righe.length} ${stato.righe.length === 1 ? 'tentativo' : 'tentativi'}`
+                    : esitoFin === 'pareggio'
+                      ? `Nessuno ha indovinato. La parola era ${stato.target}`
+                      : `La parola era ${stato.target}`
+                  : haVinto
+                    ? `In ${stato.righe.length} ${stato.righe.length === 1 ? 'tentativo' : 'tentativi'}`
+                    : `La parola era ${stato.target}`}
               </Text>
 
-              <Pressable
-                onPress={nuovaPartita}
-                style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.97 : 1 }], width: '100%' }]}
-              >
-                <LinearGradient
-                  colors={GRAD.accento}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[styles.bottone, ombra(0.35, 10, 5, 6)]}
+              {!online && (
+                <Pressable
+                  onPress={nuovaPartita}
+                  style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.97 : 1 }], width: '100%' }]}
                 >
-                  <Text style={styles.bottoneTesto}>↻  Nuova partita</Text>
-                </LinearGradient>
-              </Pressable>
+                  <LinearGradient
+                    colors={GRAD.accento}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.bottone, ombra(0.35, 10, 5, 6)]}
+                  >
+                    <Text style={styles.bottoneTesto}>↻  Nuova partita</Text>
+                  </LinearGradient>
+                </Pressable>
+              )}
 
               {onIndietro && (
                 <Pressable onPress={onIndietro} hitSlop={8} style={styles.linkIndietro}>
@@ -237,7 +317,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tondoIcona: { color: C.testo, fontSize: 22, fontFamily: FONT.bold, fontWeight: '800', marginTop: -1 },
-  // Iconcina gomma (nel pulsante ↻ → svuota la parola in digitazione)
   gomma: {
     width: 22,
     height: 15,
@@ -249,7 +328,6 @@ const styles = StyleSheet.create({
   },
   gommaCorpo: { flex: 2, backgroundColor: '#EAF6F4' },
   gommaFascia: { flex: 1, backgroundColor: C.accento },
-  // Titolo serif con bagliore, coerente col menu.
   titolo: {
     flex: 1,
     textAlign: 'center',
@@ -268,7 +346,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textAlign: 'center',
   },
-  // area centrale: griglia in ALTO (vicino all'header), spazio extra verso il basso
   gioco: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 4 },
   zonaAvviso: { height: 34, justifyContent: 'center' },
   avviso: {
@@ -284,7 +361,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 340,
-    backgroundColor: 'rgba(16,40,47,0.97)', // pannello vetro ben leggibile sullo scrim
+    backgroundColor: 'rgba(16,40,47,0.97)',
     borderColor: C.hair,
     borderWidth: 1,
     borderRadius: 22,

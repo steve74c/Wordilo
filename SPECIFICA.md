@@ -14,10 +14,20 @@ schermata di scelta (lunghezza 5/6 + modalità), **principiante** ed **esperto**
 conteggi dalla vista `user_stats`); **dizionario italiano reale** con **validazione**
 attiva, **offline-first** (il single player gira anche senza rete); **login Google**
 funzionante **sul web** e **avatar** (foto Google o iniziali) con nick corretto per
-tutti. Ancora da fare: **test del login Google su Android/iOS** (serve un
-*development build*), **login Facebook**, e tutto l'**online** (si parte da una **v1**
-con la parola sul client; l'anti-cheat server-side è rimandato alla **v2**).
-**Ultimo aggiornamento:** 2026-09-04
+tutti. **Online — filone C v1 quasi completo:** la **sfida vera è giocabile dall'inizio
+alla fine** ed è testata su web (tabella `matches` + RLS, creazione/ingresso stanza col
+**codice**, **Realtime** broadcast, host che parte **da solo**; due giocatori sulla
+**stessa parola**, riepiloghi verdi/arancioni come **pallini** a sinistra dell'avversario
+— D3/D4). La sfida ha un **finale condiviso** (C5a: l'host arbitra "vince chi indovina
+per primo") che ora viene **scritto su DB** (C5b: due righe in `games` + `matches` a
+`finished`); ci sono le **classifiche** (C6: `user_stats` estesa + viste
+`leaderboard_points`/`leaderboard_skill` + schermata Classifiche dal menu, per ora solo
+a punti) e la gestione dei **casi limite** (C7: chi lascia perde — via `abbandono` +
+Presence). **Unico passo online rimasto:** la **lobby vera dal menu** al posto del banco
+di prova temporaneo (poi rimuovere il banco). Ancora da fare fuori dall'online: **test
+del login Google su Android/iOS** (serve un *development build*) e **login Facebook**.
+L'anti-cheat server-side resta rimandato alla **v2**.
+**Ultimo aggiornamento:** 2026-09-05
 
 ---
 
@@ -89,18 +99,24 @@ over-the-air del codice JS senza ripassare dagli store.
   src/components/Avatar.tsx    avatar tondo: foto (avatarUrl) o iniziali su sfondo colorato
   src/hooks/useGioco.ts        ponte React ↔ motore core (+ timer esperto)
   src/stats/statistiche.tsx    statistiche per-utente dal DB (games + vista user_stats)
-  src/components/Griglia.tsx   griglia di celle colorate (+ countdown esperto)
+  src/components/Griglia.tsx   griglia di celle colorate (+ countdown esperto, + pallini avversario online a sinistra riga)
   src/components/Tastiera.tsx  tastiera a schermo (neutri bianchi, OK teal)
   src/components/Coriandoli.tsx  particelle leggere per la vittoria
-  src/screens/Wordilo.tsx      router minimale menu ↔ partita (senza librerie di navigazione)
+  src/screens/Wordilo.tsx      router minimale menu ↔ partita ↔ classifiche ↔ sfida online (senza librerie di navigazione)
   src/screens/SchermataAuth.tsx  accesso/registrazione (email/password)
-  src/screens/SchermataMenu.tsx  saluto+logout, scelta lunghezza/modalità, contatori, legenda
-  src/screens/SchermataGioco.tsx
+  src/screens/SchermataMenu.tsx  saluto+logout, scelta lunghezza/modalità, contatori, legenda, pulsante 🏆 Classifica
+  src/screens/SchermataClassifiche.tsx  schermata Classifiche (C6): legge leaderboard_points, lista con medaglie/avatar/punti, evidenzia la propria riga [FILONE C]
+  src/screens/SchermataGioco.tsx  props ONLINE opzionali (parolaForzata, online, onRigaConfermata, righeAvversario, onPartitaFinita, esitoOnline); senza, è il single player di sempre
+  src/online/stanze.ts         creaStanza/entraInStanza: parola dal DB (parola_casuale), codice-stanza, scrittura in matches [FILONE C]
+  src/online/canaleStanza.ts   canale Realtime broadcast: inviaRiga (riepiloghi) + ingresso guest (guest-entrato/host-ok) + fine partita (finito/esito) + abbandono/Presence (C7) [FILONE C]
+  src/online/classifiche.ts    leggiClassificaPunti: legge la vista leaderboard_points → voci pronte per la UI [FILONE C]
+  src/online/SchermataGiocoOnline.tsx  contenitore sfida online: apre il canale, monta SchermataGioco sulla parola condivisa, passa righeAvversario (pallini), fa da ARBITRO dell'esito (host) → esitoOnline condiviso, SCRIVE l'esito (C5b: games + matches finished) e gestisce abbandono/disconnessione (C7) [FILONE C]
+  src/online/BancoProvaStanze.tsx  BANCO DI PROVA TEMPORANEO (crea/entra stanza, invia riga finta, entra in partita) — da rimuovere a lobby pronta
   src/LoadingScreen.tsx        schermata di caricamento brandizzata
   src/theme.ts                 colori, font, ombre (stile flat)
   assets/fonts/                font Poppins incorporati (.ttf)
   metro.config.js              wiring monorepo (Metro vede /core)
-/backend     → Edge Functions / logica server per l'online (non ancora creata)
+/backend     → Edge Functions / logica server per l'online (non ancora creata; serve solo alla v2 anti-cheat)
 ```
 
 L'app importa il core come `@wordilo/core`: l'alias è risolto sia da TypeScript
@@ -356,22 +372,26 @@ games
 ### Viste
 
 ```sql
--- statistiche personali  ✅ IMPLEMENTATA (security_invoker: rispetta la RLS di games)
---   attuale: user_id, giocate, vinte, perse (single player)
---   in arrivo con l'online: pareggiate, win_rate, punti_totali
+-- statistiche personali  ✅ IMPLEMENTATA ED ESTESA (C6)
+--   (security_invoker: rispetta la RLS di games → ognuno vede solo i propri)
+--   giocate/vinte/perse su TUTTE le partite (single + online);
+--   gli aggregati online: giocate_online, pareggiate, win_rate, punti_totali.
 user_stats (view)
-  → user_id, giocate, vinte, perse [, pareggiate, win_rate, punti_totali]
+  → user_id, giocate, vinte, perse, pareggiate, giocate_online, win_rate,
+    punti_totali
+  -- win_rate = vinte_online / giocate_online (0..1, 3 decimali; null se 0 online)
 
--- classifica a punti
+-- classifica a punti  ✅ IMPLEMENTATA (C6) — vista PUBBLICA (no security_invoker)
 leaderboard_points (view)
   → user_id, nick, avatar_url, partite_online, vinte, perse, pareggiate,
     punti_totali
-  order by punti_totali desc
+  order by punti_totali desc, vinte desc
+  -- partite_online = tutte le righe games con mode='online'
 
--- classifica per bravura (con soglia minima)
+-- classifica per bravura (con soglia minima)  ✅ IMPLEMENTATA (C6) — PUBBLICA
 leaderboard_skill (view)
   → user_id, nick, avatar_url, partite_online, vinte, win_rate
-  where partite_online >= app_config.skill_min_games
+  where partite_online >= app_config.skill_min_games   -- default 10
   order by win_rate desc, partite_online desc
 ```
 
@@ -388,10 +408,24 @@ leaderboard_skill (view)
   lettura pubblica), il **trigger** `handle_new_user` che popola `profiles` alla
   registrazione, i **seed** di `game_settings`/`app_config` (esperto = 25s), il
   **dizionario italiano reale** in `words` (26.793 parole, di cui 3.157 bersagli), la
-  funzione `parola_casuale(lunghezza)` (pesca un bersaglio a caso lato server, per
-  l'online) e la **vista `user_stats`**. Restano da creare le viste delle
-  **classifiche** (`leaderboard_*`) e il bucket **`avatars`**, che arriveranno con
-  online e login social.
+  funzione `parola_casuale(lunghezza)` (restituisce `id` + `word` di un bersaglio a
+  caso lato server, usata dall'online) e la **vista `user_stats`**. La tabella
+  **`matches`** è ora **completa e blindata** (filone C1): `room_code` **unico**,
+  campi obbligatori (`room_code`/`mode`/`word_length`/`host_id`), **check** su
+  `mode` e `status`, **RLS** con tre policy (host crea; lettura delle proprie sfide o
+  di quelle `waiting`; update per giocare o per entrare in una stanza libera).
+  **Nota trigger:** il trigger `handle_new_user` è sano per i **nuovi** iscritti; due
+  account creati **prima** dell'ultima versione erano rimasti **senza profilo** e sono
+  stati **rigenerati a mano** con un `insert … select` (nick dai metadati o
+  dall'email, anti-collisione).
+  **Aggiornamento C5b/C6:** verificato che la RLS di `matches` copre già l'**update di
+  chiusura** dell'host (policy `aggiorna match (entra o gioca)`: `host_id = auth.uid()`
+  vale sia in USING sia in WITH CHECK) e che `games_insert_own` consente a ciascuno di
+  inserire la **propria** riga online con `match_id`. La vista **`user_stats` è stata
+  estesa** (pareggiate, giocate_online, win_rate, punti_totali) e sono state **create le
+  due viste classifiche** `leaderboard_points` e `leaderboard_skill` (pubbliche; la
+  soglia bravura arriva da `app_config.skill_min_games`). Resta da verificare il bucket
+  **`avatars`** (l'upload avatar su web funziona già via Storage).
 
 ---
 
@@ -452,7 +486,9 @@ sincronizzazione avversario), non per codice.
 
 Oltre a `valutaTentativo`, il `core` contiene un **motore di gioco puro** (crea
 stato, digita/cancella, `svuotaRiga` — svuota solo la parola in digitazione per il
-pulsante ↻ —, conferma tentativo, `timeoutTentativo`, `coloriTastiera`):
+pulsante ↻ —, conferma tentativo, `timeoutTentativo`, `coloriTastiera`, e
+`contaColori` — riepiloga una riga in {verdi, arancioni} per l'online, solo conteggi
+mai le lettere):
 funzioni senza effetti collaterali che le schermate consumano senza duplicare
 logica; il timer, essendo un effetto, vive nella UI e allo scadere chiama
 `timeoutTentativo`. La configurazione (`ConfigGioco`) si legge da un provider
@@ -546,6 +582,77 @@ che alla vecchia lista di prova.
   e tasti a tinta piena, tasti neutri **bianchi**, tasto invio **"OK" in teal**,
   micro-animazioni, **pop-up** di fine partita, font **Poppins** incorporato. Tutti
   i dettagli in **§16**.
+- **Online v1 — parola dal DB (non dal `core`):** host e guest devono avere la
+  **stessa** parola, quindi l'online la sceglie con `parola_casuale` (che dà `id` +
+  testo, così si salva `word_id` in `matches` e il guest risale al testo). Non usa
+  `pescaParolaCasuale` del core (che dà solo il testo). Non cambia la sicurezza: la
+  differenza v1/v2 è l'anti-cheat, non chi pesca la parola.
+- **`useGioco` accetta una parola forzata** (4° argomento opzionale `parolaForzata`):
+  se presente la usa, altrimenti pesca a caso come sempre → **single player
+  invariato**. È il gancio che permette all'online di imporre la parola condivisa.
+- **`SchermataGioco` estesa (Opzione B), con props ONLINE opzionali:**
+  `parolaForzata`, `online` (nasconde "Nuova partita" e cambia i testi),
+  `onRigaConfermata(riga, verdi, arancioni)` (a ogni riga confermata invia il
+  riepilogo al canale). Regola ferrea: **se le props mancano, è il single player di
+  sempre**. Scelta consapevole di NON duplicare la schermata (un solo file), tenendo
+  griglia/tastiera come componenti condivisi.
+- **Contenitore online `SchermataGiocoOnline`:** apre il canale Realtime della stanza
+  e monta `SchermataGioco` sulla parola condivisa; raccoglie i riepiloghi
+  dell'avversario (→ pallini D4) e **arbitra l'esito** (C5a). Il router
+  `Wordilo.tsx` mostra la sfida online a tutto schermo quando è attiva.
+- **Esito online arbitrato dall'host (C5a):** "vince chi indovina **per primo**; se
+  l'altro indovina dopo, perde comunque". Poiché i due dispositivi **non hanno un
+  orologio comune**, non ci si fida di un timestamp: chi finisce **annuncia** sul
+  canale (`finito`, con indovinato sì/no); **l'host** ascolta entrambi i finali e il
+  **primo "indovinato" che vede** vince (pareggio se finiscono entrambi senza
+  indovinare), poi **ribatte** il verdetto ufficiale (`esito`), che i due si limitano
+  a **mostrare** → sempre **d'accordo** by-construction (il guest accetta il verdetto).
+  Il guest **ribatte** il proprio `finito` finché non riceve l'`esito` (broadcast non
+  conserva i messaggi). Se il verdetto arriva mentre gioco ancora, mi **blocca** e
+  mostra il pop-up. Limite noto (accettato in v1): nelle gare al millesimo l'host può
+  "vedere" prima il proprio finale per il ritardo di rete. La **perdita totale** dei
+  messaggi è materia di **C7**.
+- **Host che parte da solo (avviso via broadcast, non Postgres Changes):** quando il
+  guest entra, **annuncia** l'ingresso sul canale (`guest-entrato`); l'host in ascolto
+  aggiorna la sfida a `playing` e **conferma** (`host-ok`). Il guest **ribatte**
+  l'annuncio finché non riceve l'ok (max 5 volte), per battere il caso in cui il
+  primo messaggio parte prima che l'host ascolti. Scelto il broadcast (già collaudato
+  in C3) perché non richiede né configurazione della *publication* Realtime né gestione
+  della RLS sulle notifiche, a differenza di *Postgres Changes*.
+- **Metodo online:** finché non c'è la lobby vera nel menu, si crea/entra nelle stanze
+  con un **banco di prova temporaneo** in fondo al menu (`BancoProvaStanze`), provabile
+  con **due browser** (uno in incognito), account diversi. Da rimuovere a lobby pronta.
+- **Scrittura dell'esito (C5b):** l'esito diventa "ufficiale" in un imbuto unico
+  (`applicaEsito`), da cui passano sia host sia guest. Lì **ciascun client scrive la
+  propria riga** in `games` (RLS `games_insert_own`), con `result` dal proprio punto di
+  vista, `points` letti da `game_settings` (fallback 10/0/5), `mode='online'`,
+  `match_id`, `word_length`; **guardia sincrona** contro le doppie scritture (l'esito
+  può rimbalzare per le ribattute). I **tentativi** usano il conteggio vero quando la
+  mia partita finisce da sola, o un contatore live delle righe se l'esito mi ferma
+  prima. La chiusura di `matches` (`status='finished'` + `winner_id`/`is_draw`/
+  `finished_at`) la scrive di norma **solo l'host** (resta l'arbitro), anch'essa con
+  guardia. `word_id`/`duration_ms`/`guesses` restano opzionali (per ora null).
+- **Classifiche (C6):** tre viste (vedi §10). `user_stats` **estesa** senza rompere il
+  menu che leggeva già giocate/vinte/perse. Le `leaderboard_*` sono **pubbliche**
+  (niente `security_invoker`): aggregano dentro la vista, così escono solo dati non
+  sensibili (nick/avatar già pubblici + conteggi). **UI:** modulo dati
+  `online/classifiche.ts` (`leggiClassificaPunti`) + `SchermataClassifiche` (stile card
+  vetro, medaglie 🥇🥈🥉, riga propria evidenziata), aperta dal menu con 🏆; il router
+  `Wordilo.tsx` gestisce la vista classifiche e passa il proprio `userId`. Per iniziare
+  si mostra **solo la classifica a punti** (bravura pronta lato DB, non ancora in UI).
+- **Casi limite — abbandono/disconnessione (C7):** regola scelta: **chi lascia perde,
+  l'altro vince**. Due segnali confluiscono in un'unica callback
+  `onAvversarioAssente(motivo)`: (a) **uscita esplicita** — chi preme "Indietro" a
+  partita in corso manda un broadcast `abbandono` e si scrive la riga `lost`, poi esce;
+  (b) **disconnessione vera** — tramite **Presence** del canale (join/leave), con
+  un'**attesa di grazia** (~6s) che annulla se l'avversario rientra (blip di rete). Chi
+  resta si **auto-dichiara vincitore** (niente arbitro: l'altro non c'è più) e scrive/
+  chiude; per questo, in caso di abbandono, la chiusura di `matches` è concessa **anche
+  al guest** (la RLS lo permette perché è `guest_id`). Limite noto v1: chi **crolla**
+  (scheda chiusa) non riesce a scrivere la propria riga `lost` → resta solo la riga
+  `won` di chi rimane (match e classifica del vincitore comunque corretti). Altro limite
+  noto: la Presence vede la caduta solo dopo la scadenza dei "battiti" (~10-20s con la
+  grazia); l'uscita esplicita è invece immediata. Le due strade si coprono a vicenda.
 
 ---
 
@@ -555,8 +662,10 @@ che alla vecchia lista di prova.
   Possibile ripulire in futuro nomi propri/forestierismi dai bersagli con un `UPDATE`
   di `is_solution` (le parole restano comunque valide come tentativo).
 - **Classifica bravura**: soglia secca ora; valutare in futuro Elo/media pesata.
-- **Gestione disconnessione** in una sfida online (abbandono = sconfitta? timeout
-  della stanza?).
+- **Gestione disconnessione** in una sfida online: ✅ **risolto in C7** (chi lascia
+  perde, l'altro vince; via broadcast `abbandono` + Presence con grazia). Restano da
+  definire il **timeout/scadenza delle stanze** (`waiting`/`playing` mai chiuse) e la
+  **pulizia dei residui** in `matches` dai test.
 - **Ordine di sviluppo**: si parte dal **single player**.
   - ✅ Fatto: modulo `core` (logica colori + motore di gioco + test).
   - ✅ Fatto: app Expo + schermata **principiante** (griglia + tastiera) su web e
@@ -588,11 +697,67 @@ che alla vecchia lista di prova.
   - 🟡 In sospeso nel filone A: **test del login Google su Android/iOS** (passo 3c —
     richiede un **development build**); **login Facebook**; verifica dell'**upload
     avatar da telefono**.
-  - ⏭️ Prossimo: l'**online — filone C, versione v1** (parola sul client, niente
-    Edge Function): tabella `matches`, sfida in tempo reale con Realtime
-    (codice-stanza), valutazione col `core` sul dispositivo, punteggi 10/0/5 e le due
-    **classifiche** (`leaderboard_*`). Il grosso è provabile **su web** (due schede
-    del browser). Casi limite (disconnessione/abbandono) da definire.
+  - 🔵 **Online — filone C, versione v1** (parola sul client, niente Edge Function):
+    **la sfida è completa e giocabile** — creazione/ingresso, parola condivisa,
+    riepiloghi/pallini, esito arbitrato **scritto** su DB, classifiche e casi limite.
+    Provato **su web** con due browser (account diversi). Manca solo la **lobby** dal
+    menu (sotto). Dettaglio:
+    - ✅ **C1** — tabella `matches` + RLS (vincoli e policy verificati).
+    - ✅ **C2** — crea/entra stanza col **codice** (`stanze.ts`: `creaStanza`/
+      `entraInStanza`, parola dal DB uguale per i due). Lungo la strada risolto un
+      problema latente: **profili mancanti** per 2 utenti vecchi (rigenerati a mano).
+    - ✅ **C3** — **Realtime** broadcast (`canaleStanza.ts`): i riepiloghi
+      verdi/arancioni viaggiano tra i due. Aggiunto l'**avviso ingresso guest** così
+      l'host passa a `playing` **da solo** (guest-entrato/host-ok, con ribattuta).
+    - ✅ **D1** — `useGioco` accetta `parolaForzata` (single player invariato).
+    - ✅ **D2a** — `SchermataGioco` accetta `parolaForzata`/`online` (opzionali).
+    - ✅ **D2b** — a ogni riga confermata `SchermataGioco` chiama `onRigaConfermata`
+      (usa `contaColori` del core); `contaColori` aggiunta al core.
+    - ✅ **D3** — contenitore `SchermataGiocoOnline` + routing in `Wordilo.tsx` +
+      pulsante "Entra in partita" nel banco: **testato su web** (host che parte da
+      solo; riepiloghi che viaggiano in partita). Il log temporaneo `[D3]` è stato
+      rimosso in D4.
+    - ✅ **D4** — **pallini** dell'avversario (verde=corrette, arancione=fuori
+      posizione) disegnati **a sinistra delle righe** nella `Griglia` (componenti
+      `PalliniAvversario`/`Pallino`, figli della riga in `absolute` come il
+      countdown, così non spostano le celle). Lo stato `righeAvversario` scende da
+      `SchermataGiocoOnline` → `SchermataGioco` → `Griglia`. **Testato su web**.
+    - ✅ **C5a** — **esito condiviso** ("vince chi indovina per primo; se l'altro
+      indovina dopo, perde comunque"). L'**host fa da arbitro**: chi finisce annuncia
+      sul canale (`finito`: indovinato sì/no); il **primo "indovinato" che l'host
+      vede vince**, se finiscono entrambi senza indovinare → **pareggio**; l'host
+      ribatte il verdetto ufficiale (`esito`) e i due mostrano lo **stesso** risultato
+      (pop-up "Hai vinto/perso/Pareggio"). Se l'avversario indovina mentre gioco
+      ancora, l'esito **mi ferma**. Il guest **ribatte** il `finito` finché non riceve
+      l'esito. Scelto l'host-arbitro (non un timestamp) perché i due non hanno un
+      orologio comune: così sono **sempre d'accordo** sull'esito; limite noto — nelle
+      gare al millesimo può vincere l'host per il ritardo di rete (accettato in v1).
+      **Testato su web** (vittoria, sconfitta, pareggio, fotofinish). *Ancora niente
+      scrittura su DB: è C5b.*
+    - ✅ **C5b** — **scrittura dell'esito**: a fine sfida ciascun client scrive la
+      **propria riga** in `games` (`result` won/lost/draw, `points` 10/0/5 da
+      `game_settings` con fallback, `mode='online'`, `match_id`, `word_length`), con
+      guardia anti-doppione; l'**host** porta `matches` a **`finished`**
+      (`winner_id`/`is_draw`/`finished_at`). RLS **già sufficiente** (verificata, nessuna
+      modifica). **Testato su web** (2 righe con stesso `match_id`; `matches` finished).
+    - ✅ **C6** — **classifiche**: `user_stats` **estesa** (pareggiate, giocate_online,
+      win_rate, punti_totali) senza rompere il menu; create le viste **pubbliche**
+      `leaderboard_points` e `leaderboard_skill` (soglia da `app_config`). **UI:** modulo
+      `online/classifiche.ts` + `SchermataClassifiche` (medaglie/avatar/punti, riga
+      propria evidenziata) aperta dal menu con 🏆; per ora **solo classifica a punti**.
+      **Testato su web**.
+    - ✅ **C7** — **casi limite**: **chi lascia perde, l'altro vince**. In
+      `canaleStanza.ts` aggiunti messaggio `abbandono` + **Presence** (join/leave con
+      grazia ~6s); in `SchermataGiocoOnline` l'**uscita esplicita** (Indietro →
+      abbandono + riga `lost`) e la **disconnessione** confluiscono in "io vinco",
+      scrivendo/chiudendo (in abbandono può chiudere `matches` anche il guest). Limiti
+      v1 noti: chi crolla non scrive la riga `lost`; la Presence reagisce dopo ~10-20s.
+      **Testato su web** (uscita esplicita e disconnessione).
+    - ⏭️ **Lobby vera dal menu** (crea/entra stanza + attesa avversario in Realtime) al
+      posto del **banco di prova**, e poi **rimozione del banco** (`BancoProvaStanze` +
+      le due righe di innesto in `SchermataMenu`, l'import in `Wordilo`). **Unico passo
+      rimasto** per chiudere il filone C v1. In sospeso anche la **pulizia dei residui**
+      `playing`/`waiting` in `matches` (test pre-C7) e lo **scadere delle stanze**.
   - 🔮 Futuro: **online v2 (anti-cheat)** — spostare scelta parola + valutazione in
     un'**Edge Function** (parola solo lato server) per rendere le classifiche
     pubbliche non falsificabili. Struttura invariata rispetto alla v1.
