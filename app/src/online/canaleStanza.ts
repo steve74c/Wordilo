@@ -112,12 +112,29 @@ export function apriCanaleStanza(
       graceTimer = null;
     }
   };
+  // Vero se, guardando lo stato di presenza REALE del canale, c'è ancora una
+  // chiave diversa dalla mia (= l'avversario è presente).
+  const avversarioAncoraPresente = (): boolean => {
+    try {
+      const stato = canale.presenceState() as Record<string, unknown>;
+      return Object.keys(stato).some((k) => k !== mioId);
+    } catch {
+      return false;
+    }
+  };
   canale.on('presence', { event: 'leave' }, ({ key }) => {
     if (!key || key === mioId) return; // non me stesso
     if (graceTimer) return; // già in attesa
     graceTimer = setTimeout(() => {
       graceTimer = null;
-      onAvversarioAssente?.('caduto');
+      // IMPORTANTE: prima di dichiarare "caduto", ricontrollo la presenza reale.
+      // Durante il passaggio lobby→partita ognuno CHIUDE il canale-lobby e ne
+      // APRE uno nuovo sulla stessa stanza: la chiusura del lobby emette un
+      // 'leave' "fantasma" mentre l'avversario è in realtà presente (col suo
+      // canale-partita). Senza questo controllo scattava una vittoria automatica
+      // "in 0 tentativi" pochi secondi dopo l'inizio. Se l'avversario risulta
+      // ancora presente, il leave era un fantasma → non dichiaro nulla.
+      if (!avversarioAncoraPresente()) onAvversarioAssente?.('caduto');
     }, GRAZIA_MS);
   });
   canale.on('presence', { event: 'join' }, ({ key }) => {

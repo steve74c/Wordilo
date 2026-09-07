@@ -69,6 +69,17 @@ cose in modo semplice e **procediamo un passo alla volta**.
     `matches` allargata (`status<>'finished'` + oltre 10 min); `pulisciStanzeVecchie`
     chiamata all'apertura della lobby; `annullaStanza` **chiude** la stanza a `finished`
     (non la cancella). **Testato** (Annulla + scadenza forzata). **Filone C v1 chiuso.**
+- **Temi e interfaccia (nuovo, dopo il filone C)**: introdotto un **sistema di temi**
+  (`app/src/temi/`), tema attivo via `TemaProvider`/`useTema`, scelto dal menu
+  (**⚙️ → Impostazioni**). Due temi: **Vetro** (glassmorphism scuro, default) e
+  **Giallo** (chiaro flat/pieno). Migrate a leggere dal tema: **menu, gioco
+  (griglia/tastiera/coriandoli), login, impostazioni, loading**; i colori prima cablati
+  sono ora **token** in `theme.ts` (parità di chiavi garantita da `keyof typeof C`);
+  ogni schermata ha un `*.stili.ts` con `creaStili(tema)`; nuova `SchermataImpostazioni`
+  (selettore tema) e `TemaProvider` montato **in cima** ad `App.tsx`. **Layout gioco**:
+  griglia + tastiera in **un unico blocco centrato** (via il vuoto in mezzo). *Ancora
+  statiche* (da tematizzare): schermate **online** (Classifiche/Lobby/GiocoOnline) e
+  `Avatar`. *Limite noto*: il tema **non è ricordato** al riavvio (persistenza rimandata).
 
 **File nuovi in `app/src/online/`**: `stanze.ts` (con `annullaStanza` +
 `pulisciStanzeVecchie`), `canaleStanza.ts`, `classifiche.ts`,
@@ -149,6 +160,12 @@ Il **filone C v1 è chiuso** (sfida completa + lobby + pulizia stanze). Resta:
 1. **Rifinitura classifiche (opzionale, dentro l'online)**: mostrare anche la
    **bravura** in UI (la vista `leaderboard_skill` è già pronta lato DB) — tab
    Punti/Bravura in `SchermataClassifiche`. È l'unica cosa rimasta dell'online v1.
+2. **Temi — completare**: tematizzare le schermate **online** (Classifiche, Lobby,
+   partita online) e il componente **Avatar** (oggi ancora a colori statici), e
+   aggiungere la **persistenza** del tema (AsyncStorage) così non riparte da Vetro a
+   ogni avvio. Nota: quando si toccano `SchermataGioco.tsx`/`Griglia.tsx`, usare le
+   versioni **con le props online** (`parolaForzata`, `righeAvversario`, pallini), non
+   quelle single-player, altrimenti si rompe la sfida online.
 
 Fuori dall'online (quando vorrò): **3c** dev build + test **login Google su telefono**;
 **login Facebook**; verifica **upload avatar da telefono**. In **futuro**: online v2
@@ -161,7 +178,9 @@ Per prima cosa: leggi la specifica, poi **riassumimi in poche righe dove siamo**
 confermare che il contesto è chiaro). Il **filone C v1 online è chiuso**; il prossimo
 passo naturale è la **rifinitura opzionale delle classifiche** (mostrare anche la
 **bravura** in UI, con tab Punti/Bravura in `SchermataClassifiche`; la vista
-`leaderboard_skill` è già pronta lato DB). In alternativa possiamo passare ai fronti
-fuori dall'online (dev build + Google/Facebook su telefono) o alla **v2 anti-cheat**.
+`leaderboard_skill` è già pronta lato DB), oppure **completare i temi** (tematizzare le
+schermate online + `Avatar`, e persistenza del tema). In alternativa possiamo passare ai
+fronti fuori dall'online (dev build + Google/Facebook su telefono) o alla **v2
+anti-cheat**.
 Dimmi tu da dove ripartire, con lo stesso metodo qui sopra: un sotto-passo alla volta,
 chiedendomi i file prima di modificarli.

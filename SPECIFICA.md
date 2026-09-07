@@ -6,7 +6,7 @@
 
 **Stato:** in sviluppo — modulo `core` (colori, motore di gioco, normalizzazione)
 implementato e testato, e **app Expo** single player **completa e collegata a
-Supabase**, giocabile su web e mobile con **grafica in stile flat** (vedi §16):
+Supabase**, giocabile su web e mobile con **grafica a tema (Vetro/Giallo)** (vedi §16):
 schermata di scelta (lunghezza 5/6 + modalità), **principiante** ed **esperto**
 (countdown per tentativo) funzionanti; **login obbligatorio** email/password con
 **profilo** creato in automatico; **parametri di gioco letti dal database**
@@ -91,7 +91,7 @@ over-the-air del codice JS senza ripassare dagli store.
   src/paroleDev.ts      pescaParolaCasuale = pesca un bersaglio dal dizionario reale
   dev/gioca.ts CLI di prova (banco di prova della logica, non fa parte del gioco)
 /app         → app Expo (web + iOS + Android)
-  App.tsx                      carica i font, monta i provider (config/auth/stat) e il gioco
+  App.tsx                      carica i font, monta i provider (TEMA in cima, poi config/auth/profilo/stat) e il gioco
   .env                         chiavi Supabase locali (EXPO_PUBLIC_*), NON in Git
   .env.example                 template committabile delle variabili d'ambiente
   src/lib/supabase.ts          client Supabase unico (URL + chiave anon dal .env)
@@ -109,7 +109,7 @@ over-the-air del codice JS senza ripassare dagli store.
   src/components/Coriandoli.tsx  particelle leggere per la vittoria
   src/screens/Wordilo.tsx      router minimale menu ↔ partita ↔ classifiche ↔ lobby ↔ sfida online (senza librerie di navigazione)
   src/screens/SchermataAuth.tsx  accesso/registrazione (email/password)
-  src/screens/SchermataMenu.tsx  saluto+logout, scelta lunghezza/modalità, contatori, legenda, pulsanti ⚔️ Sfida online + 🏆 Classifica affiancati (la modalità/lunghezza scelte valgono anche per l'online)
+  src/screens/SchermataMenu.tsx  saluto+logout, scelta lunghezza/modalità, contatori, legenda, pulsanti ⚔️ Sfida online + 🏆 Classifica affiancati, + ⚙️ Impostazioni (tema) accanto a Esci (la modalità/lunghezza scelte valgono anche per l'online)
   src/screens/SchermataClassifiche.tsx  schermata Classifiche (C6): legge leaderboard_points, lista con medaglie/avatar/punti, evidenzia la propria riga [FILONE C]
   src/screens/SchermataLobby.tsx  lobby online (1b): crea/entra stanza col codice + attesa avversario in Realtime + INGRESSO AUTOMATICO in partita; Indietro dell'host → annullaStanza; all'apertura chiama pulisciStanzeVecchie (2c) [FILONE C]
   src/screens/SchermataGioco.tsx  props ONLINE opzionali (parolaForzata, online, onRigaConfermata, righeAvversario, onPartitaFinita, esitoOnline); senza, è il single player di sempre
@@ -118,7 +118,13 @@ over-the-air del codice JS senza ripassare dagli store.
   src/online/classifiche.ts    leggiClassificaPunti: legge la vista leaderboard_points → voci pronte per la UI [FILONE C]
   src/online/SchermataGiocoOnline.tsx  contenitore sfida online: apre il canale, monta SchermataGioco sulla parola condivisa, passa righeAvversario (pallini), fa da ARBITRO dell'esito (host) → esitoOnline condiviso, SCRIVE l'esito (C5b: games + matches finished) e gestisce abbandono/disconnessione (C7) [FILONE C]
   src/LoadingScreen.tsx        schermata di caricamento brandizzata
-  src/theme.ts                 colori, font, ombre (stile flat)
+  src/theme.ts                 palette del tema VETRO + token del sistema temi + funzioni pure (ombra/bagliore/coloreDiSfondo)
+  src/temi/tipi.ts             forma di un Tema (palette/gradienti/font/misure); le chiavi di palette derivano da keyof typeof C (niente token dimenticati)
+  src/temi/Temavetro.ts        tema "vetro" = valori di theme.ts impacchettati
+  src/temi/TemaGiallo.ts       tema "giallo" (chiaro flat/pieno); tutti i suoi colori si affinano da qui
+  src/temi/TemaContext.tsx     TemaProvider (montato in cima ad App.tsx) + useTema()/useControlliTema() (cambio tema a runtime)
+  src/screens/SchermataImpostazioni.tsx  scelta del tema (Vetro/Giallo), aperta dal menu col pulsante ⚙️
+  src/**/*.stili.ts            stili per-schermata via creaStili(tema): Menu/Gioco/Auth/Griglia/Tastiera/Coriandoli/Loading (le schermate online e Avatar sono ancora statiche)
   assets/fonts/                font Poppins incorporati (.ttf)
   metro.config.js              wiring monorepo (Metro vede /core)
 /backend     → Edge Functions / logica server per l'online (non ancora creata; serve solo alla v2 anti-cheat)
@@ -686,6 +692,18 @@ che alla vecchia lista di prova.
   dell'host non usa più la DELETE (0 minuti la escluderebbe) ma **chiude** la stanza a
   `finished` via UPDATE. La Strada 2 (job schedulato `pg_cron` lato Supabase) resta in
   tasca per il futuro se servirà.
+- **Sistema temi (Vetro/Giallo):** i colori non sono più costanti statiche importate
+  ovunque, ma un oggetto `Tema` fornito da `TemaProvider` e letto con `useTema()`. La
+  *forma* del tema (`temi/tipi.ts`) deriva le chiavi da `keyof typeof C`: aggiungere un
+  token in `theme.ts` **obbliga** ogni tema a fornirlo (rete di sicurezza contro i
+  colori dimenticati). `theme.ts` diventa "palette del tema Vetro + funzioni pure";
+  ogni schermata ha un `*.stili.ts` con `creaStili(tema)`. Scelta chiave sul **Giallo**:
+  essendo **chiaro**, non può riusare le superfici traslucide del vetro (sparirebbero) →
+  è un tema **flat/pieno** (superfici piene, bordi ambra, ombra). Migrazione fatta a
+  **lotti**, un gruppo di file alla volta, tenendo il **tema Vetro identico a prima**
+  come verifica. `TemaProvider` va **in cima** ad `App.tsx`: senza, `cambiaTema` cade sul
+  no-op del context di default e il cambio tema non ha effetto. *Ancora statiche*
+  (da migrare): schermate online e `Avatar`. *Rimandata*: la **persistenza** del tema.
 
 ---
 
@@ -798,6 +816,18 @@ che alla vecchia lista di prova.
       scadenza forzata). **Con questo il filone C v1 è CHIUSO.**
     - ⏭️ **Rifinitura opzionale** — mostrare in UI anche la **classifica bravura**
       (`leaderboard_skill` già pronta lato DB): tab Punti/Bravura in `SchermataClassifiche`.
+  - 🎨 **Temi e interfaccia (dopo il filone C)** — introdotto un **sistema di temi**
+    (`app/src/temi/`): tema attivo via `TemaProvider`/`useTema`, scelto dal menu
+    (⚙️ → `SchermataImpostazioni`). Due temi: **Vetro** (glassmorphism scuro, default) e
+    **Giallo** (chiaro flat/pieno). Migrate a leggere dal tema: **menu, gioco
+    (griglia/tastiera/coriandoli), login, impostazioni, loading** (ogni schermata ha un
+    `*.stili.ts` con `creaStili(tema)`; i colori prima cablati sono diventati **token**
+    in `theme.ts`, con parità di chiavi garantita da `keyof typeof C`; sistemato anche il
+    colore-lettera: bianco su cella piena, testo del tema — scuro sul chiaro — su cella
+    non valutata). **Layout gioco** rifatto: griglia e tastiera in **un unico blocco
+    centrato** (basta il vuoto in mezzo). *Non ancora a tema*: schermate **online**
+    (Classifiche/Lobby/GiocoOnline) e `Avatar`. *Limite*: il tema **non è ricordato** al
+    riavvio (persistenza AsyncStorage rimandata).
   - 🔮 Futuro: **online v2 (anti-cheat)** — spostare scelta parola + valutazione in
     un'**Edge Function** (parola solo lato server) per rendere le classifiche
     pubbliche non falsificabili. Struttura invariata rispetto alla v1.
@@ -806,10 +836,43 @@ che alla vecchia lista di prova.
 
 ## 16. Grafica e interfaccia (stato attuale)
 
-Stile **flat** allineato al riferimento condiviso, **identità invariata**: slate
-scuro con accento **teal**; celle **verde/arancione**, **grigio** per la lettera
-assente. Niente gradienti pesanti sugli elementi: il gradiente si usa **solo** su
-sfondo e sul pulsante del pop-up.
+L'app ha un **sistema di temi**: tutti i colori/font/misure vivono in un oggetto
+`Tema` fornito da un provider, e i componenti li leggono con `useTema()` invece di
+importare costanti statiche. Ci sono **due temi**, scegliibili **a runtime** dal menu
+(pulsante **⚙️**) → **Impostazioni**:
+
+- **Vetro** (default): *glassmorphism* scuro — sfondo teal-navy profondo, superfici
+  traslucide con bordo sottile, titolo serif con bagliore, accento **teal**. È
+  l'identità storica dell'app.
+- **Giallo**: tema **chiaro "flat/pieno"** — sfondo caldo crema, superfici piene con
+  bordo ambra + ombra morbida (il vetro su fondo chiaro sparirebbe), accento ambra.
+
+In entrambi: celle **verde/arancione**, **grigio** per la lettera assente; la lettera
+è **bianca** sulle celle piene (valutate) e col **testo del tema** (scuro sul chiaro)
+su quelle non ancora valutate. Il gradiente si usa su sfondo e pulsanti d'accento.
+
+**Architettura dei temi** (cartella `app/src/temi/`):
+- `tipi.ts` — forma di un `Tema` (`palette`/`gradienti`/`font`/`misure`); le chiavi di
+  `palette` sono derivate da `keyof typeof C` (in `theme.ts`), così **ogni tema è
+  obbligato** a fornire gli stessi token → niente colori dimenticati.
+- `Temavetro.ts` — impacchetta i valori di `theme.ts` come tema "vetro".
+- `TemaGiallo.ts` — il tema chiaro; **tutti i suoi colori si affinano da qui** (un
+  file solo).
+- `TemaContext.tsx` — `TemaProvider` (montato **in cima** ad `App.tsx`) + gli hook
+  `useTema()` e `useControlliTema()` (tema attivo, elenco, `cambiaTema`).
+
+`theme.ts` resta la **palette del tema Vetro** + le funzioni pure (`ombra`,
+`bagliore`, `coloreDiSfondo`) + i **token** del sistema (colori prima cablati nei
+componenti, ora centralizzati). Ogni schermata ha un file `*.stili.ts` con
+`creaStili(tema)` (memoizzato su `tema`).
+
+**Coperto dal tema**: menu, gioco (griglia/tastiera/coriandoli), login, impostazioni,
+loading. **NON ancora a tema** (leggono ancora i colori statici): le schermate
+**online** (`SchermataClassifiche`, `SchermataLobby`, `SchermataGiocoOnline`) e il
+componente `Avatar`.
+
+**Limite noto**: il tema scelto **non è ancora ricordato** al riavvio (riparte da
+Vetro); persistenza (AsyncStorage) rimandata.
 
 ### Schermata di gioco
 
@@ -857,10 +920,12 @@ sfondo e sul pulsante del pop-up.
 ### Responsività e layout
 
 - Dimensione delle celle calcolata sul **minore** fra vincolo di **larghezza** e di
-  **altezza disponibile** → la griglia entra **sempre sopra la tastiera**, su
+  **altezza disponibile** → la griglia entra **sempre** insieme alla tastiera, su
   qualsiasi schermo.
-- Impaginazione: **header in alto → area griglia (allineata in alto) → tastiera in
-  basso**, senza sovrapposizioni.
+- Impaginazione: **header in alto → blocco gioco centrato**. Griglia e tastiera stanno
+  nello **stesso contenitore centrato verticalmente** e ravvicinato (`justifyContent:
+  'center'` + `gap`), così sparisce il grande vuoto che prima restava tra griglia (in
+  alto) e tastiera (in fondo).
 - Contenuto **centrato e limitato in larghezza** su tablet/desktop; **target touch
   generosi** (tasti più alti su telefono).
 

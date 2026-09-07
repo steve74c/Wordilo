@@ -1,15 +1,17 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { Animated, Text, View } from 'react-native';
 import type { Colore, StatoGioco } from '@wordilo/core';
-import { C, coloreDiSfondo, FONT, RAGGIO } from '../theme';
+import { useTema } from '../temi/TemaContext';
+import { creaStili } from './Griglia.stili';
+import type { StiliGriglia, ColoriGriglia } from './Griglia.stili';
+
+// Riepilogo dell'avversario per una riga (online): solo conteggi (mai le lettere).
+type RiepilogoAvversario = { verdi: number; arancioni: number };
 
 type StatoCella =
   | { tipo: 'vuota'; attiva: boolean }
   | { tipo: 'inserita'; lettera: string }
   | { tipo: 'valutata'; lettera: string; colore: Colore };
-
-// Riepilogo dell'avversario per una riga (solo conteggi, mai le lettere).
-type RiepilogoAvversario = { verdi: number; arancioni: number };
 
 function celleDi(stato: StatoGioco): StatoCella[][] {
   const rigaAttiva = stato.esito === 'in_corso' ? stato.righe.length : -1;
@@ -35,13 +37,21 @@ function celleDi(stato: StatoGioco): StatoCella[][] {
   return righe;
 }
 
-// Vetro delle celle NON valutate (teal traslucido, come le tessere del menu).
-const VETRO_INSERITA = 'rgba(120,236,220,0.12)';
-const VETRO_ATTIVA = 'rgba(120,236,220,0.05)';
-const VETRO_VUOTA = 'rgba(255,255,255,0.04)';
-const BORDO_ATTIVA = 'rgba(120,236,220,0.32)';
-
-function Cella({ cella, lato, indiceColonna }: { cella: StatoCella; lato: number; indiceColonna: number }) {
+function Cella({
+  cella,
+  lato,
+  indiceColonna,
+  raggio,
+  stili,
+  colori,
+}: {
+  cella: StatoCella;
+  lato: number;
+  indiceColonna: number;
+  raggio: number;
+  stili: StiliGriglia;
+  colori: ColoriGriglia;
+}) {
   const flip = useRef(new Animated.Value(cella.tipo === 'valutata' ? 1 : 0)).current;
   const pop = useRef(new Animated.Value(1)).current;
   const eraPiena = useRef(cella.tipo === 'inserita');
@@ -64,69 +74,76 @@ function Cella({ cella, lato, indiceColonna }: { cella: StatoCella; lato: number
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cella.tipo, (cella as any).lettera]);
 
-  const dim = { width: lato, height: lato, borderRadius: RAGGIO } as const;
-  const testo = [styles.lettera, { fontSize: Math.round(lato * 0.46) }];
+  const dim = { width: lato, height: lato, borderRadius: raggio } as const;
+  const dimTesto = { fontSize: Math.round(lato * 0.46) } as const;
 
-  // Cella valutata: tinta piena (feedback nitido) + flip di rivelazione.
   if (cella.tipo === 'valutata') {
     const rotateX = flip.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['90deg', '0deg', '0deg'] });
     const opacity = flip.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, 1, 1] });
     return (
       <Animated.View
         style={[
-          styles.cella,
+          stili.cella,
           dim,
-          { backgroundColor: coloreDiSfondo(cella.colore) },
+          { backgroundColor: colori.valutata(cella.colore) },
           { opacity, transform: [{ perspective: 400 }, { rotateX }] },
         ]}
       >
-        <Text style={testo}>{cella.lettera}</Text>
+        {/* cella piena → lettera bianca */}
+        <Text style={[stili.lettera, dimTesto, { color: colori.letteraValutata }]}>{cella.lettera}</Text>
       </Animated.View>
     );
   }
 
-  // Celle NON valutate: vetro traslucido + bordo sottile.
   const bg =
-    cella.tipo === 'inserita' ? VETRO_INSERITA : cella.attiva ? VETRO_ATTIVA : VETRO_VUOTA;
+    cella.tipo === 'inserita' ? colori.cellaInserita : cella.attiva ? colori.cellaAttiva : colori.cellaVuota;
   const bordo =
-    cella.tipo === 'inserita' ? C.bordoAttivo : cella.attiva ? BORDO_ATTIVA : C.bordoVuoto;
+    cella.tipo === 'inserita' ? colori.bordoInserita : cella.attiva ? colori.bordoAttiva : colori.bordoVuota;
 
   return (
     <Animated.View
       style={[
-        styles.cella,
-        styles.cellaVuota,
+        stili.cella,
+        stili.cellaVuota,
         dim,
         { backgroundColor: bg, borderColor: bordo, transform: [{ scale: pop }] },
       ]}
     >
-      {cella.tipo === 'inserita' && <Text style={testo}>{cella.lettera}</Text>}
+      {/* cella non valutata → lettera col testo del tema (scura sul chiaro) */}
+      {cella.tipo === 'inserita' && (
+        <Text style={[stili.lettera, dimTesto, { color: colori.letteraCella }]}>{cella.lettera}</Text>
+      )}
     </Animated.View>
   );
 }
 
-// Badge del countdown (modalità esperto): cerchio a destra della riga attiva.
-// È FIGLIO della riga → si allinea in verticale da solo e "scende" con essa,
-// senza calcoli di posizione. È fuori dal flow (absolute) quindi non sposta le
-// celle, che restano centrate. Cambia colore (teal → arancione) negli ultimi 3".
-function Countdown({ secondi, lato }: { secondi: number; lato: number }) {
+// Badge del countdown (modalità esperto): cerchio a DESTRA della riga attiva.
+function Countdown({
+  secondi,
+  lato,
+  stili,
+  colori,
+}: {
+  secondi: number;
+  lato: number;
+  stili: StiliGriglia;
+  colori: ColoriGriglia;
+}) {
   const size = Math.max(26, Math.round(lato * 0.8));
   const pop = useRef(new Animated.Value(1)).current;
 
-  // Piccolo "pop" a ogni cambio di secondo.
   useEffect(() => {
     pop.setValue(0.8);
     Animated.spring(pop, { toValue: 1, friction: 4, tension: 260, useNativeDriver: true }).start();
   }, [secondi, pop]);
 
-  const colore = secondi <= 3 ? C.arancione : C.accento;
+  const colore = secondi <= 3 ? colori.countdownAllarme : colori.countdownNormale;
   const gap = Math.max(6, Math.round(lato * 0.16));
 
   return (
     <Animated.View
-      pointerEvents="none"
       style={[
-        styles.countdown,
+        stili.countdown,
         {
           width: size,
           height: size,
@@ -137,7 +154,7 @@ function Countdown({ secondi, lato }: { secondi: number; lato: number }) {
         },
       ]}
     >
-      <Text style={[styles.countdownTesto, { fontSize: Math.round(size * 0.46), color: colore }]}>
+      <Text style={[stili.countdownTesto, { fontSize: Math.round(size * 0.46), color: colore }]}>
         {secondi}
       </Text>
     </Animated.View>
@@ -145,10 +162,20 @@ function Countdown({ secondi, lato }: { secondi: number; lato: number }) {
 }
 
 // Un singolo pallino con dentro un numero.
-function Pallino({ numero, colore, size }: { numero: number; colore: string; size: number }) {
+function Pallino({
+  numero,
+  colore,
+  size,
+  stili,
+}: {
+  numero: number;
+  colore: string;
+  size: number;
+  stili: StiliGriglia;
+}) {
   return (
-    <View style={[styles.pallino, { width: size, height: size, borderRadius: size / 2, backgroundColor: colore }]}>
-      <Text style={[styles.pallinoTesto, { fontSize: Math.round(size * 0.5) }]}>{numero}</Text>
+    <View style={[stili.pallino, { width: size, height: size, borderRadius: size / 2, backgroundColor: colore }]}>
+      <Text style={[stili.pallinoTesto, { fontSize: Math.round(size * 0.5) }]}>{numero}</Text>
     </View>
   );
 }
@@ -156,18 +183,26 @@ function Pallino({ numero, colore, size }: { numero: number; colore: string; siz
 // Pallini dell'avversario (online): due cerchietti a SINISTRA della riga —
 // verde = lettere corrette, arancione = presenti ma fuori posizione. Come il
 // Countdown: figlio della riga + absolute (fuori dal flow), così non sposta le
-// celle centrate. Ancorato al bordo sinistro (right:'100%') e spinto un filo più
-// a sinistra. Colori identici alle celle (coloreDiSfondo).
-function PalliniAvversario({ verdi, arancioni, lato }: { verdi: number; arancioni: number; lato: number }) {
+// celle centrate. Colori delle celle presi dal tema (colori.valutata).
+function PalliniAvversario({
+  verdi,
+  arancioni,
+  lato,
+  stili,
+  colori,
+}: {
+  verdi: number;
+  arancioni: number;
+  lato: number;
+  stili: StiliGriglia;
+  colori: ColoriGriglia;
+}) {
   const size = Math.max(18, Math.round(lato * 0.52));
   const gap = Math.max(6, Math.round(lato * 0.16));
   return (
-    <View
-      pointerEvents="none"
-      style={[styles.palliniAvv, { top: (lato - size) / 2, transform: [{ translateX: -gap }] }]}
-    >
-      <Pallino numero={verdi} colore={coloreDiSfondo('green')} size={size} />
-      <Pallino numero={arancioni} colore={coloreDiSfondo('orange')} size={size} />
+    <View style={[stili.palliniAvv, { top: (lato - size) / 2, transform: [{ translateX: -gap }] }]}>
+      <Pallino numero={verdi} colore={colori.valutata('green')} size={size} stili={stili} />
+      <Pallino numero={arancioni} colore={colori.valutata('orange')} size={size} stili={stili} />
     </View>
   );
 }
@@ -185,6 +220,10 @@ export function Griglia({
   secondiRimasti?: number | null;
   righeAvversario?: Record<number, RiepilogoAvversario>; // online: pallini per riga
 }) {
+  const tema = useTema();
+  const { stili, colori } = useMemo(() => creaStili(tema), [tema]);
+  const raggio = tema.misure.raggio;
+
   const righe = celleDi(stato);
   const shake = useRef(new Animated.Value(0)).current;
   const primo = useRef(true);
@@ -210,18 +249,18 @@ export function Griglia({
     <View>
       {righe.map((colonne, r) => {
         const contenuto = colonne.map((cella, c) => (
-          <Cella key={c} cella={cella} lato={lato} indiceColonna={c} />
+          <Cella key={c} cella={cella} lato={lato} indiceColonna={c} raggio={raggio} stili={stili} colori={colori} />
         ));
         const avv = righeAvversario?.[r];
         const pallini = avv ? (
-          <PalliniAvversario verdi={avv.verdi} arancioni={avv.arancioni} lato={lato} />
+          <PalliniAvversario verdi={avv.verdi} arancioni={avv.arancioni} lato={lato} stili={stili} colori={colori} />
         ) : null;
-        const stile = [styles.riga, { marginBottom: Math.max(6, Math.round(lato * 0.14)) }];
+        const stile = [stili.riga, { marginBottom: Math.max(6, Math.round(lato * 0.14)) }];
         return r === rigaAttiva ? (
           <Animated.View key={r} style={[stile, { transform: [{ translateX }] }]}>
             {pallini}
             {contenuto}
-            {secondiRimasti != null && <Countdown secondi={secondiRimasti} lato={lato} />}
+            {secondiRimasti != null && <Countdown secondi={secondiRimasti} lato={lato} stili={stili} colori={colori} />}
           </Animated.View>
         ) : (
           <View key={r} style={stile}>
@@ -233,30 +272,3 @@ export function Griglia({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  riga: { flexDirection: 'row', justifyContent: 'center', gap: 6 },
-  cella: { alignItems: 'center', justifyContent: 'center' },
-  cellaVuota: { borderWidth: 2 },
-  lettera: { color: '#FFFFFF', fontFamily: FONT.bold, fontWeight: '800', textTransform: 'uppercase' },
-  // Countdown esperto: ancorato al bordo destro della riga (left:'100%'), fuori flow.
-  countdown: {
-    position: 'absolute',
-    left: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    backgroundColor: 'rgba(120,236,220,0.10)',
-  },
-  countdownTesto: { fontFamily: FONT.bold, fontWeight: '800' },
-  // Pallini avversario: ancorati al bordo sinistro della riga (right:'100%'), fuori flow.
-  palliniAvv: {
-    position: 'absolute',
-    right: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  pallino: { alignItems: 'center', justifyContent: 'center' },
-  pallinoTesto: { color: '#FFFFFF', fontFamily: FONT.bold, fontWeight: '800' },
-});

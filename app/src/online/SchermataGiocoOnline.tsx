@@ -62,6 +62,12 @@ export function SchermataGiocoOnline({ sfida, onIndietro }: Props) {
     deciso: { winnerId: string | null; pareggio: boolean } | null;
   }>({ ioNonIndovinato: false, avvNonIndovinato: false, deciso: null });
 
+
+useEffect(() => {
+  console.log('[DEBUG parola] =', sfida.parola);
+}, [sfida.parola]);
+
+
   useEffect(() => {
     esitoRef.current = esito;
   }, [esito]);

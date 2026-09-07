@@ -14,27 +14,29 @@
 //
 // Indietro dell'HOST mentre attende → annullaStanza(id) cancella la riga 'waiting'
 // così non restano residui in matches.
+//
+// NB (tema): schermata migrata al sistema temi (useTema + creaStili). La LOGICA
+// online (crea/entra, canale, handshake) è invariata: sono cambiati solo i colori.
 // -----------------------------------------------------------------------------
-import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { LunghezzaParola, Modalita } from '@wordilo/core';
-import { C, FONT, GRAD, ombra, bagliore, RAGGIO } from '../theme';
+import { ombra } from '../theme';
+import { useTema } from '../temi/TemaContext';
+import { creaStili } from './SchermataLobby.stili';
 import { supabase } from '../lib/supabase';
 import {
   creaStanza,
   entraInStanza,
   annullaStanza,
-  pulisciStanzeVecchie,   
+  pulisciStanzeVecchie,
   type ModalitaOnline,
   type Sfida,
 } from '../online/stanze';
 import { apriCanaleStanza, type ConnessioneStanza } from '../online/canaleStanza';
 
-
-
-  
 type Props = {
   modalita: Modalita;          // dalle pillole del menu
   lunghezza: LunghezzaParola;  // dalle pillole del menu
@@ -52,6 +54,9 @@ const GUEST_TIMEOUT_MS = 8000;
 type Ruolo = 'host' | 'guest';
 
 export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndietro }: Props) {
+  const tema = useTema();
+  const styles = useMemo(() => creaStili(tema), [tema]);
+
   const [mioId, setMioId] = useState<string | null>(null);
   const [codiceInput, setCodiceInput] = useState('');
   const [occupato, setOccupato] = useState(false);      // durante crea/entra
@@ -67,12 +72,11 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setMioId(data?.user?.id ?? null));
   }, []);
-  
+
   // (2c) All'apertura della lobby, spazza via le proprie stanze vecchie non finite.
   useEffect(() => {
     pulisciStanzeVecchie();
   }, []);
-    
 
   // Canale della stanza: si apre appena c'è una sfida (host dopo Crea, guest dopo
   // Entra). Keyed su codice + mioId + ruolo, come nel banco.
@@ -185,7 +189,7 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
   const inAttesa = !!sfida && !trovato && !messaggio;
 
   return (
-    <LinearGradient colors={GRAD.sfondo} style={styles.sfondo}>
+    <LinearGradient colors={tema.gradienti.sfondo} style={styles.sfondo}>
       <SafeAreaView style={styles.safe}>
         <View style={styles.barraTop}>
           <Pressable
@@ -217,7 +221,7 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
                 style={({ pressed }) => [styles.creaWrap, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}
               >
                 <LinearGradient
-                  colors={GRAD.accento}
+                  colors={tema.gradienti.accento}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={[styles.crea, ombra(0.4, 14, 7, 8), occupato && { opacity: 0.6 }]}
@@ -237,7 +241,7 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
                 value={codiceInput}
                 onChangeText={(t) => setCodiceInput(t.toUpperCase())}
                 placeholder="es. K7P2Q"
-                placeholderTextColor={C.testoTenue}
+                placeholderTextColor={tema.palette.testoTenue}
                 autoCapitalize="characters"
                 autoCorrect={false}
                 maxLength={6}
@@ -260,7 +264,7 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
               <Text style={styles.codice}>{sfida.codice}</Text>
               <Text style={styles.spiega}>Dettalo all'avversario.</Text>
               <View style={styles.attesaRiga}>
-                <ActivityIndicator color={C.accento} />
+                <ActivityIndicator color={tema.palette.accento} />
                 <Text style={styles.attesaTesto}>In attesa dell'avversario…</Text>
               </View>
             </View>
@@ -270,7 +274,7 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
           {sfida && ruolo === 'guest' && inAttesa && (
             <View style={[styles.card, ombra(0.45, 26, 14, 12), styles.cardCentro]}>
               <View style={styles.attesaRiga}>
-                <ActivityIndicator color={C.accento} />
+                <ActivityIndicator color={tema.palette.accento} />
                 <Text style={styles.attesaTesto}>Mi collego alla stanza…</Text>
               </View>
             </View>
@@ -280,7 +284,7 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
           {sfida && trovato && (
             <View style={[styles.card, ombra(0.45, 26, 14, 12), styles.cardCentro]}>
               <View style={styles.attesaRiga}>
-                <ActivityIndicator color={C.accento} />
+                <ActivityIndicator color={tema.palette.accento} />
                 <Text style={styles.attesaTesto}>Avversario trovato! Avvio…</Text>
               </View>
             </View>
@@ -300,120 +304,3 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
     </LinearGradient>
   );
 }
-
-const styles = StyleSheet.create({
-  sfondo: { flex: 1 },
-  safe: { flex: 1 },
-
-  barraTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    maxWidth: 440,
-    alignSelf: 'center',
-    paddingHorizontal: 22,
-    paddingTop: 10,
-  },
-  indietro: {
-    backgroundColor: C.superficieAlta,
-    borderWidth: 1,
-    borderColor: C.hair,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  indietroTesto: { color: C.testoTenue, fontSize: 14, fontFamily: FONT.medium, fontWeight: '600' },
-  titolo: {
-    color: C.accentoSoft,
-    fontSize: 22,
-    fontFamily: FONT.serif,
-    fontWeight: '600',
-    ...bagliore(C.glow, 16),
-  },
-  spazioDestra: { width: 92 },
-
-  contenuto: {
-    flex: 1,
-    width: '100%',
-    maxWidth: 440,
-    alignSelf: 'center',
-    paddingHorizontal: 22,
-    paddingTop: 14,
-    justifyContent: 'center',
-    gap: 16,
-  },
-  sottotitolo: {
-    color: C.testoTenue,
-    fontSize: 12,
-    fontFamily: FONT.bold,
-    fontWeight: '700',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    textAlign: 'center',
-  },
-
-  card: {
-    backgroundColor: C.superficieAlta,
-    borderColor: C.hair,
-    borderWidth: 1,
-    borderRadius: 24,
-    padding: 22,
-  },
-  cardCentro: { alignItems: 'center', gap: 12 },
-  eyebrow: {
-    color: C.testoTenue,
-    fontSize: 12,
-    fontFamily: FONT.bold,
-    fontWeight: '700',
-    letterSpacing: 2,
-    marginBottom: 10,
-  },
-  spiega: { color: C.testo, opacity: 0.85, fontSize: 14, fontFamily: FONT.regular, marginBottom: 4 },
-
-  creaWrap: { marginTop: 8 },
-  crea: { borderRadius: 16, paddingVertical: 16, alignItems: 'center', justifyContent: 'center' },
-  creaTesto: { color: '#052722', fontSize: 17, fontFamily: FONT.bold, fontWeight: '800', letterSpacing: 0.3 },
-
-  oppure: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 20 },
-  oppureLinea: { flex: 1, height: 1, backgroundColor: C.hair },
-  oppureTesto: { color: C.testoTenue, fontSize: 12, fontFamily: FONT.medium, textTransform: 'uppercase', letterSpacing: 1 },
-
-  input: {
-    borderWidth: 1,
-    borderColor: C.hair,
-    borderRadius: RAGGIO,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    color: C.testo,
-    backgroundColor: C.superficie,
-    fontSize: 20,
-    fontFamily: FONT.bold,
-    fontWeight: '800',
-    letterSpacing: 6,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  entraBtn: {
-    backgroundColor: C.superficie,
-    borderWidth: 1,
-    borderColor: C.bordoAttivo,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  entraTesto: { color: C.accentoSoft, fontSize: 15, fontFamily: FONT.bold, fontWeight: '800' },
-
-  codice: {
-    color: C.accentoSoft,
-    fontSize: 46,
-    fontFamily: FONT.black,
-    fontWeight: '800',
-    letterSpacing: 10,
-    ...bagliore(C.glow, 18),
-  },
-  attesaRiga: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6 },
-  attesaTesto: { color: C.testo, fontSize: 15, fontFamily: FONT.medium, fontWeight: '600' },
-
-  msg: { color: C.testo, fontSize: 15, fontFamily: FONT.medium, fontWeight: '600', textAlign: 'center' },
-});

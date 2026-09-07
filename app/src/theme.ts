@@ -3,9 +3,16 @@ import type { TextStyle, ViewStyle } from 'react-native';
 import type { Colore } from '@wordilo/core';
 
 // -----------------------------------------------------------------------------
-// Tema visivo — stile "vetro" (glassmorphism): sfondo teal-navy profondo,
-// superfici traslucide con bordo sottile, titolo serif con bagliore, accento
-// teal. Nessuna dipendenza nuova.
+// Tema visivo — questo file contiene la palette del tema "VETRO" (glassmorphism:
+// sfondo teal-navy profondo, superfici traslucide, titolo serif con bagliore,
+// accento teal) + le funzioni pure (`ombra`, `bagliore`, `coloreDiSfondo`).
+//
+// NB (sistema temi): `C` NON va più usato direttamente nei componenti: è la
+// palette del tema Vetro, avvolta da `temi/Temavetro.ts`. I componenti leggono i
+// colori con `useTema()`. La *forma* di un tema (`tipi.ts`) deriva le chiavi da
+// `C` (`keyof typeof C`), quindi ogni NUOVO token aggiunto qui diventa
+// OBBLIGATORIO anche per gli altri temi (es. TemaGiallo): è la rete di sicurezza
+// "niente colori dimenticati".
 // -----------------------------------------------------------------------------
 
 export const C = {
@@ -41,16 +48,56 @@ export const C = {
   bordoAttivoSoft: 'rgba(255,255,255,0.16)',
   bordoAttivo: 'rgba(120,236,220,0.55)', // riga attiva: bordo teal tenue
 
-  // Tastiera: tasti neutri bianchi su sfondo scuro (contrasto ottimo).
+  // Tastiera: tasti neutri.
   tasto: '#3B4653',
   tastoAssente: '#262E38',
   tastoAssenteTesto: '#6B7480',
-  tastoNeutro: '#F2F4F8',
-  tastoNeutroBordo: '#D6DCE4',
-  tastoNeutroTesto: '#1E2530',
+  // NB: questi tre valori sono stati allineati a quelli REALMENTE resi dalla
+  // tastiera (prima erano cablati dentro Tastiera.stili.ts e questi token, con
+  // altri valori, non venivano usati). Ora la tastiera legge da qui.
+  tastoNeutro: 'rgba(255,255,255,0.92)',
+  tastoNeutroBordo: 'rgba(255,255,255,0.70)',
+  tastoNeutroTesto: '#12242B',
 
   vittoria: '#4ECB7C',
   scrim: 'rgba(4,9,12,0.74)',
+
+  // ---------------------------------------------------------------------------
+  // Token del sistema temi (Lotto 1). Valori = quelli VETRO resi oggi, prima
+  // "cablati" a mano nei vari *.stili.ts. Spostandoli qui, il tema Giallo (e
+  // futuri temi) possono ridefinirli. In Vetro il look resta identico.
+  // ---------------------------------------------------------------------------
+
+  // Sfondo delle card modali (pop-up esito, card login).
+  cardSfondo: 'rgba(16,40,47,0.97)',
+
+  // Celle della griglia NON valutate.
+  cellaSfondo: 'rgba(255,255,255,0.04)',            // cella vuota
+  cellaInseritaSfondo: 'rgba(120,236,220,0.12)',    // cella con lettera inserita
+  cellaAttivaSfondo: 'rgba(120,236,220,0.05)',      // cella della riga attiva
+  bordoCellaAttiva: 'rgba(120,236,220,0.32)',       // bordo cella della riga attiva
+
+  // Badge countdown (modalità esperto).
+  countdownSfondo: 'rgba(120,236,220,0.10)',
+
+  // Testi su fondi pieni.
+  testoSuColore: '#FFFFFF',   // lettera su cella/tasto verde/arancione/grigio
+  testoSuAccento: '#052722',  // testo su pulsante/tasto in accento
+
+  // Superficie tinta d'accento (evidenziazioni, es. tema attivo in Impostazioni).
+  accentoSfondo: 'rgba(47,209,193,0.12)',
+
+  // Bordo chiaro decorativo (icona gomma).
+  gommaBordo: 'rgba(255,255,255,0.35)',
+
+  // Coriandolo "chiaro" (4° colore della festa di vittoria).
+  coriandoloChiaro: '#F2F5F8',
+
+  // Menu — tessere "anteprima" decorative (Lotto 2). Erano teal fisse cablate.
+  tesseraSfondo: 'rgba(79,227,208,0.06)',
+  tesseraBordo: 'rgba(79,227,208,0.28)',
+  tesseraAccesaSfondo: 'rgba(79,227,208,0.16)',
+  // NB: il bordo della tessera "accesa" riusa `bordoAttivo`.
 } as const;
 
 // Gradienti (LinearGradient accetta 2+ stop). `as const` = tuple readonly.
@@ -60,6 +107,9 @@ export const GRAD = {
 };
 
 // Colore pieno (griglia e tastiera) dato lo stato del core.
+// NB: legge il `C` statico (tema Vetro). I componenti tematizzati usano invece
+// `colori.valutata(...)` dai loro *.stili.ts. Da rivedere in Lotto 2 se qualche
+// schermata (es. pallini avversario online) lo usa ancora e deve seguire il tema.
 export function coloreDiSfondo(colore: Colore): string {
   switch (colore) {
     case 'green':

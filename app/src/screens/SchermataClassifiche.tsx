@@ -3,13 +3,17 @@
 // Va salvato in:  app/src/screens/SchermataClassifiche.tsx
 //
 // Legge da online/classifiche.ts (vista leaderboard_points). Nessuna logica di
-// gioco qui: solo lettura + presentazione, nello stile del menu (card vetro).
+// gioco qui: solo lettura + presentazione. Migrata al sistema temi (useTema +
+// creaStili); la logica di lettura è invariata.
 // -----------------------------------------------------------------------------
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { C, FONT, GRAD, ombra, bagliore } from '../theme';
+import { ombra } from '../theme';
+import { useTema } from '../temi/TemaContext';
+import { creaStili } from './SchermataClassifiche.stili';
+import type { StiliClassifiche } from './SchermataClassifiche.stili';
 import { Avatar } from '../components/Avatar';
 import { leggiClassificaPunti, type VoceClassificaPunti } from '../online/classifiche';
 
@@ -19,7 +23,7 @@ type Props = {
 };
 
 // Medaglia per i primi tre, numero per gli altri.
-function Posizione({ pos }: { pos: number }) {
+function Posizione({ pos, styles }: { pos: number; styles: StiliClassifiche }) {
   const medaglia = pos === 1 ? '🥇' : pos === 2 ? '🥈' : pos === 3 ? '🥉' : null;
   if (medaglia) return <Text style={styles.medaglia}>{medaglia}</Text>;
   return (
@@ -29,10 +33,20 @@ function Posizione({ pos }: { pos: number }) {
   );
 }
 
-function Riga({ voce, pos, mia }: { voce: VoceClassificaPunti; pos: number; mia: boolean }) {
+function Riga({
+  voce,
+  pos,
+  mia,
+  styles,
+}: {
+  voce: VoceClassificaPunti;
+  pos: number;
+  mia: boolean;
+  styles: StiliClassifiche;
+}) {
   return (
     <View style={[styles.riga, ombra(0.3, 12, 6, 5), mia && styles.rigaMia]}>
-      <Posizione pos={pos} />
+      <Posizione pos={pos} styles={styles} />
       <Avatar
         nick={voce.nick}
         nome={null}
@@ -58,6 +72,9 @@ function Riga({ voce, pos, mia }: { voce: VoceClassificaPunti; pos: number; mia:
 }
 
 export function SchermataClassifiche({ mioUserId, onIndietro }: Props) {
+  const tema = useTema();
+  const styles = useMemo(() => creaStili(tema), [tema]);
+
   const [voci, setVoci] = useState<VoceClassificaPunti[] | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
   const [caricando, setCaricando] = useState(true);
@@ -80,7 +97,7 @@ export function SchermataClassifiche({ mioUserId, onIndietro }: Props) {
   }, [carica]);
 
   return (
-    <LinearGradient colors={GRAD.sfondo} style={styles.sfondo}>
+    <LinearGradient colors={tema.gradienti.sfondo} style={styles.sfondo}>
       <SafeAreaView style={styles.safe}>
         {/* Barra: Indietro + titolo */}
         <View style={styles.barraTop}>
@@ -100,7 +117,7 @@ export function SchermataClassifiche({ mioUserId, onIndietro }: Props) {
 
           {caricando && (
             <View style={styles.centro}>
-              <ActivityIndicator size="large" color={C.accento} />
+              <ActivityIndicator size="large" color={tema.palette.accento} />
             </View>
           )}
 
@@ -110,7 +127,7 @@ export function SchermataClassifiche({ mioUserId, onIndietro }: Props) {
               <Text style={styles.msgTenue}>{errore}</Text>
               <Pressable onPress={carica} style={styles.riprovaWrap}>
                 <LinearGradient
-                  colors={GRAD.accento}
+                  colors={tema.gradienti.accento}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={[styles.riprova, ombra(0.3, 10, 5, 5)]}
@@ -135,7 +152,7 @@ export function SchermataClassifiche({ mioUserId, onIndietro }: Props) {
               contentContainerStyle={styles.lista}
               showsVerticalScrollIndicator={false}
               renderItem={({ item, index }) => (
-                <Riga voce={item} pos={index + 1} mia={item.userId === mioUserId} />
+                <Riga voce={item} pos={index + 1} mia={item.userId === mioUserId} styles={styles} />
               )}
             />
           )}
@@ -144,85 +161,3 @@ export function SchermataClassifiche({ mioUserId, onIndietro }: Props) {
     </LinearGradient>
   );
 }
-
-const styles = StyleSheet.create({
-  sfondo: { flex: 1 },
-  safe: { flex: 1 },
-
-  barraTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    maxWidth: 440,
-    alignSelf: 'center',
-    paddingHorizontal: 22,
-    paddingTop: 10,
-  },
-  indietro: {
-    backgroundColor: C.superficieAlta,
-    borderWidth: 1,
-    borderColor: C.hair,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  indietroTesto: { color: C.testoTenue, fontSize: 14, fontFamily: FONT.medium, fontWeight: '600' },
-  titolo: {
-    color: C.accentoSoft,
-    fontSize: 22,
-    fontFamily: FONT.serif,
-    fontWeight: '600',
-    ...bagliore(C.glow, 16),
-  },
-  spazioDestra: { width: 92 }, // bilancia il pulsante Indietro per centrare il titolo
-
-  contenuto: {
-    flex: 1,
-    width: '100%',
-    maxWidth: 440,
-    alignSelf: 'center',
-    paddingHorizontal: 22,
-    paddingTop: 14,
-  },
-  sottotitolo: {
-    color: C.testoTenue,
-    fontSize: 12,
-    fontFamily: FONT.bold,
-    fontWeight: '700',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    marginBottom: 14,
-  },
-
-  centro: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingBottom: 60 },
-  msg: { color: C.testo, fontSize: 16, fontFamily: FONT.medium, fontWeight: '600', textAlign: 'center' },
-  msgTenue: { color: C.testoTenue, fontSize: 13, fontFamily: FONT.regular, textAlign: 'center' },
-  riprovaWrap: { marginTop: 12 },
-  riprova: { borderRadius: 14, paddingVertical: 12, paddingHorizontal: 28 },
-  riprovaTesto: { color: '#052722', fontSize: 15, fontFamily: FONT.bold, fontWeight: '800' },
-
-  lista: { gap: 10, paddingBottom: 24 },
-  riga: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: C.superficie,
-    borderWidth: 1,
-    borderColor: C.hair,
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  rigaMia: { borderColor: C.accento, backgroundColor: 'rgba(79,227,208,0.08)' },
-  medaglia: { fontSize: 22, width: 30, textAlign: 'center' },
-  posNumWrap: { width: 30, alignItems: 'center' },
-  posNum: { color: C.testoTenue, fontSize: 16, fontFamily: FONT.bold, fontWeight: '800' },
-  rigaCentro: { flex: 1, minWidth: 0 },
-  nick: { color: C.testo, fontSize: 16, fontFamily: FONT.medium, fontWeight: '700' },
-  nickMio: { color: C.accentoSoft },
-  sotto: { color: C.testoTenue, fontSize: 12, fontFamily: FONT.regular, marginTop: 2 },
-  puntiWrap: { alignItems: 'flex-end' },
-  punti: { color: C.accentoSoft, fontSize: 20, fontFamily: FONT.black, fontWeight: '800' },
-  puntiLab: { color: C.testoTenue, fontSize: 11, fontFamily: FONT.regular },
-});

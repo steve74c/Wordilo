@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Modal,
   Platform,
   Pressable,
   SafeAreaView,
+  StyleSheet,
   Text,
   useWindowDimensions,
   View,
@@ -17,32 +18,30 @@ import { useStatistiche } from '../stats/statistiche';
 import { Griglia } from '../components/Griglia';
 import { Tastiera } from '../components/Tastiera';
 import { Coriandoli } from '../components/Coriandoli';
-import { ombra } from '../theme';
-import { useTema } from '../temi/TemaContext';
-import { creaStili } from './SchermataGioco.stili';
-import type { StiliGioco } from './SchermataGioco.stili';
+import { C, FONT, GRAD, ombra, bagliore } from '../theme';
 
 type Props = {
   modalita?: Modalita;
   lunghezza?: LunghezzaParola;
-  onIndietro?: () => void; // torna al menu
+  onIndietro?: () => void; // torna al menu (foto 1)
 
-  // --- Online (tutte opzionali: se assenti, è il single player di sempre) ---
+  // --- Online (tutte opzionali: se assenti, la schermata è il single player di sempre) ---
   parolaForzata?: string;   // la parola condivisa della stanza
   online?: boolean;         // true = sfida online (cambia testi e nasconde "nuova partita")
   onRigaConfermata?: (riga: number, verdi: number, arancioni: number) => void; // → invia al canale
-  righeAvversario?: Record<number, { verdi: number; arancioni: number }>;      // online: pallini avversario
-  onPartitaFinita?: (indovinato: boolean, tentativi: number) => void;          // online: ho finito
-  esitoOnline?: 'vinta' | 'persa' | 'pareggio' | null;                         // online: verdetto condiviso (host)
+  righeAvversario?: Record<number, { verdi: number; arancioni: number }>; // online: pallini avversario
+  onPartitaFinita?: (indovinato: boolean, tentativi: number) => void; // online: avvisa che ho finito
+  esitoOnline?: 'vinta' | 'persa' | 'pareggio' | null; // online: verdetto condiviso deciso dall'host
 };
 
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
 
-function IconaGomma({ stili }: { stili: StiliGioco }) {
+// Iconcina "gomma": corpo chiaro + fascetta teal, leggermente inclinata.
+function IconaGomma() {
   return (
-    <View style={stili.gomma}>
-      <View style={stili.gommaCorpo} />
-      <View style={stili.gommaFascia} />
+    <View style={styles.gomma}>
+      <View style={styles.gommaCorpo} />
+      <View style={styles.gommaFascia} />
     </View>
   );
 }
@@ -58,9 +57,6 @@ export function SchermataGioco({
   onPartitaFinita,
   esitoOnline,
 }: Props) {
-  const tema = useTema();
-  const stili = useMemo(() => creaStili(tema), [tema]);
-
   const { registra } = useStatistiche();
   const { stato, problema, scossa, secondiRimasti, tastiera, digita, cancella, svuotaRiga, conferma, nuovaPartita } =
     useGioco(modalita, lunghezza, registra, parolaForzata); // ← 4° argomento: la parola online
@@ -74,16 +70,22 @@ export function SchermataGioco({
   const { width, height } = useWindowDimensions();
   const righe = stato.maxTentativi;
 
+  // Altezza dei tasti (condivisa con la Tastiera per il calcolo dello spazio).
   const altezzaTasto = width < 600 ? 52 : 46;
-  const keyboardH = altezzaTasto * 3 + 16;
+  const keyboardH = altezzaTasto * 3 + 16; // 3 righe + 2 gap da 8
 
-  const HEADER_H = 92;
+  // Spazio verticale che resta per la griglia (stime prudenti del "contorno").
+  const HEADER_H = 92; // barra top (48) + sottotitolo + padding
   const AVVISO_H = 34;
-  const CONTORNO_V = 28 + 24;
+  const CONTORNO_V = 28 + 24; // padding verticali + margine di sicurezza
   const spazioGriglia = Math.max(140, height - HEADER_H - AVVISO_H - keyboardH - CONTORNO_V);
 
-  const gapRiga = 0.16;
+  // Lato cella: il minore fra il vincolo di LARGHEZZA e quello di ALTEZZA,
+  // così la griglia entra sempre sopra la tastiera su qualsiasi schermo.
+  const gapRiga = 0.16; // ~ rapporto del margine fra righe
   const latoAltezza = spazioGriglia / (righe + (righe - 1) * gapRiga);
+  // In esperto riserviamo ~2 "colonne" di larghezza: la griglia resta centrata e
+  // il countdown, che sporge a destra della riga attiva, non esce mai dallo schermo.
   const riservaEsperto = modalita === 'esperto' ? 2 : 0;
   const latoLarghezza =
     (Math.min(width - 24, 470) - 6 * (lunghezza - 1)) / (lunghezza + riservaEsperto);
@@ -167,54 +169,53 @@ export function SchermataGioco({
     : Math.min(stato.righe.length + 1, stato.maxTentativi);
 
   return (
-    <LinearGradient colors={tema.gradienti.sfondo} style={stili.sfondo}>
-      <SafeAreaView style={stili.safe}>
-        <View style={stili.contenuto}>
-          <View style={stili.header}>
-            <View style={stili.barraTop}>
+    <LinearGradient colors={GRAD.sfondo} style={styles.sfondo}>
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.contenuto}>
+          <View style={styles.header}>
+            <View style={styles.barraTop}>
               <Pressable
                 onPress={onIndietro}
                 disabled={!onIndietro}
                 hitSlop={8}
                 style={({ pressed }) => [
-                  stili.tondo,
+                  styles.tondo,
                   ombra(0.25, 6, 3, 3),
                   { opacity: onIndietro ? 1 : 0, transform: [{ scale: pressed ? 0.92 : 1 }] },
                 ]}
               >
-                <Text style={stili.tondoIcona}>←</Text>
+                <Text style={styles.tondoIcona}>←</Text>
               </Pressable>
 
-              <Text style={stili.titolo}>Wordilo</Text>
+              <Text style={styles.titolo}>Wordilo</Text>
 
               <Pressable
                 onPress={svuotaRiga}
                 hitSlop={8}
                 style={({ pressed }) => [
-                  stili.tondo,
+                  styles.tondo,
                   ombra(0.25, 6, 3, 3),
                   { transform: [{ scale: pressed ? 0.92 : 1 }] },
                 ]}
               >
-                <IconaGomma stili={stili} />
+                <IconaGomma />
               </Pressable>
             </View>
 
-            <Text style={stili.sottotitolo}>
+            <Text style={styles.sottotitolo}>
               {modalita} · {lunghezza} lettere · tentativo {tentativoCorrente}/{stato.maxTentativi}
             </Text>
           </View>
 
-          {/* LAYOUT: griglia e tastiera insieme, centrate e ravvicinate */}
-          <View style={stili.gioco}>
-            <View style={stili.zonaAvviso}>
+          {/* Area griglia: flessibile e centrata, non può sovrapporsi alla tastiera */}
+          <View style={styles.gioco}>
+            <View style={styles.zonaAvviso}>
               {avviso && (
-                <View style={stili.avviso}>
-                  <Text style={stili.avvisoTesto}>{avviso}</Text>
+                <View style={styles.avviso}>
+                  <Text style={styles.avvisoTesto}>{avviso}</Text>
                 </View>
               )}
             </View>
-
             <Griglia
               stato={stato}
               lato={lato}
@@ -222,29 +223,26 @@ export function SchermataGioco({
               secondiRimasti={secondiRimasti}
               righeAvversario={righeAvversario}
             />
-
-            <Tastiera
-              colori={tastiera}
-              onLettera={digita}
-              onInvio={conferma}
-              onCancella={cancella}
-              disabilitata={bloccato}
-              altezzaTasto={altezzaTasto}
-            />
+			
+          <Tastiera
+            colori={tastiera}
+            onLettera={digita}
+            onInvio={conferma}
+            onCancella={cancella}
+            disabilitata={bloccato}
+            altezzaTasto={altezzaTasto}
+          />			
           </View>
+
+
         </View>
 
-        <Modal
-          visible={popup}
-          transparent
-          animationType="fade"
-          onRequestClose={online ? onIndietro : nuovaPartita}
-        >
-          <View style={stili.scrim}>
+        <Modal visible={popup} transparent animationType="fade" onRequestClose={online ? onIndietro : nuovaPartita}>
+          <View style={styles.scrim}>
             <Coriandoli attivo={haVinto} />
-            <Animated.View style={[stili.card, ombra(0.45, 26, 14, 16), { transform: [{ scale: cardScale }] }]}>
-              <Text style={stili.emoji}>{haVinto ? '🎉' : esitoFin === 'pareggio' ? '🤝' : '😕'}</Text>
-              <Text style={stili.esitoTitolo}>
+            <Animated.View style={[styles.card, ombra(0.45, 26, 14, 16), { transform: [{ scale: cardScale }] }]}>
+              <Text style={styles.emoji}>{haVinto ? '🎉' : esitoFin === 'pareggio' ? '🤝' : '😕'}</Text>
+              <Text style={styles.esitoTitolo}>
                 {online
                   ? haVinto
                     ? 'Hai vinto!'
@@ -255,7 +253,7 @@ export function SchermataGioco({
                     ? 'Indovinata!'
                     : 'Peccato!'}
               </Text>
-              <Text style={stili.esitoSub}>
+              <Text style={styles.esitoSub}>
                 {online
                   ? haVinto
                     ? `In ${stato.righe.length} ${stato.righe.length === 1 ? 'tentativo' : 'tentativi'}`
@@ -267,26 +265,25 @@ export function SchermataGioco({
                     : `La parola era ${stato.target}`}
               </Text>
 
-              {/* Single player: rigioca. Online: non si rigioca la stessa stanza. */}
               {!online && (
                 <Pressable
                   onPress={nuovaPartita}
                   style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.97 : 1 }], width: '100%' }]}
                 >
                   <LinearGradient
-                    colors={tema.gradienti.accento}
+                    colors={GRAD.accento}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={[stili.bottone, ombra(0.35, 10, 5, 6)]}
+                    style={[styles.bottone, ombra(0.35, 10, 5, 6)]}
                   >
-                    <Text style={stili.bottoneTesto}>↻  Nuova partita</Text>
+                    <Text style={styles.bottoneTesto}>↻  Nuova partita</Text>
                   </LinearGradient>
                 </Pressable>
               )}
 
               {onIndietro && (
-                <Pressable onPress={onIndietro} hitSlop={8} style={stili.linkIndietro}>
-                  <Text style={stili.linkIndietroTesto}>← Torna al menu</Text>
+                <Pressable onPress={onIndietro} hitSlop={8} style={styles.linkIndietro}>
+                  <Text style={styles.linkIndietroTesto}>← Torna al menu</Text>
                 </Pressable>
               )}
             </Animated.View>
@@ -296,3 +293,89 @@ export function SchermataGioco({
     </LinearGradient>
   );
 }
+
+const styles = StyleSheet.create({
+  sfondo: { flex: 1 },
+  safe: { flex: 1 },
+  contenuto: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 600,
+    alignSelf: 'center',
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 16,
+  },
+  header: { paddingTop: 4, paddingBottom: 6, gap: 8 },
+  barraTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  tondo: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: C.superficieAlta,
+    borderWidth: 1,
+    borderColor: C.hair,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tondoIcona: { color: C.testo, fontSize: 22, fontFamily: FONT.bold, fontWeight: '800', marginTop: -1 },
+  gomma: {
+    width: 22,
+    height: 15,
+    borderRadius: 4,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+    transform: [{ rotate: '-18deg' }],
+  },
+  gommaCorpo: { flex: 2, backgroundColor: '#EAF6F4' },
+  gommaFascia: { flex: 1, backgroundColor: C.accento },
+  titolo: {
+    flex: 1,
+    textAlign: 'center',
+    color: C.accentoSoft,
+    fontSize: 30,
+    fontFamily: FONT.serif,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    ...bagliore(C.glow, 20),
+  },
+  sottotitolo: {
+    color: C.accentoTenue,
+    fontSize: 13,
+    fontFamily: FONT.medium,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  gioco: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 4 },
+  zonaAvviso: { height: 34, justifyContent: 'center' },
+  avviso: {
+    backgroundColor: C.superficieAlta,
+    borderWidth: 1,
+    borderColor: C.hair,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+  },
+  avvisoTesto: { color: C.testo, fontSize: 14, fontFamily: FONT.medium, fontWeight: '600' },
+  scrim: { flex: 1, backgroundColor: C.scrim, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  card: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: 'rgba(16,40,47,0.97)',
+    borderColor: C.hair,
+    borderWidth: 1,
+    borderRadius: 22,
+    padding: 26,
+    alignItems: 'center',
+    gap: 6,
+  },
+  emoji: { fontSize: 44, marginBottom: 2 },
+  esitoTitolo: { color: C.testo, fontSize: 24, fontFamily: FONT.black, fontWeight: '900' },
+  esitoSub: { color: C.testoTenue, fontSize: 15, fontFamily: FONT.regular, marginBottom: 18, textAlign: 'center' },
+  bottone: { width: '100%', paddingVertical: 14, borderRadius: 16, alignItems: 'center' },
+  bottoneTesto: { color: '#052722', fontSize: 16, fontFamily: FONT.bold, fontWeight: '800' },
+  linkIndietro: { marginTop: 14, paddingVertical: 6 },
+  linkIndietroTesto: { color: C.testoTenue, fontSize: 14, fontFamily: FONT.medium, fontWeight: '600' },
+});
