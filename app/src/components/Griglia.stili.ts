@@ -10,8 +10,19 @@ export function creaStili(tema: Tema) {
     bordoInserita: tema.palette.bordoAttivo,
     bordoAttiva: tema.palette.bordoCellaAttiva,
     bordoVuota: tema.palette.bordoVuoto,
-    countdownNormale: tema.palette.accento,
-    countdownAllarme: tema.palette.arancione,
+    // Numero + bordo del countdown in stato NORMALE. Uso accentoSoft (non
+    // accento) perché è la variante d'accento pensata per LEGGERSI: nel tema
+    // giallo è ambra scuro, così numero e anello restano leggibili sul fondo
+    // chiaro/tenue — niente più dischetto marrone pieno.
+    countdownNormale: tema.palette.accentoSoft,
+    // Allarme ultimi secondi: ROSSO acceso, uguale in tutti i temi (segnale
+    // universale di "tempo quasi scaduto"). Non arriva dalla palette perché
+    // nessun tema ha un token rosso dedicato; volendo si può renderlo per-tema.
+    countdownAllarme: '#FF3B30',
+    // Fondo del cerchietto in stato NORMALE (sopra i 5s) e colore del numero
+    // quando il fondo diventa rosso pieno: bianco, per il massimo contrasto.
+    countdownSfondo: tema.palette.countdownSfondo,
+    countdownTestoAllarme: tema.palette.testoSuColore,
     // Colore della lettera:
     // - su cella VALUTATA (fondo pieno verde/arancione/grigio) → bianco.
     // - su cella NON valutata (fondo chiaro/scuro del tema) → testo del tema.

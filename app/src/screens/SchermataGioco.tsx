@@ -84,9 +84,17 @@ export function SchermataGioco({
 
   const gapRiga = 0.16;
   const latoAltezza = spazioGriglia / (righe + (righe - 1) * gapRiga);
+  // Riserva di colonne "virtuali" per fare spazio ai badge che stanno FUORI
+  // dalla griglia (la griglia è centrata): il countdown esperto a destra e —
+  // soprattutto su mobile — i pallini dell'avversario a sinistra. Senza riserva
+  // la griglia riempie lo schermo e i pallini (verde in testa) finivano tagliati
+  // fuori dal bordo. Uso il max, non la somma, così con esperto+online le celle
+  // non diventano minuscole: una riserva sufficiente copre entrambi i lati.
   const riservaEsperto = modalita === 'esperto' ? 2 : 0;
+  const riservaOnline = online ? 3 : 0;
+  const riserva = Math.max(riservaEsperto, riservaOnline);
   const latoLarghezza =
-    (Math.min(width - 24, 470) - 6 * (lunghezza - 1)) / (lunghezza + riservaEsperto);
+    (Math.min(width - 24, 470) - 6 * (lunghezza - 1)) / (lunghezza + riserva);
   const lato = clamp(Math.min(latoLarghezza, latoAltezza), 30, 64);
 
   useEffect(() => {

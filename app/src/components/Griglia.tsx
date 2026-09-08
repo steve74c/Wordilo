@@ -137,7 +137,13 @@ function Countdown({
     Animated.spring(pop, { toValue: 1, friction: 4, tension: 260, useNativeDriver: true }).start();
   }, [secondi, pop]);
 
-  const colore = secondi <= 3 ? colori.countdownAllarme : colori.countdownNormale;
+  // Ultimi 5 secondi: il cerchietto si RIEMPIE di rosso e il numero diventa
+  // bianco (allarme netto). Sopra i 5s resta tutto com'era: fondo tenue, numero
+  // e bordo col colore accento del tema.
+  const inAllarme = secondi <= 5;
+  const coloreBordo = inAllarme ? colori.countdownAllarme : colori.countdownNormale;
+  const coloreFondo = inAllarme ? colori.countdownAllarme : colori.countdownSfondo;
+  const coloreNumero = inAllarme ? colori.countdownTestoAllarme : colori.countdownNormale;
   const gap = Math.max(6, Math.round(lato * 0.16));
 
   return (
@@ -149,12 +155,13 @@ function Countdown({
           height: size,
           borderRadius: size / 2,
           top: (lato - size) / 2,
-          borderColor: colore,
+          backgroundColor: coloreFondo,
+          borderColor: coloreBordo,
           transform: [{ translateX: gap }, { scale: pop }],
         },
       ]}
     >
-      <Text style={[stili.countdownTesto, { fontSize: Math.round(size * 0.46), color: colore }]}>
+      <Text style={[stili.countdownTesto, { fontSize: Math.round(size * 0.46), color: coloreNumero }]}>
         {secondi}
       </Text>
     </Animated.View>

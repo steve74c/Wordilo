@@ -4,8 +4,8 @@
 // Tiene la "sessione" di Supabase (chi è loggato) e resta in ascolto dei cambi
 // (login, logout, rinnovo token). Espone le azioni: registrati, accedi,
 // accediConGoogle, esci.
-// Nick, nome e cognome passati alla registrazione finiscono nei metadati
-// dell'utente: il trigger handle_new_user li legge per creare la riga profiles.
+// Il nick passato alla registrazione finisce nei metadati dell'utente:
+// il trigger handle_new_user lo legge per creare la riga profiles.
 // -----------------------------------------------------------------------------
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
@@ -25,8 +25,6 @@ type ValoreAuth = {
   caricata: boolean; // true quando lo stato iniziale è stato determinato
   registrati: (
     nick: string,
-    nome: string,
-    cognome: string,
     email: string,
     password: string,
   ) => Promise<RisultatoAuth>;
@@ -91,8 +89,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const registrati = async (
     nick: string,
-    nome: string,
-    cognome: string,
     email: string,
     password: string,
   ): Promise<RisultatoAuth> => {
@@ -103,8 +99,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Questi dati vengono letti dal trigger per creare la riga profiles.
         data: {
           nick: nick.trim(),
-          nome: nome.trim(),
-          cognome: cognome.trim(),
         },
       },
     });

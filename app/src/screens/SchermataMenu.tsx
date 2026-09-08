@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Colore, LunghezzaParola, Modalita } from '@wordilo/core';
@@ -175,7 +175,11 @@ export function SchermataMenu({
           </View>
         </View>
 
-        <View style={stili.contenuto}>
+        <ScrollView
+          style={stili.contenuto}
+          contentContainerStyle={stili.contenutoInner}
+          showsVerticalScrollIndicator={false}
+        >
           {/* Titolo serif con bagliore */}
           <View style={stili.intestazione}>
             <Text style={stili.logo}>Wordilo</Text>
@@ -277,7 +281,7 @@ export function SchermataMenu({
               </View>
             ))}
           </View>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     </LinearGradient>
   );

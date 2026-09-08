@@ -60,6 +60,9 @@ const PALETTA_GIALLA = {
   cellaInseritaSfondo: '#FCE7A8',   // cella con lettera: tinta ambra DECISA (era troppo tenue)
   cellaAttivaSfondo: '#FFF7DD',     // riga attiva: crema chiara
   bordoCellaAttiva: '#E0A233',      // bordo riga attiva: netto
+  // Countdown: fondo TENUE (come lo sfondo chiaro del tema). Numero e bordo ora
+  // usano accentoSoft (ambra scuro), quindi si leggono bene su questo fondo
+  // chiaro senza dover riempire il cerchietto.
   countdownSfondo: 'rgba(251,191,36,0.18)',
   testoSuColore: '#FFFFFF',         // lettera su celle/tasti verde/arancione
   testoSuAccento: '#3A2A00',        // testo scuro sui pulsanti ambra

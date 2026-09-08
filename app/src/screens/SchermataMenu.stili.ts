@@ -63,12 +63,24 @@ export function creaStili(tema: Tema) {
     },
     esciTesto: { color: P.testoTenue, fontSize: 14, fontFamily: F.medium, fontWeight: '600' },
 
+    // Contenitore scrollabile. Su schermi bassi il contenuto (card + contatori +
+    // azioni + legenda) non ci sta tutto: prima era una View centrata SENZA
+    // scroll, così le ultime voci (Sfida online, Classifica, legenda) finivano
+    // sotto il bordo e non si vedevano. Questo è lo stile ESTERNO della
+    // ScrollView; l'impaginazione interna sta in `contenutoInner`.
     contenuto: {
       flex: 1,
       width: '100%',
       maxWidth: 440,
       alignSelf: 'center',
+    },
+    // contentContainerStyle della ScrollView: `flexGrow: 1` + `justifyContent:
+    // 'center'` centra il contenuto quando c'è spazio e lo lascia scorrere quando
+    // è troppo. Il padding verticale evita che l'ultima voce tocchi i bordi.
+    contenutoInner: {
+      flexGrow: 1,
       paddingHorizontal: 22,
+      paddingVertical: 16,
       justifyContent: 'center',
       gap: 20,
     },
