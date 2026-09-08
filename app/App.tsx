@@ -10,7 +10,8 @@ import { ConfigProvider } from './src/config/ConfigContext';
 import { AuthProvider } from './src/auth/AuthContext';
 import { PortaAuth } from './src/auth/PortaAuth';
 import { ProfiloProvider } from './src/profilo/ProfiloContext';
-import { TemaProvider } from './src/temi/TemaContext'; // ← unica aggiunta
+import { TemaProvider } from './src/temi/TemaContext';
+import { LinguaProvider } from './src/lingua/LinguaContext';
 
 export default function App() {
   // Carica i font Poppins, ma se falliscono non blocca l'app
@@ -25,6 +26,7 @@ export default function App() {
   // identico a prima: Config → Auth → SafeArea → Statistiche → Profilo → gioco.
   return (
     <TemaProvider>
+      <LinguaProvider>
       <ConfigProvider>
         <AuthProvider>
           <SafeAreaProvider>
@@ -43,6 +45,7 @@ export default function App() {
           </SafeAreaProvider>
         </AuthProvider>
       </ConfigProvider>
+      </LinguaProvider>
     </TemaProvider>
   );
 }

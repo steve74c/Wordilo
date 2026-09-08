@@ -17,6 +17,8 @@ import type {
   StatoGioco,
 } from '@wordilo/core';
 import { useConfig } from '../config/ConfigContext';
+import { useLingua } from '../lingua/LinguaContext';
+import type { CodiceLingua } from '../lingua/LinguaContext';
 import type { FinePartita } from '../stats/statistiche';
 
 /**
@@ -30,16 +32,32 @@ import type { FinePartita } from '../stats/statistiche';
  * (won/lost), con il riepilogo della partita (esito, modalità, lunghezza,
  * tentativi usati): serve a salvarla e ad aggiornare le statistiche. Si riarma a
  * ogni nuova partita.
+ *
+ * `parolaForzata` (online): usa QUESTA parola invece di pescarne una a caso.
+ * `linguaForzata` (online): valida i tentativi e pesca il bersaglio in QUESTA
+ *   lingua, invece che nella lingua locale del giocatore. Serve perché una sfida
+ *   online ha una sua lingua, uguale per host e guest: senza questo, il guest
+ *   validerebbe sul proprio dizionario locale e le parole della sfida verrebbero
+ *   rifiutate. Se assente (single player) si usa la lingua attiva, come prima.
  */
 export function useGioco(
   modalita: Modalita,
   lunghezza: LunghezzaParola,
   onFine?: (fine: FinePartita) => void,
-  parolaForzata?: string, // ← online: usa QUESTA parola invece di pescarne una a caso
+  parolaForzata?: string,          // ← online: usa QUESTA parola invece di pescarne una a caso
+  linguaForzata?: CodiceLingua,    // ← online: lingua della SFIDA (gemella di parolaForzata)
 ) {
   // La config arriva dal provider (Supabase, con fallback ai default): il timer
   // di 25s e gli altri numeri vengono dal database, non più da CONFIG_DEFAULT.
   const { config } = useConfig();
+  // La lingua attiva (locale) decide da quale insieme di parole si pesca il
+  // bersaglio e su quale dizionario si validano i tentativi... a meno che una
+  // sfida online non imponga la propria lingua (linguaForzata).
+  const lingua = useLingua();
+
+  // Lingua da usare davvero: quella della sfida se presente, altrimenti la locale.
+  // In single player linguaForzata è undefined → si comporta esattamente come prima.
+  const linguaEffettiva: CodiceLingua = linguaForzata ?? lingua;
 
   const nuovoStato = useCallback(
     () =>
@@ -47,11 +65,11 @@ export function useGioco(
         config,
         modalita,
         // Online: la parola è fissata dalla stanza (uguale per i due giocatori).
-        // Single player: nessuna parola forzata → si pesca a caso come sempre.
-        parolaForzata ?? pescaParolaCasuale(lunghezza),
+        // Single player: nessuna parola forzata → si pesca a caso nella lingua effettiva.
+        parolaForzata ?? pescaParolaCasuale(linguaEffettiva, lunghezza),
         lunghezza,
       ),
-    [config, modalita, lunghezza, parolaForzata],
+    [config, modalita, lunghezza, parolaForzata, linguaEffettiva],
   );
 
   const [stato, setStato] = useState<StatoGioco>(nuovoStato);
@@ -132,13 +150,14 @@ export function useGioco(
 
   const conferma = useCallback(() => {
     setStato((s) => {
-      // Validazione attiva: la parola deve esistere nel dizionario italiano.
-      const r = confermaTentativo(s, (parola) => parolaValida(parola, s.lunghezza));
+      // Validazione attiva: la parola deve esistere nel dizionario della lingua
+      // EFFETTIVA (della sfida online se presente, altrimenti quella locale).
+      const r = confermaTentativo(s, (parola) => parolaValida(parola, linguaEffettiva, s.lunghezza));
       setProblema(r.problema ?? null);
       if (r.problema) setScossa((n) => n + 1);
       return r.stato;
     });
-  }, []);
+  }, [linguaEffettiva]);
 
   const nuovaPartita = useCallback(() => {
     setProblema(null);

@@ -278,6 +278,7 @@ useEffect(() => {
       modalita={sfida.modalita}
       lunghezza={sfida.lunghezza}
       parolaForzata={sfida.parola}
+      linguaForzata={sfida.lingua}
       online
       onRigaConfermata={inviaRiga}
       righeAvversario={righeAvversario}

@@ -10,6 +10,13 @@
 // Regola d'oro della v1: host e guest devono avere la STESSA parola. Per questo
 // la parola si sceglie dal DATABASE (funzione SQL parola_casuale), che ci dà
 // l'id da salvare nella stanza; entrambi poi leggono quello stesso word_id.
+//
+// MULTILINGUA: la sfida ha anche una LINGUA (it/en), salvata nella colonna `lang`
+// di matches. È una proprietà della sfida, uguale per entrambi i giocatori: così
+// tutti e due validano i tentativi sullo stesso dizionario, non su quello locale.
+// La parola bersaglio si pesca dal DB NELLA LINGUA della sfida: parola_casuale ora
+// prende anche p_lang (default 'it' lato DB), così l'host inglese ottiene una
+// parola inglese.
 // -----------------------------------------------------------------------------
 import { supabase } from '../lib/supabase';
 import { normalizzaParola } from '@wordilo/core';
@@ -18,6 +25,11 @@ import type { LunghezzaParola } from '@wordilo/core';
 // Le modalità giocabili online (il single player "esperto/principiante" vale anche qui).
 export type ModalitaOnline = 'principiante' | 'esperto';
 
+// La lingua della sfida. È lo stesso 'it' | 'en' usato da LinguaContext (CodiceLingua)
+// e dal core (Lingua): lo ridefiniamo qui per non dipendere dall'export del barrel
+// del core. Essendo una semplice unione di stringhe resta compatibile con gli altri.
+export type LinguaSfida = 'it' | 'en';
+
 // Cos'è una "sfida" dal punto di vista dell'app, una volta creata o entrati.
 // La `parola` è già normalizzata (accenti rimossi, maiuscola) e pronta per il core.
 export type Sfida = {
@@ -25,6 +37,7 @@ export type Sfida = {
   codice: string;
   modalita: ModalitaOnline;
   lunghezza: LunghezzaParola;
+  lingua: LinguaSfida;   // lingua della sfida, uguale per entrambi i giocatori
   parola: string;        // il target, uguale per entrambi i giocatori
   hostId: string;
   guestId: string | null;
@@ -46,12 +59,17 @@ function generaCodice(lunghezza = 5): string {
   return out;
 }
 
-// Chiede al database una parola-bersaglio della lunghezza richiesta.
+// Chiede al database una parola-bersaglio della lunghezza e della LINGUA richieste.
+// Passa p_lang alla funzione SQL parola_casuale(lunghezza, p_lang).
 // Ritorna { id, testo } oppure null se qualcosa va storto.
 async function pescaParolaDalDb(
   lunghezza: LunghezzaParola,
+  lingua: LinguaSfida,
 ): Promise<{ id: number; testo: string } | null> {
-  const { data, error } = await supabase.rpc('parola_casuale', { lunghezza });
+  const { data, error } = await supabase.rpc('parola_casuale', {
+    lunghezza,
+    p_lang: lingua,
+  });
   if (error || !data || data.length === 0) return null;
   // La funzione restituisce una tabella: prendiamo la prima (unica) riga.
   const riga = Array.isArray(data) ? data[0] : data;
@@ -63,18 +81,23 @@ async function pescaParolaDalDb(
  * CREA STANZA (host).
  * Sceglie la parola dal DB, genera un codice unico e inserisce la riga in matches
  * con status='waiting'. Riprova con un nuovo codice se — raro — ne esce uno già preso.
+ *
+ * `lingua` è opzionale con default 'it' come rete di sicurezza (uguale al default
+ * della colonna nel DB): dal sotto-passo 3 la lobby passerà sempre la lingua scelta
+ * dall'host, quindi in pratica non si userà mai il default.
  */
 export async function creaStanza(
   modalita: ModalitaOnline,
   lunghezza: LunghezzaParola,
+  lingua: LinguaSfida = 'it',
 ): Promise<RisultatoStanza> {
   // 1) Chi sono io? (serve host_id, e conferma che siamo loggati)
   const { data: auth } = await supabase.auth.getUser();
   const utente = auth?.user;
   if (!utente) return { ok: false, errore: 'Devi essere loggato per creare una stanza.' };
 
-  // 2) Parola dal database (stessa per entrambi i giocatori).
-  const parola = await pescaParolaDalDb(lunghezza);
+  // 2) Parola dal database NELLA LINGUA della sfida (stessa per entrambi i giocatori).
+  const parola = await pescaParolaDalDb(lunghezza, lingua);
   if (!parola) return { ok: false, errore: 'Nessuna parola disponibile per questa lunghezza.' };
 
   // 3) Inserimento, con qualche tentativo in caso di collisione del codice.
@@ -87,6 +110,7 @@ export async function creaStanza(
         mode: modalita,
         word_id: parola.id,
         word_length: lunghezza,
+        lang: lingua,          // ← lingua della sfida salvata nel DB
         host_id: utente.id,
         status: 'waiting',
       })
@@ -101,6 +125,7 @@ export async function creaStanza(
           codice: data.room_code,
           modalita: data.mode,
           lunghezza: data.word_length,
+          lingua: data.lang,      // ← riletta dalla riga appena salvata
           parola: parola.testo,
           hostId: data.host_id,
           guestId: data.guest_id,
@@ -120,6 +145,8 @@ export async function creaStanza(
  * ENTRA IN STANZA (guest).
  * Trova la stanza in attesa col codice dato, vi scrive il proprio guest_id e la
  * porta a status='playing'. Legge poi la parola (via word_id) per poter giocare.
+ * La LINGUA della sfida si eredita dalla stanza (colonna `lang`): il guest gioca
+ * nella lingua scelta dall'host, non nella propria lingua locale.
  */
 export async function entraInStanza(codiceGrezzo: string): Promise<RisultatoStanza> {
   const codice = codiceGrezzo.trim().toUpperCase();
@@ -172,6 +199,7 @@ export async function entraInStanza(codiceGrezzo: string): Promise<RisultatoStan
       codice: aggiornata.room_code,
       modalita: aggiornata.mode,
       lunghezza: aggiornata.word_length,
+      lingua: aggiornata.lang,      // ← lingua ereditata dalla stanza dell'host
       parola: normalizzaParola(parolaRow.word),
       hostId: aggiornata.host_id,
       guestId: aggiornata.guest_id,

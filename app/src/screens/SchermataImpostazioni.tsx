@@ -2,10 +2,12 @@ import React, { useMemo } from 'react';
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTema, useControlliTema } from '../temi/TemaContext';
+import { useControlliLingua } from '../lingua/LinguaContext';
 
 export function SchermataImpostazioni({ onIndietro }: { onIndietro?: () => void }) {
   const tema = useTema();
   const { nomeTema, cambiaTema, temiDisponibili } = useControlliTema();
+  const { lingua, cambiaLingua, lingueDisponibili } = useControlliLingua();
 
   // Stili dinamici basati sul tema attivo
   const stili = useMemo(() => {
@@ -108,6 +110,33 @@ export function SchermataImpostazioni({ onIndietro }: { onIndietro?: () => void 
                   {nome === 'vetro' ? '🪟 Vetro' : '☀️ Giallo'}
                 </Text>
                 {nomeTema === nome && <Text style={stili.check}>✓</Text>}
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        <View style={[stili.sezione, { marginTop: 28 }]}>
+          <Text style={stili.label}>🌐 Lingua</Text>
+          <View style={stili.temiLista}>
+            {lingueDisponibili.map((l) => (
+              <Pressable
+                key={l.codice}
+                onPress={() => cambiaLingua(l.codice)}
+                style={({ pressed }) => [
+                  stili.temaItem,
+                  lingua === l.codice && stili.temaItemAttivo,
+                  { transform: [{ scale: pressed ? 0.97 : 1 }] },
+                ]}
+              >
+                <Text
+                  style={[
+                    stili.temaNome,
+                    lingua === l.codice && stili.temaNomeAttivo,
+                  ]}
+                >
+                  {l.bandiera}  {l.nome}
+                </Text>
+                {lingua === l.codice && <Text style={stili.check}>✓</Text>}
               </Pressable>
             ))}
           </View>

@@ -14,6 +14,7 @@ import { contaColori } from '@wordilo/core';
 import type { LunghezzaParola, Modalita } from '@wordilo/core';
 import { useGioco } from '../hooks/useGioco';
 import { useStatistiche } from '../stats/statistiche';
+import type { CodiceLingua } from '../lingua/LinguaContext';
 import { Griglia } from '../components/Griglia';
 import { Tastiera } from '../components/Tastiera';
 import { Coriandoli } from '../components/Coriandoli';
@@ -29,6 +30,7 @@ type Props = {
 
   // --- Online (tutte opzionali: se assenti, è il single player di sempre) ---
   parolaForzata?: string;   // la parola condivisa della stanza
+  linguaForzata?: CodiceLingua; // la lingua della sfida (valida i tentativi su questa)
   online?: boolean;         // true = sfida online (cambia testi e nasconde "nuova partita")
   onRigaConfermata?: (riga: number, verdi: number, arancioni: number) => void; // → invia al canale
   righeAvversario?: Record<number, { verdi: number; arancioni: number }>;      // online: pallini avversario
@@ -52,6 +54,7 @@ export function SchermataGioco({
   lunghezza = 5,
   onIndietro,
   parolaForzata,
+  linguaForzata,
   online = false,
   onRigaConfermata,
   righeAvversario,
@@ -63,7 +66,7 @@ export function SchermataGioco({
 
   const { registra } = useStatistiche();
   const { stato, problema, scossa, secondiRimasti, tastiera, digita, cancella, svuotaRiga, conferma, nuovaPartita } =
-    useGioco(modalita, lunghezza, registra, parolaForzata); // ← 4° argomento: la parola online
+    useGioco(modalita, lunghezza, registra, parolaForzata, linguaForzata); // ← 4°: parola online · 5°: lingua della sfida
   const finita = stato.esito !== 'in_corso';
   const vinta = stato.esito === 'won';
 

@@ -6,140 +6,117 @@
 
 ---
 
-Ciao. Sto sviluppando **Wordilo**, un gioco "indovina la parola" (stile Wordle) in
-italiano, come **app unica** per web + iOS + Android. Ti allego **`SPECIFICA.md`**:
-è la fonte di verità del progetto, aggiornata all'ultimo stato. **Leggila per intero
-prima di rispondere.** Non sono un esperto di backend/Supabase, quindi spiegami le
-cose in modo semplice e **procediamo un passo alla volta**.
+Ciao. Sto sviluppando **Wordilo**, un gioco "indovina la parola" (stile Wordle),
+ora **multilingua (italiano + inglese)**, come **app unica** per web + iOS + Android.
+Ti allego **`SPECIFICA.md`**: è la fonte di verità del progetto, aggiornata all'ultimo
+stato. **Leggila per intero prima di rispondere.** Non sono un esperto di backend/
+Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla volta**.
 
 ## Dove sono arrivato (già fatto e funzionante)
 
 - **Single player COMPLETO** e collegato a Supabase: core puro con test, app Expo
   (menu 5/6 lettere, principiante ed esperto con timer, griglia/tastiera/animazioni/
   pop-up in stile flat), config dal DB (`game_settings`), **login email/password**,
-  **statistiche reali** (`games` + vista `user_stats`), **dizionario italiano reale**
-  con validazione **offline-first**, **login Google (web)** + **avatar**.
+  **statistiche reali** (`games` + vista `user_stats`), dizionario reale con validazione
+  **offline-first**, **login Google (web)** + **avatar**.
 - **Online — filone C v1: COMPLETO e CHIUSO** — la sfida è giocabile dall'inizio alla
   fine, con **lobby vera dal menu** e **pulizia/scadenza delle stanze** (testata su web
-  con due browser, account diversi). In dettaglio:
-  - **C1** ✅ tabella `matches` + RLS (vincoli e policy verificati).
-  - **C2** ✅ crea/entra stanza col **codice** (`app/src/online/stanze.ts`:
-    `creaStanza`/`entraInStanza`; la parola la sceglie il **DB** con `parola_casuale`,
-    così è **uguale** per i due).
-  - **C3** ✅ **Realtime** broadcast (`app/src/online/canaleStanza.ts`): i riepiloghi
-    **verdi/arancioni** viaggiano tra i due (solo conteggi, mai le lettere), più
-    l'**avviso ingresso guest** (`guest-entrato`/`host-ok`): quando il guest entra,
-    l'host passa a `playing` **da solo**.
-  - **D1–D2** ✅ `useGioco` accetta una **parola forzata**; `SchermataGioco` ha props
-    **online opzionali** (senza, è il single player di sempre) e a ogni riga chiama
-    `onRigaConfermata(riga, verdi, arancioni)` (usa `contaColori`, nel core).
-  - **D3–D4** ✅ contenitore `app/src/online/SchermataGiocoOnline.tsx` (apre il canale +
-    monta la partita sulla parola condivisa), routing in `app/src/screens/Wordilo.tsx`;
-    **pallini dell'avversario** a **sinistra** delle righe nella `Griglia`
-    (verde=corrette, arancione=fuori posizione). **Testato.**
-  - **C5a** ✅ **esito condiviso** arbitrato dall'**host** ("vince chi indovina **per
-    primo**"); i due mostrano lo **stesso** pop-up (Hai vinto / Hai perso / Pareggio).
-    **Testato** (vittoria, sconfitta, pareggio, fotofinish).
-  - **C5b** ✅ **scrittura dell'esito**: a fine sfida ciascun client scrive la **propria
-    riga** in `games` (`result` won/lost/draw, `points` 10/0/5 letti da `game_settings`
-    con fallback, `mode='online'`, `match_id`, `word_length`), con **guardia
-    anti-doppione**; l'**host** porta `matches` a **`finished`** (`winner_id`/`is_draw`/
-    `finished_at`). La **RLS era già sufficiente** (verificata, nessuna modifica).
-    **Testato** (due righe in `games` con stesso `match_id`; `matches` a `finished`).
-  - **C6** ✅ **classifiche**: vista `user_stats` **estesa** (pareggiate, giocate_online,
-    win_rate, punti_totali) senza rompere il menu; create le viste **pubbliche**
-    `leaderboard_points` e `leaderboard_skill` (soglia bravura da `app_config`). **UI:**
-    modulo `app/src/online/classifiche.ts` + **schermata `SchermataClassifiche`**
-    (medaglie/avatar/punti, riga propria evidenziata), aperta dal menu col pulsante 🏆.
-    Per ora si mostra **solo la classifica a punti**. **Testato.**
-  - **C7** ✅ **casi limite** (abbandono/disconnessione): regola **"chi lascia perde,
-    l'altro vince"**. In `canaleStanza.ts` aggiunti messaggio `abbandono` + **Presence**
-    (join/leave con **grazia** ~6s per i blip di rete); in `SchermataGiocoOnline`
-    l'**uscita esplicita** (Indietro → abbandono + riga `lost`) e la **disconnessione
-    vera** confluiscono in "io vinco" e scrivono/chiudono (in abbandono può chiudere
-    `matches` anche il guest, la RLS lo consente). **Testato** (uscita e disconnessione).
-    *Limiti v1 noti:* chi **crolla** (scheda chiusa) non scrive la riga `lost`; la
-    Presence reagisce dopo ~10-20s. L'uscita esplicita è immediata.
-  - **Lobby (1b)** ✅ **lobby vera dal menu** (`app/src/screens/SchermataLobby.tsx`):
-    dal pulsante **⚔️ Sfida online** si crea/entra col codice; l'host vede il codice e
-    attende, il guest entra, e l'**ingresso in partita è automatico** (riuso della
-    stretta di mano `guest-entrato`/`host-ok`; `annunciaIngresso` ora ha la callback
-    `onConfermato`). **Banco di prova rimosso.** **Testato su web.**
-  - **Pulizia/scadenza stanze (2c)** ✅ residui dei test ripuliti; policy **DELETE** su
-    `matches` allargata (`status<>'finished'` + oltre 10 min); `pulisciStanzeVecchie`
-    chiamata all'apertura della lobby; `annullaStanza` **chiude** la stanza a `finished`
-    (non la cancella). **Testato** (Annulla + scadenza forzata). **Filone C v1 chiuso.**
-- **Temi e interfaccia (nuovo, dopo il filone C)**: introdotto un **sistema di temi**
-  (`app/src/temi/`), tema attivo via `TemaProvider`/`useTema`, scelto dal menu
-  (**⚙️ → Impostazioni**). Due temi: **Vetro** (glassmorphism scuro, default) e
-  **Giallo** (chiaro flat/pieno). Migrate a leggere dal tema: **menu, gioco
-  (griglia/tastiera/coriandoli), login, impostazioni, loading**; i colori prima cablati
-  sono ora **token** in `theme.ts` (parità di chiavi garantita da `keyof typeof C`);
-  ogni schermata ha un `*.stili.ts` con `creaStili(tema)`; nuova `SchermataImpostazioni`
-  (selettore tema) e `TemaProvider` montato **in cima** ad `App.tsx`. **Layout gioco**:
-  griglia + tastiera in **un unico blocco centrato** (via il vuoto in mezzo). *Ancora
-  statiche* (da tematizzare): schermate **online** (Classifiche/Lobby/GiocoOnline) e
-  `Avatar`. *Limite noto*: il tema **non è ricordato** al riavvio (persistenza rimandata).
+  con due browser, account diversi): tabella `matches` + RLS, crea/entra con codice,
+  Realtime (riepiloghi verdi/arancioni + pallini avversario), esito arbitrato dall'host
+  e **scritto** in `games`/`matches`, classifiche (per ora solo a punti), casi limite
+  (abbandono/disconnessione = "chi lascia perde"). Dettagli completi in `SPECIFICA.md`.
+- **Temi e interfaccia**: sistema di temi (`app/src/temi/`), tema attivo via
+  `TemaProvider`/`useTema`, scelto dal menu (**⚙️ → Impostazioni**). Due temi: **Vetro**
+  (glass scuro, default) e **Giallo** (chiaro flat). A tema: menu, gioco, login,
+  impostazioni, loading. *Ancora statiche*: schermate **online** e `Avatar`.
+- **NUOVO in quest'ultima sessione — Multilingua (it/en) + rifiniture mobile:**
+  - **Parole inglesi nel DB**: importate in `words` (`lang='en'`) 12.041 da 5 lettere e
+    21.441 da 6; `is_solution` scelto per **frequenza d'uso** (`wordfreq`, **Zipf ≥ 3.5**
+    → 1.769 e 2.039 bersagli). Import via **CSV** senza la colonna `id` (è
+    `GENERATED ALWAYS AS IDENTITY`, la genera il DB).
+  - **Sistema lingua**: nuovo `LinguaContext` (`app/src/lingua/`), montato in `App.tsx`
+    accanto a `TemaProvider`; **estendibile con una riga**. Selettore **🌐 Lingua** in
+    `SchermataImpostazioni` (accanto al tema).
+  - **Dizionario per lingua**: `dizionarioDati.ts` diventato **indice**
+    (`SOLUZIONI[lingua][lunghezza]`, `VALIDE[lingua][lunghezza]`, tipo `Lingua`) che
+    unisce `dizionarioDati.it.ts` e `dizionarioDati.en.ts`. Le funzioni del core ora
+    prendono la lingua: `pescaParolaCasuale(lingua, lunghezza)` e
+    `parolaValida(parola, lingua, lunghezza)`; `useGioco` legge `useLingua()` e la passa.
+    **Il single player cambia lingua correttamente.**
+  - **Bug registrazione risolto**: `AuthContext.registrati` aveva 5 argomenti ma la
+    schermata ne passava 3 → `email`/`password` `undefined` → crash su `.trim()`. Firma
+    riportata a `registrati(nick, email, password)`.
+  - **Rifiniture mobile**: pallini avversario che uscivano a sinistra (ora la griglia
+    riserva spazio anche per l'online); menu che tagliava i pulsanti in fondo (ora è una
+    `ScrollView`); countdown nel tema Giallo reso leggibile (numero ambra scuro) con
+    **allarme rosso pieno + numero bianco negli ultimi 5 secondi**.
 
-**File nuovi in `app/src/online/`**: `stanze.ts` (con `annullaStanza` +
-`pulisciStanzeVecchie`), `canaleStanza.ts`, `classifiche.ts`,
-`SchermataGiocoOnline.tsx`. Nuove schermate: `app/src/screens/SchermataClassifiche.tsx`,
-`app/src/screens/SchermataLobby.tsx`. **Rimosso:** `app/src/online/BancoProvaStanze.tsx`.
-Modificati di recente: `app/src/screens/SchermataMenu.tsx` (pulsanti ⚔️ Sfida online +
-🏆 Classifica affiancati), `app/src/screens/Wordilo.tsx` (routing classifiche + lobby +
-sfida online). Nel DB: vista `user_stats` estesa; create `leaderboard_points` e
-`leaderboard_skill`; `app_config.skill_min_games` = 10; **quarta policy DELETE** su
-`matches` (`"host cancella stanze proprie non finite"`).
+## Cosa manca / prossimi passi (in ordine consigliato)
 
-Per i dettagli completi vedi la specifica (§3 struttura file, §10 modello dati/viste,
-§13 core, §14 decisioni, §15 stato/ordine di sviluppo).
+1. **⚠️ Lingua della sfida ONLINE (importante).** Oggi la partita online valida i
+   tentativi sulla lingua **locale** di chi gioca, non su quella della sfida: se i due
+   giocatori hanno lingue **diverse**, la sfida si rompe (uno valida sul dizionario
+   sbagliato). Da fare: rendere la **lingua una proprietà della sfida** — salvarla in
+   `matches`, aggiungerla al tipo `Sfida` (`app/src/online/stanze.ts`), sceglierla alla
+   creazione, e passarla fino a `useGioco` come **`linguaForzata`** (gemella di
+   `parolaForzata`). *Decisione da prendere*: lingua della sfida **automatica** (= quella
+   dell'host al momento della creazione) oppure **esplicita** (piccolo selettore nella
+   lobby). *Finché i due tengono la stessa lingua, l'online già funziona.*
+2. **Scelta del font** in Impostazioni (accanto a lingua e tema). Richiede: caricare i
+   `.ttf` dei font alternativi in `App.tsx` (`useFonts`) + far **sovrascrivere**
+   `tema.font` dalla scelta utente (un piccolo override che avvolge il tema). *Serve
+   decidere quali font rendere disponibili e da dove prenderli.*
+3. **Persistenza di lingua e tema** (AsyncStorage): oggi entrambi ripartono dal default
+   a ogni avvio. Stesso meccanismo per i due contesti (`LinguaContext` e `TemaContext`).
+4. **Temi — completare**: tematizzare le schermate **online** (Classifiche, Lobby,
+   partita online) e il componente **Avatar** (oggi ancora a colori statici). Quando si
+   toccano `SchermataGioco.tsx`/`Griglia.tsx`, usare le versioni **con le props online**
+   (`parolaForzata`, `righeAvversario`, pallini), non quelle single-player.
+5. **Rifinitura classifiche (opzionale)**: mostrare anche la **bravura** in UI (la vista
+   `leaderboard_skill` è già pronta lato DB) — tab Punti/Bravura in `SchermataClassifiche`.
 
-## Come si prova l'online
+## Punti dove si può migliorare (debito tecnico / idee)
 
-C'è la **lobby vera nel menu** (il banco di prova è stato rimosso). Serve **web** con
-**due browser** (uno in incognito), ognuno loggato con **un account diverso**. Flusso:
-dal menu si scelgono lunghezza/modalità con le pillole, poi Browser A **⚔️ Sfida
-online → Crea stanza** (compare il **codice**, resta in attesa) → Browser B **⚔️ Sfida
-online → Entra** col codice → **entrambi entrano in partita in automatico** (nessun
-bottone da premere) sulla **stessa parola**; i **pallini** dell'avversario compaiono a
-sinistra; a fine partita **entrambi** vedono lo stesso esito, che viene **scritto** in
-`games`/`matches`. L'**Annulla** (Indietro dell'host in attesa) chiude la stanza. Le
-**classifiche** si aprono dal menu col pulsante 🏆.
+- **Affinamento bersagli del dizionario**: l'inglese usa Zipf ≥ 3.5 (regolabile);
+  l'italiano fu scelto con una soglia di frequenza più grezza. Si può riallineare
+  l'italiano con lo **stesso metodo** (`wordfreq` supporta l'italiano) e ripulire
+  nomi propri/forestierismi dai bersagli con un `UPDATE` di `is_solution`.
+- **Maiuscolo/minuscolo nel DB**: le parole importate sono in MAIUSCOLO; verificare che
+  siano coerenti con le righe già presenti (il gioco normalizza comunque a monte).
+- **`parola_casuale(lunghezza)` lato DB** va resa **per lingua** (parametro `lang`) prima
+  di usarla per l'online v2.
+- **Online v2 (anti-cheat)**: spostare scelta parola + valutazione in un'**Edge Function**
+  (parola solo lato server), rendendo le classifiche pubbliche non falsificabili;
+  la scelta parola dovrà essere **per lingua**.
+- **Limiti online v1 noti**: chi **crolla** (scheda chiusa) non scrive la riga `lost`; la
+  Presence reagisce dopo ~10–20s; nelle gare al millesimo può vincere l'host per il
+  ritardo di rete (esito arbitrato dall'host, accettato in v1).
+- **Barrel del core**: se `@wordilo/core` ha un `index.ts` che ri-esporta, valutare di
+  esportare anche `type Lingua` per averlo disponibile lato app (non obbligatorio: l'app
+  usa `CodiceLingua` da `LinguaContext`, che è lo stesso `'it' | 'en'`).
+- Fuori dall'online (quando vorrò): dev build + test **login Google su telefono**;
+  **login Facebook**; verifica **upload avatar da telefono**.
 
 ## Stack e convenzioni da rispettare
 
 - **Expo SDK 57 / React Native 0.86**, TypeScript. Monorepo: `/core`, `/app`,
-  `/backend` (quest'ultimo serve solo alla **v2** anti-cheat, non ancora creato).
-  L'app importa il core come `@wordilo/core` (alias Metro + `paths` di tsconfig).
+  `/backend` (quest'ultimo solo per la **v2**, non ancora creato). L'app importa il core
+  come `@wordilo/core` (alias Metro + `paths` tsconfig).
 - **Backend**: Supabase (Auth, Postgres, Realtime, Storage, Edge Functions).
 - **Nomi in italiano** nel codice — mantieni lo stile esistente.
-- **Il `core` resta puro**: niente effetti/React lì dentro (il timer, il canale e
-  l'arbitrato dell'esito vivono nei hook/contenitori dell'app).
-- **Online v1 = parola sul client** (classifica "sulla fiducia"); l'anti-cheat vero
-  (parola solo lato server, Edge Function) è la **v2**, rimandata. Cifrare la parola
-  sul client NON protegge (servirebbe anche la chiave nel client).
-- **Esito arbitrato dall'host**: i due dispositivi non hanno un orologio comune, quindi
-  a decidere è **sempre l'host** e l'altro accetta il verdetto (→ sempre d'accordo).
-  Limite noto v1: nelle gare al millesimo può vincere l'host per il ritardo di rete.
-- **Abbandono/disconnessione (C7)**: chi lascia perde. Rilevato via broadcast
-  `abbandono` (uscita esplicita, immediato) **e** via **Presence** del canale
-  (disconnessione vera, con grazia ~6s). Chi resta si auto-dichiara vincitore e in
-  quel caso può chiudere `matches` anche il guest.
-- **Scritture su DB dell'esito (C5b)**: avvengono nell'imbuto unico `applicaEsito` con
-  **guardia sincrona** anti-doppione (l'esito rimbalza per le ribattute). Ogni client
-  scrive **solo la propria** riga in `games`; `matches` la chiude l'host (o il guest in
-  caso di abbandono).
-- **Sicurezza**: la chiave `anon` sta nell'app ed è protetta dalla **RLS**; la chiave
-  `service_role` e il **client secret di Google** NON vanno mai nell'app. I segreti
-  restano nel `.env` locale/pannelli, mai in chat né in Git.
-- Gotcha già incontrati: l'URL Supabase è **solo** `https://<progetto>.supabase.co`;
-  il **`.env` si legge solo all'avvio**; quando **cambi/aggiungi file nel `core`**
-  riavvia con **`npx expo start -c`** (se tocchi solo l'`app`, NON serve `-c`); il
-  **login Google su telefono NON funziona in Expo Go** (serve un dev build);
-  **broadcast Realtime non conserva i messaggi** (di qui le "ribattute" di guest ed
-  esito); le **viste pubbliche** (`leaderboard_*`) NON usano `security_invoker` (una
-  classifica è pubblica), mentre `user_stats` sì; attenzione ai **copia-incolla di
-  `useState<...>` su più righe** (un refuso di sintassi ci ha già fatto perdere tempo).
+- **Il `core` resta puro**: niente effetti/React lì dentro. La **lingua** viaggia come
+  **parametro** delle funzioni del core (non come hook), coerente con questa regola.
+- **Lingua = contesto gemello del tema** (`LinguaProvider`/`useLingua`), estendibile con
+  una riga; il dizionario è **splittato per lingua** e unito da un indice.
+- **Online v1 = parola sul client** (classifica "sulla fiducia"); anti-cheat vero = v2.
+- **Esito arbitrato dall'host**; **abbandono/disconnessione**: chi lascia perde.
+- **Sicurezza**: chiave `anon` nell'app protetta da **RLS**; `service_role` e client
+  secret Google **mai** nell'app. Segreti nel `.env`/pannelli, mai in chat né in Git.
+- Gotcha: URL Supabase = `https://<progetto>.supabase.co`; il `.env` si legge **solo
+  all'avvio**; se **cambi/aggiungi file nel `core`** riavvia con **`npx expo start -c`**
+  (solo `app` → non serve `-c`); login Google su telefono NON in Expo Go (serve dev
+  build); broadcast Realtime non conserva i messaggi (di qui le "ribattute"); attenzione
+  ai copia-incolla di `useState<...>` su più righe.
 
 ## Come voglio che lavoriamo (metodo)
 
@@ -149,38 +126,15 @@ sinistra; a fine partita **entrambi** vedono lo stesso esito, che viene **scritt
    incollartelo**. Consegnami **file completi "drop-in"** oppure modifiche puntuali
    chiarissime.
 3. **Verifica a ogni passo**: dimmi cosa devo vedere/controllare (in app e, se serve,
-   nel pannello Supabase). Le query sul DB **di sola lettura** prima, le modifiche dopo.
+   nel pannello Supabase). Le query di sola lettura prima, le modifiche dopo.
 4. **Spiega con parole semplici** le parti backend/SQL: sto imparando.
 5. Se qualcosa dà errore, te lo incollo e lo risolviamo prima di proseguire.
-
-## Cosa manca (prossimi passi)
-
-Il **filone C v1 è chiuso** (sfida completa + lobby + pulizia stanze). Resta:
-
-1. **Rifinitura classifiche (opzionale, dentro l'online)**: mostrare anche la
-   **bravura** in UI (la vista `leaderboard_skill` è già pronta lato DB) — tab
-   Punti/Bravura in `SchermataClassifiche`. È l'unica cosa rimasta dell'online v1.
-2. **Temi — completare**: tematizzare le schermate **online** (Classifiche, Lobby,
-   partita online) e il componente **Avatar** (oggi ancora a colori statici), e
-   aggiungere la **persistenza** del tema (AsyncStorage) così non riparte da Vetro a
-   ogni avvio. Nota: quando si toccano `SchermataGioco.tsx`/`Griglia.tsx`, usare le
-   versioni **con le props online** (`parolaForzata`, `righeAvversario`, pallini), non
-   quelle single-player, altrimenti si rompe la sfida online.
-
-Fuori dall'online (quando vorrò): **3c** dev build + test **login Google su telefono**;
-**login Facebook**; verifica **upload avatar da telefono**. In **futuro**: online v2
-anti-cheat (Edge Function, parola solo lato server), affinamento bersagli dizionario,
-classifica bravura tipo Elo, pubblicazione sugli store (EAS build, icone/splash).
 
 ## Come iniziare
 
 Per prima cosa: leggi la specifica, poi **riassumimi in poche righe dove siamo** (per
-confermare che il contesto è chiaro). Il **filone C v1 online è chiuso**; il prossimo
-passo naturale è la **rifinitura opzionale delle classifiche** (mostrare anche la
-**bravura** in UI, con tab Punti/Bravura in `SchermataClassifiche`; la vista
-`leaderboard_skill` è già pronta lato DB), oppure **completare i temi** (tematizzare le
-schermate online + `Avatar`, e persistenza del tema). In alternativa possiamo passare ai
-fronti fuori dall'online (dev build + Google/Facebook su telefono) o alla **v2
-anti-cheat**.
-Dimmi tu da dove ripartire, con lo stesso metodo qui sopra: un sotto-passo alla volta,
-chiedendomi i file prima di modificarli.
+confermare che il contesto è chiaro). Il prossimo passo naturale è la **lingua della
+sfida online** (punto 1 qui sopra), che chiude il multilingua anche nell'online. In
+alternativa possiamo fare la **scelta del font**, la **persistenza** di lingua+tema, o
+**completare i temi** sulle schermate online. Dimmi tu da dove ripartire, con lo stesso
+metodo qui sopra: un sotto-passo alla volta, chiedendomi i file prima di modificarli.

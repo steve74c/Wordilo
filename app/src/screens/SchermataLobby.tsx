@@ -4,13 +4,18 @@
 // Va salvato in:  app/src/screens/SchermataLobby.tsx
 //
 // Come funziona (riuso la stretta di mano già collaudata nel banco):
-//   • HOST  → "Crea stanza": creaStanza(modalita, lunghezza), mostra il codice e
-//     apre il canale. Appena arriva 'guest-entrato', aspetta un attimo (perché il
-//     'host-ok' raggiunga il guest) e poi ENTRA IN PARTITA da solo.
+//   • HOST  → "Crea stanza": creaStanza(modalita, lunghezza, lingua), mostra il
+//     codice e apre il canale. Appena arriva 'guest-entrato', aspetta un attimo
+//     (perché il 'host-ok' raggiunga il guest) e poi ENTRA IN PARTITA da solo.
 //   • GUEST → digita il codice, "Entra": entraInStanza(codice) (il DB porta la
-//     stanza a 'playing' ed eredita modalità/lunghezza dell'host), apre il canale,
-//     annuncia l'ingresso e appena riceve 'host-ok' ENTRA IN PARTITA.
+//     stanza a 'playing' ed eredita modalità/lunghezza/LINGUA dell'host), apre il
+//     canale, annuncia l'ingresso e appena riceve 'host-ok' ENTRA IN PARTITA.
 //   • Nessuno dei due entra prima che la stretta di mano sia completa.
+//
+// LINGUA DELLA SFIDA: solo l'HOST la sceglie, tra le chip 🇮🇹/🇬🇧 nel riquadro
+// "Crea una stanza". Parte dalla lingua che il giocatore sta già usando (default),
+// ed è uno STATO LOCALE: cambiarla NON cambia la lingua globale dell'app, vale
+// solo per questa sfida. Il guest la eredita dalla stanza (colonna `lang`).
 //
 // Indietro dell'HOST mentre attende → annullaStanza(id) cancella la riga 'waiting'
 // così non restano residui in matches.
@@ -25,6 +30,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { LunghezzaParola, Modalita } from '@wordilo/core';
 import { ombra } from '../theme';
 import { useTema } from '../temi/TemaContext';
+import { useControlliLingua } from '../lingua/LinguaContext';
+import type { CodiceLingua } from '../lingua/LinguaContext';
 import { creaStili } from './SchermataLobby.stili';
 import { supabase } from '../lib/supabase';
 import {
@@ -56,6 +63,12 @@ type Ruolo = 'host' | 'guest';
 export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndietro }: Props) {
   const tema = useTema();
   const styles = useMemo(() => creaStili(tema), [tema]);
+
+  // Lingua della SFIDA (stato locale della lobby): parte dalla lingua che il
+  // giocatore sta già usando nell'app; l'host può cambiarla solo per questa sfida,
+  // senza toccare la lingua globale (non chiamiamo cambiaLingua).
+  const { lingua: linguaApp, lingueDisponibili } = useControlliLingua();
+  const [linguaSfida, setLinguaSfida] = useState<CodiceLingua>(linguaApp);
 
   const [mioId, setMioId] = useState<string | null>(null);
   const [codiceInput, setCodiceInput] = useState('');
@@ -139,7 +152,8 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
     setOccupato(true);
     setMessaggio(null);
     try {
-      const r = await creaStanza(modalita as ModalitaOnline, lunghezza);
+      // Passiamo la lingua scelta dall'host: diventa la lingua della sfida.
+      const r = await creaStanza(modalita as ModalitaOnline, lunghezza, linguaSfida);
       if (r.ok) {
         setRuolo('host');
         setSfida(r.sfida);
@@ -163,7 +177,7 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
       const r = await entraInStanza(codice);
       if (r.ok) {
         setRuolo('guest');
-        setSfida(r.sfida); // già 'playing', modalità/lunghezza ereditate dall'host
+        setSfida(r.sfida); // già 'playing', modalità/lunghezza/lingua ereditate dall'host
       } else {
         setMessaggio(r.errore);
       }
@@ -215,6 +229,36 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
               <Text style={styles.spiega}>
                 Apri una stanza e detta il codice al tuo avversario.
               </Text>
+
+              {/* Lingua della sfida — solo l'host sceglie; il guest la eredita. */}
+              <Text style={[styles.eyebrow, { marginTop: 8 }]}>LINGUA DELLA SFIDA</Text>
+              <View style={styles.linguaRiga}>
+                {lingueDisponibili.map((l) => {
+                  const attiva = linguaSfida === l.codice;
+                  return (
+                    <Pressable
+                      key={l.codice}
+                      onPress={() => setLinguaSfida(l.codice)}
+                      disabled={occupato}
+                      style={({ pressed }) => [
+                        styles.linguaChip,
+                        attiva && styles.linguaChipAttiva,
+                        { transform: [{ scale: pressed ? 0.97 : 1 }] },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.linguaChipTesto,
+                          attiva && styles.linguaChipTestoAttivo,
+                        ]}
+                      >
+                        {l.bandiera}  {l.nome}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
               <Pressable
                 onPress={onCrea}
                 disabled={occupato}

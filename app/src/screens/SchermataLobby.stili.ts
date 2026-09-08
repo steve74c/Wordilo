@@ -78,6 +78,43 @@ export function creaStili(tema: Tema) {
     },
     spiega: { color: P.testo, opacity: 0.85, fontSize: 14, fontFamily: F.regular, marginBottom: 4 },
 
+    // --- Selettore lingua della sfida (due chip affiancate, stile coerente con
+    //     il selettore in Impostazioni: bordo/accento quando attiva). La riga usa
+    //     flexWrap così, se un giorno aggiungi una terza lingua, le chip vanno a capo.
+    linguaRiga: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+      marginBottom: 4,
+    },
+    linguaChip: {
+      flexGrow: 1,
+      flexBasis: '40%',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 8,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: P.hair,
+      backgroundColor: P.superficie,
+    },
+    linguaChipAttiva: {
+      borderColor: P.accento,
+      backgroundColor: P.accentoSfondo,
+    },
+    linguaChipTesto: {
+      color: P.testoTenue,
+      fontSize: 15,
+      fontFamily: F.medium,
+      fontWeight: '600',
+    },
+    linguaChipTestoAttivo: {
+      color: P.accento,
+      fontFamily: F.bold,
+      fontWeight: '800',
+    },
+
     creaWrap: { marginTop: 8 },
     crea: { borderRadius: 16, paddingVertical: 16, alignItems: 'center', justifyContent: 'center' },
     creaTesto: { color: P.testoSuAccento, fontSize: 17, fontFamily: F.bold, fontWeight: '800', letterSpacing: 0.3 }, // era '#052722'

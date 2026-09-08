@@ -86,18 +86,20 @@ over-the-air del codice JS senza ripassare dagli store.
 ```
 /core        → logica di gioco, tipi, dizionario (TypeScript puro, condiviso)
   src/         valutaTentativo, gioco (motore), normalizza, config, types
-  src/dizionario.ts     parolaValida (validazione dal dizionario) + stub storico
-  src/dizionarioDati.ts dizionario italiano vero: SOLUZIONI (bersagli) + VALIDE (generato dal DB)
-  src/paroleDev.ts      pescaParolaCasuale = pesca un bersaglio dal dizionario reale
+  src/dizionario.ts     parolaValida(parola, lingua, lunghezza): valida sul dizionario della LINGUA
+  src/dizionarioDati.ts INDICE dei dizionari per lingua: SOLUZIONI[lingua][lunghezza] + VALIDE[lingua][lunghezza] (+ tipo Lingua = 'it' | 'en')
+  src/dizionarioDati.it.ts dizionario ITALIANO (generato dal DB): SOLUZIONI_IT + VALIDE_IT
+  src/dizionarioDati.en.ts dizionario INGLESE (generato dal DB): SOLUZIONI_EN + VALIDE_EN
+  src/paroleDev.ts      pescaParolaCasuale(lingua, lunghezza) = pesca un bersaglio nella lingua scelta
   dev/gioca.ts CLI di prova (banco di prova della logica, non fa parte del gioco)
 /app         → app Expo (web + iOS + Android)
-  App.tsx                      carica i font, monta i provider (TEMA in cima, poi config/auth/profilo/stat) e il gioco
+  App.tsx                      carica i font, monta i provider (TEMA + LINGUA in cima, poi config/auth/profilo/stat) e il gioco
   .env                         chiavi Supabase locali (EXPO_PUBLIC_*), NON in Git
   .env.example                 template committabile delle variabili d'ambiente
   src/lib/supabase.ts          client Supabase unico (URL + chiave anon dal .env)
   src/config/configService.ts  legge game_settings dal DB → ConfigGioco (fallback ai default)
   src/config/ConfigContext.tsx provider della config + hook useConfig()
-  src/auth/AuthContext.tsx     provider auth (sessione + registrati/accedi/accediConGoogle/esci)
+  src/auth/AuthContext.tsx     provider auth (sessione + registrati(nick,email,password)/accedi/accediConGoogle/esci)
   src/auth/PortaAuth.tsx       "cancello": login se non loggato, gioco se loggato
   src/profilo/ProfiloContext.tsx provider profilo (nick/nome/cognome/avatarUrl + cambiaAvatar)
   src/profilo/avatarStorage.ts scegliEcaricaAvatar: selettore foto + upload su Storage
@@ -123,7 +125,8 @@ over-the-air del codice JS senza ripassare dagli store.
   src/temi/Temavetro.ts        tema "vetro" = valori di theme.ts impacchettati
   src/temi/TemaGiallo.ts       tema "giallo" (chiaro flat/pieno); tutti i suoi colori si affinano da qui
   src/temi/TemaContext.tsx     TemaProvider (montato in cima ad App.tsx) + useTema()/useControlliTema() (cambio tema a runtime)
-  src/screens/SchermataImpostazioni.tsx  scelta del tema (Vetro/Giallo), aperta dal menu col pulsante ⚙️
+  src/lingua/LinguaContext.tsx  LinguaProvider (montato in cima ad App.tsx) + useLingua()/useControlliLingua(): lingua attiva (it/en), elenco, cambiaLingua (estendibile con UNA riga)
+  src/screens/SchermataImpostazioni.tsx  scelta del TEMA (Vetro/Giallo) e della LINGUA (🇮🇹 Italiano / 🇬🇧 English), aperta dal menu col pulsante ⚙️
   src/**/*.stili.ts            stili per-schermata via creaStili(tema): Menu/Gioco/Auth/Griglia/Tastiera/Coriandoli/Loading (le schermate online e Avatar sono ancora statiche)
   assets/fonts/                font Poppins incorporati (.ttf)
   metro.config.js              wiring monorepo (Metro vede /core)
@@ -225,6 +228,14 @@ I valori numerici qui sotto sono **default parametrizzabili lato server**.
   con il numero di lettere presenti ma fuori posizione**. Si trasmettono **solo i
   conteggi, mai le lettere**, così si vede l'andamento dell'avversario senza poter
   copiare.
+- **Lingua della sfida — DA COMPLETARE.** Con il multilingua (it/en), la parola
+  online è già condivisa (va bene), ma **la validazione dei tentativi usa ancora la
+  lingua LOCALE** di ciascun giocatore (`useLingua()`), non quella della sfida. Se i
+  due hanno impostato lingue **diverse**, la sfida si rompe: uno valida sul dizionario
+  sbagliato e non riesce a confermare parole valide. Va reso la **lingua una proprietà
+  della sfida** (scelta alla creazione, salvata in `matches`, propagata fino a
+  `useGioco` come `linguaForzata`, gemella di `parolaForzata`). Vedi §15. *Finché i due
+  tengono la stessa lingua, l'online funziona correttamente.*
 
 ---
 
@@ -282,7 +293,7 @@ win-rate, punti) arriveranno con la parte online.
 
 ## 9. Dizionario
 
-Serve un dizionario italiano di parole da **5 e 6 lettere** con doppio uso:
+Serve un dizionario di parole da **5 e 6 lettere**, **per ogni lingua**, con doppio uso:
 
 - estrarre la **parola target**;
 - **validare** che ciò che l'utente scrive sia una parola reale.
@@ -291,18 +302,27 @@ Il gioco è **accent-insensitive**: gli accenti si rimuovono sia dal dizionario 
 dall'input dell'utente (es. `perché` → `PERCHE`) e la tastiera a schermo non ha
 tasti accentati. La normalizzazione è centralizzata in `normalizzaParola` (`core`).
 
-**Stato attuale (implementato):** dizionario italiano **reale** importato nella
-tabella `words` (**26.793 parole**: 8.176 da 5 lettere, 18.617 da 6). Una parte è
-marcata come **bersaglio** (`is_solution = true`): **1.452** da 5 e **1.705** da 6,
-scelte incrociando l'elenco con una **classifica di frequenza** (soglia ~top 15.000),
-così i target sono parole riconoscibili; il resto resta valido solo come tentativo. La
-scelta dei bersagli si affina in ogni momento con un `UPDATE` di `is_solution`, senza
-reimportare. **Offline-first**: per il single player il dizionario è anche **dentro
-l'app** (`core/src/dizionarioDati.ts`, generato dai dati del DB — `SOLUZIONI` per
-pescare il target, `VALIDE` per validare), quindi si gioca e si valida **senza rete e
-senza attese**. La **validazione è attiva** (`parolaValida` iniettata in
-`confermaTentativo`). Il DB resta la **fonte di verità**: la funzione SQL
-`parola_casuale(lunghezza)` (pesca un bersaglio lato server) è pronta per l'**online**.
+**Stato attuale (implementato): dizionario MULTILINGUA (it + en).** La tabella `words`
+ha la colonna **`lang`** e ora contiene due lingue:
+
+- **Italiano** (`lang='it'`): **26.793 parole** (8.176 da 5, 18.617 da 6); bersagli
+  (`is_solution=true`): **1.452** da 5 e **1.705** da 6, scelti per frequenza (~top 15.000).
+- **Inglese** (`lang='en'`): **33.482 parole** (12.041 da 5, 21.441 da 6); bersagli:
+  **1.769** da 5 e **2.039** da 6, scelti con **frequenza d'uso reale** (libreria
+  `wordfreq`, soglia **Zipf ≥ 3.5**), così le soluzioni sono parole comuni e non termini
+  da dizionario oscuri. Import fatto via **CSV** (senza colonna `id`, che è
+  `GENERATED ALWAYS AS IDENTITY` e va lasciata generare dal DB).
+
+La scelta dei bersagli si affina in ogni momento con un `UPDATE` di `is_solution` (o
+rigenerando con una soglia diversa), senza reimportare. **Offline-first**: il dizionario
+è anche **dentro l'app**, ora **indicizzato per lingua** — `core/src/dizionarioDati.ts`
+è l'**indice** (`SOLUZIONI[lingua][lunghezza]`, `VALIDE[lingua][lunghezza]`, tipo
+`Lingua`), che unisce i due file dati per lingua (`dizionarioDati.it.ts` /
+`dizionarioDati.en.ts`, generati dai dati). Le funzioni del core prendono la lingua:
+`pescaParolaCasuale(lingua, lunghezza)` e `parolaValida(parola, lingua, lunghezza)`. La
+lingua attiva arriva dal `LinguaProvider` (§16), letta in `useGioco` con `useLingua()`.
+Il DB resta la **fonte di verità**; la funzione SQL `parola_casuale(lunghezza)` è pronta
+per l'online (in v2 dovrà diventare **per lingua**).
 
 ---
 
@@ -517,10 +537,12 @@ logica; il timer, essendo un effetto, vive nella UI e allo scadere chiama
 (`game_settings` via `configService`), con `CONFIG_DEFAULT` come **fallback** se la
 rete non risponde — il tutto senza modifiche al `core`. La **validazione**
 della parola è un predicato **iniettabile** (`confermaTentativo(stato, isValida)`):
-oggi è **attiva** e usa `parolaValida` (lookup nell'insieme `VALIDE` di
-`dizionarioDati.ts`, accent-insensitive). Anche il target si sceglie in locale con
-`pescaParolaCasuale`, che ora attinge al **dizionario reale** (`SOLUZIONI`) invece
-che alla vecchia lista di prova.
+oggi è **attiva** e usa `parolaValida(parola, lingua, lunghezza)` (lookup nell'insieme
+`VALIDE[lingua][lunghezza]` di `dizionarioDati.ts`, accent-insensitive). Anche il target
+si sceglie in locale con `pescaParolaCasuale(lingua, lunghezza)`, che attinge al
+**dizionario reale per lingua** (`SOLUZIONI[lingua][lunghezza]`). La **lingua** è ora un
+parametro di entrambe le funzioni: `useGioco` la legge dal `LinguaProvider` (`useLingua`)
+e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
 
 ---
 
@@ -705,6 +727,18 @@ che alla vecchia lista di prova.
   no-op del context di default e il cambio tema non ha effetto. *Ancora statiche*
   (da migrare): schermate online e `Avatar`. *Rimandata*: la **persistenza** del tema.
 
+- **Multilingua (it/en), architettura.** La lingua è un contesto a sé
+  (`LinguaProvider`/`useLingua`), **gemello del tema** e altrettanto **estendibile**
+  (aggiungere una lingua = una riga in `LINGUE` + i suoi elenchi di parole). Il
+  dizionario è stato **splittato per lingua** in file separati (`dizionarioDati.it.ts` /
+  `.en.ts`) uniti da un **indice** (`dizionarioDati.ts`), così ogni file resta gestibile
+  e si aggiunge una lingua senza toccare gli altri. Le funzioni del core prendono la
+  **lingua come parametro** (non la leggono da React: il core resta puro). I bersagli
+  inglesi sono scelti per **frequenza d'uso** (`wordfreq`, Zipf ≥ 3.5): approccio
+  ripetibile e non arbitrario, valido anche per rivedere l'italiano in futuro. *Scelte
+  rimandate*: la **lingua della sfida online** (oggi si usa la locale — va resa proprietà
+  della sfida, §15), la **scelta del font**, e la **persistenza** di lingua+tema.
+
 ---
 
 ## 15. Punti ancora aperti
@@ -828,9 +862,42 @@ che alla vecchia lista di prova.
     centrato** (basta il vuoto in mezzo). *Non ancora a tema*: schermate **online**
     (Classifiche/Lobby/GiocoOnline) e `Avatar`. *Limite*: il tema **non è ricordato** al
     riavvio (persistenza AsyncStorage rimandata).
+  - 🌍 **Multilingua (it/en) + rifiniture mobile (dopo i temi)** — l'app ora supporta
+    **più lingue** e la lingua scelta decide le parole del single player. Fatto:
+    - ✅ **Parole inglesi nel DB**: importate in `words` (`lang='en'`) 12.041 parole da
+      5 lettere e 21.441 da 6, con `is_solution` per **frequenza** (Zipf ≥ 3.5 →
+      1.769 e 2.039 bersagli). Import via CSV lasciando generare l'`id` (identity).
+    - ✅ **Sistema lingua**: `LinguaContext` (`app/src/lingua/`), montato in `App.tsx`;
+      selettore 🌐 in `SchermataImpostazioni` accanto al tema.
+    - ✅ **Dizionario per lingua**: split `dizionarioDati.it.ts` / `.en.ts` + indice
+      `dizionarioDati.ts` (`SOLUZIONI[lingua][lunghezza]`, `VALIDE[lingua][lunghezza]`);
+      `parolaValida`/`pescaParolaCasuale` ora prendono la **lingua**; `useGioco` la
+      legge da `useLingua()` e la passa. **Il single player cambia lingua correttamente.**
+    - ✅ **Bug registrazione risolto**: `AuthContext.registrati` aveva 5 argomenti
+      (`nick,nome,cognome,email,password`) ma la schermata ne passava 3 → `email`/
+      `password` finivano `undefined` e `.trim()` crashava ("Cannot read property 'trim'
+      of undefined"). Firma riportata a `registrati(nick, email, password)`.
+    - ✅ **Rifiniture mobile**: (a) i **pallini avversario** (online) uscivano dallo
+      schermo a sinistra → `SchermataGioco` riserva ora spazio anche per l'online (non
+      solo per il countdown esperto), con `Math.max` fra le due riserve. (b) Il **menu**
+      su schermi bassi tagliava i pulsanti in fondo (Sfida online/Classifica/legenda) →
+      `SchermataMenu` ora è una **`ScrollView`** (`flexGrow:1`+`center`). (c) **Countdown**
+      nel tema Giallo: numero+anello passati a `accentoSoft` (ambra scuro leggibile su
+      fondo chiaro); l'**allarme** ora scatta negli **ultimi 5 secondi** con cerchietto
+      **rosso pieno + numero bianco**.
+    - 🟡 **Da completare (importante):** **lingua della sfida online** — oggi la
+      validazione online usa la lingua **locale**, non quella della sfida (se i due
+      hanno lingue diverse la sfida si rompe). Da fare: salvare la lingua in `matches`,
+      aggiungerla al tipo `Sfida`, sceglierla alla creazione (automatica = lingua
+      dell'host, oppure selettore in lobby), e passarla a `useGioco` come `linguaForzata`.
+    - 🟡 **Da fare: scelta del font** in Impostazioni — richiede di caricare i `.ttf` dei
+      font alternativi in `App.tsx` (`useFonts`) + un override di `tema.font`.
+    - 🟡 **Da fare: persistenza** di **lingua e tema** (AsyncStorage), così non ripartono
+      dal default a ogni avvio (stesso meccanismo per entrambi i contesti).
   - 🔮 Futuro: **online v2 (anti-cheat)** — spostare scelta parola + valutazione in
     un'**Edge Function** (parola solo lato server) per rendere le classifiche
-    pubbliche non falsificabili. Struttura invariata rispetto alla v1.
+    pubbliche non falsificabili. Struttura invariata rispetto alla v1. *In v2 la scelta
+    della parola e la validazione andranno rese **per lingua** (parametro `lang`).*
 
 ---
 
@@ -884,10 +951,12 @@ Vetro); persistenza (AsyncStorage) rimandata.
   chiaro come indicatore.
 - **Countdown (solo esperto)**: badge circolare **a lato della riga attiva** (fuori
   dal flow, quindi non sposta le celle centrate; scende con la riga). Conta i
-  secondi rimasti (default 25), fa un piccolo "pop" a ogni secondo e passa da
-  **teal ad arancione** negli ultimi secondi. In esperto la griglia riserva un po'
-  di spazio a destra così il badge non esce mai dallo schermo; in principiante è
-  assente.
+  secondi rimasti (default 25, valore preso da `game_settings`) e fa un piccolo "pop"
+  a ogni secondo. Numero e anello usano `accentoSoft` (nel Giallo: **ambra scuro**
+  leggibile sul fondo chiaro). Negli **ultimi 5 secondi** scatta l'**allarme**: il
+  cerchietto si **riempie di rosso** (`#FF3B30`) con **numero bianco**. In esperto la
+  griglia riserva spazio a destra così il badge non esce mai dallo schermo; in
+  principiante è assente.
 - **Tastiera** (QWERTY):
   - tasti **non ancora usati → bianchi** (testo scuro);
   - lettera **assente → grigio**; lettera **presente/corretta → arancione/verde** a
@@ -916,6 +985,10 @@ Vetro); persistenza (AsyncStorage) rimandata.
   esterno**), caricato con `expo-font` in modo **non bloccante** (se non carica,
   fallback al font di sistema).
 - **Schermata di caricamento** brandizzata mentre il font si prepara.
+- **Scelta del font (pianificata):** si vuole poterlo scegliere in Impostazioni
+  (accanto a lingua e tema). Serve caricare in `App.tsx` (`useFonts`) i `.ttf` dei
+  font alternativi e far **sovrascrivere** `tema.font` dalla scelta utente (piccolo
+  contesto/override che avvolge il tema). Non ancora implementato.
 
 ### Responsività e layout
 
@@ -926,6 +999,14 @@ Vetro); persistenza (AsyncStorage) rimandata.
   nello **stesso contenitore centrato verticalmente** e ravvicinato (`justifyContent:
   'center'` + `gap`), così sparisce il grande vuoto che prima restava tra griglia (in
   alto) e tastiera (in fondo).
+- **Badge fuori dalla griglia (mobile)**: in **esperto** la griglia riserva spazio a
+  destra per il countdown; in **online** riserva spazio a **sinistra** per i **pallini
+  dell'avversario** (riserva di "colonne virtuali", `Math.max` fra le due). Corregge un
+  bug per cui su telefono il pallino **verde** usciva dal bordo sinistro.
+- **Menu scrollabile**: `SchermataMenu` è una `ScrollView` (`flexGrow:1` +
+  `justifyContent:'center'`): resta centrata quando c'è spazio, **scorre** quando non
+  ce n'è, così su schermi bassi non si perdono i pulsanti in fondo (Sfida online,
+  Classifica, legenda) — bug corretto.
 - Contenuto **centrato e limitato in larghezza** su tablet/desktop; **target touch
   generosi** (tasti più alti su telefono).
 
