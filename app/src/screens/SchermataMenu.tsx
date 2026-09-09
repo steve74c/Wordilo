@@ -24,7 +24,8 @@ import { useProfilo } from '../profilo/ProfiloContext';
 
 type Props = {
   onGioca: (modalita: Modalita, lunghezza: LunghezzaParola) => void;
-  onSfidaOnline?: (modalita: Modalita, lunghezza: LunghezzaParola) => void; // (1b): apre la lobby
+  onGiocaVeloce?: (modalita: Modalita, lunghezza: LunghezzaParola) => void; // 🎲 coda casuale (trova avversario)
+  onSfidaOnline?: (modalita: Modalita, lunghezza: LunghezzaParola) => void; // (1b): apre la lobby (col codice)
   onClassifiche?: () => void;         // (C6): apre la schermata classifiche
   onApriImpostazioni?: () => void;    // NEW (Lotto 2): apre le Impostazioni (tema)
   lunghezzaIniziale?: LunghezzaParola;
@@ -115,6 +116,7 @@ function CartaStat({
 
 export function SchermataMenu({
   onGioca,
+  onGiocaVeloce,
   onSfidaOnline,
   onClassifiche,
   onApriImpostazioni,
@@ -250,24 +252,40 @@ export function SchermataMenu({
             <CartaStat numero={perse} label="Perse" colore={tema.palette.arancione} stili={stili} />
           </View>
 
-          {/* Azioni: Sfida online + Classifica (C6 + 1b) */}
-          {(onSfidaOnline || onClassifiche) && (
-            <View style={stili.azioni}>
-              {onSfidaOnline && (
-                <Pressable
-                  onPress={() => onSfidaOnline(modalita, lunghezza)}
-                  style={({ pressed }) => [stili.azioneBtn, { opacity: pressed ? 0.8 : 1 }]}
-                >
-                  <Text style={stili.azioneTesto}>⚔️  Sfida online</Text>
-                </Pressable>
+          {/* Azioni online (🎲 Gioca veloce = coda casuale · ⚔️ Sfida online = col
+              codice) su una riga; 🏆 Classifica sulla sua. La modalità/lunghezza
+              scelte sopra valgono anche per l'online. */}
+          {(onGiocaVeloce || onSfidaOnline || onClassifiche) && (
+            <View style={stili.azioniGruppo}>
+              {(onGiocaVeloce || onSfidaOnline) && (
+                <View style={stili.azioni}>
+                  {onGiocaVeloce && (
+                    <Pressable
+                      onPress={() => onGiocaVeloce(modalita, lunghezza)}
+                      style={({ pressed }) => [stili.azioneBtn, { opacity: pressed ? 0.8 : 1 }]}
+                    >
+                      <Text style={stili.azioneTesto}>🎲  Gioca veloce</Text>
+                    </Pressable>
+                  )}
+                  {onSfidaOnline && (
+                    <Pressable
+                      onPress={() => onSfidaOnline(modalita, lunghezza)}
+                      style={({ pressed }) => [stili.azioneBtn, { opacity: pressed ? 0.8 : 1 }]}
+                    >
+                      <Text style={stili.azioneTesto}>⚔️  Sfida online</Text>
+                    </Pressable>
+                  )}
+                </View>
               )}
               {onClassifiche && (
-                <Pressable
-                  onPress={onClassifiche}
-                  style={({ pressed }) => [stili.azioneBtn, { opacity: pressed ? 0.8 : 1 }]}
-                >
-                  <Text style={stili.azioneTesto}>🏆  Classifica</Text>
-                </Pressable>
+                <View style={stili.azioni}>
+                  <Pressable
+                    onPress={onClassifiche}
+                    style={({ pressed }) => [stili.azioneBtn, { opacity: pressed ? 0.8 : 1 }]}
+                  >
+                    <Text style={stili.azioneTesto}>🏆  Classifica</Text>
+                  </Pressable>
+                </View>
               )}
             </View>
           )}

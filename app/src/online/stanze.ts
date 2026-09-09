@@ -317,3 +317,146 @@ export async function creaRivincita(precedente: Sfida): Promise<RisultatoStanza>
   }
   return { ok: false, errore: 'Troppi tentativi di generare un codice. Riprova.' };
 }
+
+
+// -----------------------------------------------------------------------------
+// CODA CASUALE (🎲 Gioca veloce) — accoppiamento senza codice.
+// Aggiunta additiva: NON tocca creaStanza/entraInStanza (la modalità col codice
+// resta identica). Le stanze della coda sono marcate `is_public = true`, così un
+// giocatore casuale non finisce mai in una stanza privata creata per un amico.
+// -----------------------------------------------------------------------------
+
+// Esito dell'accoppiamento: come RisultatoStanza, ma dice anche il RUOLO —
+//   • 'guest' → sono entrato in una stanza già in attesa: la partita PARTE subito.
+//   • 'host'  → non c'era nessuno, ho creato io la stanza pubblica: sono IN ATTESA.
+// La schermata d'attesa usa `ruolo` per sapere cosa mostrare.
+export type RisultatoCoda =
+  | { ok: true; ruolo: 'host' | 'guest'; sfida: Sfida }
+  | { ok: false; errore: string };
+
+/**
+ * TROVA-O-CREA una stanza pubblica (coda casuale).
+ *
+ * Regola anti-corsa: PRIMA prova a ENTRARE in una stanza pubblica compatibile già
+ * in attesa; solo se non ne trova nessuna libera CREA la propria e aspetta. Così,
+ * se due giocatori premono "Gioca veloce" nello stesso istante, al più uno crea e
+ * l'altro entra — e se provano a entrare nella stessa stanza, la guardia
+ * `guest_id IS NULL` sull'update fa vincere uno solo; l'altro ricade sul candidato
+ * successivo o crea la sua.
+ *
+ * "Compatibile" = stessa modalità, lunghezza e lingua (la scelta fatta dall'utente
+ * nel menu). Le stanze proprie sono escluse (non gioco contro me stesso).
+ */
+export async function trovaOCreaStanzaPubblica(
+  modalita: ModalitaOnline,
+  lunghezza: LunghezzaParola,
+  lingua: LinguaSfida,
+): Promise<RisultatoCoda> {
+  // 1) Chi sono io?
+  const { data: auth } = await supabase.auth.getUser();
+  const utente = auth?.user;
+  if (!utente) return { ok: false, errore: 'Devi essere loggato per giocare online.' };
+
+  // 2) PRIMA CERCA: stanze pubbliche in attesa, compatibili, non mie.
+  //    Le ordino dalla più vecchia: chi aspetta da più tempo viene accoppiato prima.
+  const { data: candidate, error: errCerca } = await supabase
+    .from('matches')
+    .select('*')
+    .eq('is_public', true)
+    .eq('status', 'waiting')
+    .is('guest_id', null)
+    .eq('mode', modalita)
+    .eq('word_length', lunghezza)
+    .eq('lang', lingua)
+    .neq('host_id', utente.id)
+    .order('created_at', { ascending: true })
+    .limit(10);
+
+  if (errCerca) return { ok: false, errore: 'Errore nella ricerca di un avversario.' };
+
+  // 3) Se ci sono candidate, provo a ENTRARE nella prima ancora libera.
+  //    L'update passa solo se guest_id è ANCORA vuoto: se qualcuno l'ha occupata
+  //    nel frattempo, l'update non aggiorna nulla e passo al candidato successivo.
+  for (const stanza of candidate ?? []) {
+    const { data: aggiornata, error: errEntra } = await supabase
+      .from('matches')
+      .update({ guest_id: utente.id, status: 'playing' })
+      .eq('id', stanza.id)
+      .is('guest_id', null)
+      .eq('status', 'waiting')
+      .select()
+      .single();
+
+    if (errEntra || !aggiornata) continue; // occupata da un altro → prova la prossima
+
+    // Entrato! Leggo il testo della parola dal word_id della stanza.
+    const { data: parolaRow, error: errParola } = await supabase
+      .from('words')
+      .select('word')
+      .eq('id', aggiornata.word_id)
+      .single();
+    if (errParola || !parolaRow)
+      return { ok: false, errore: 'Impossibile leggere la parola della sfida.' };
+
+    return {
+      ok: true,
+      ruolo: 'guest',
+      sfida: {
+        id: aggiornata.id,
+        codice: aggiornata.room_code,
+        modalita: aggiornata.mode,
+        lunghezza: aggiornata.word_length,
+        lingua: aggiornata.lang,
+        parola: normalizzaParola(parolaRow.word),
+        hostId: aggiornata.host_id,
+        guestId: aggiornata.guest_id,
+        stato: aggiornata.status,
+      },
+    };
+  }
+
+  // 4) Nessuno con cui accoppiarsi (o me le hanno soffiate tutte): CREO io una
+  //    stanza pubblica in attesa. Identica a creaStanza, ma con is_public = true.
+  const parola = await pescaParolaDalDb(lunghezza, lingua);
+  if (!parola) return { ok: false, errore: 'Nessuna parola disponibile per questa lunghezza.' };
+
+  for (let tentativo = 0; tentativo < 5; tentativo++) {
+    const codice = generaCodice();
+    const { data, error } = await supabase
+      .from('matches')
+      .insert({
+        room_code: codice,
+        mode: modalita,
+        word_id: parola.id,
+        word_length: lunghezza,
+        lang: lingua,
+        host_id: utente.id,
+        status: 'waiting',
+        is_public: true,       // ← la sola differenza dalla stanza col codice
+      })
+      .select()
+      .single();
+
+    if (!error && data) {
+      return {
+        ok: true,
+        ruolo: 'host',
+        sfida: {
+          id: data.id,
+          codice: data.room_code,
+          modalita: data.mode,
+          lunghezza: data.word_length,
+          lingua: data.lang,
+          parola: parola.testo,
+          hostId: data.host_id,
+          guestId: data.guest_id,
+          stato: data.status,
+        },
+      };
+    }
+    if (error && error.code !== '23505') {
+      return { ok: false, errore: 'Non è stato possibile creare la stanza.' };
+    }
+  }
+  return { ok: false, errore: 'Troppi tentativi di generare un codice. Riprova.' };
+}

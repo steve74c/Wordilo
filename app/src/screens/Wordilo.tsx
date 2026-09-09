@@ -5,6 +5,7 @@ import { SchermataMenu } from './SchermataMenu';
 import { SchermataGioco } from './SchermataGioco';
 import { SchermataClassifiche } from './SchermataClassifiche';
 import { SchermataLobby } from './SchermataLobby';
+import { SchermataCodaVeloce } from './SchermataCodaVeloce'; // 🎲 coda casuale (Gioca veloce)
 import { SchermataImpostazioni } from './SchermataImpostazioni'; // NEW (Lotto 2)
 import { SchermataGiocoOnline } from '../online/SchermataGiocoOnline';
 import type { Sfida } from '../online/stanze';
@@ -13,7 +14,8 @@ type Config = { modalita: Modalita; lunghezza: LunghezzaParola };
 
 export function Wordilo() {
   const [config, setConfig] = useState<Config | null>(null);
-  const [lobby, setLobby] = useState<Config | null>(null);            // (1b): lobby online
+  const [lobby, setLobby] = useState<Config | null>(null);            // (1b): lobby online (col codice)
+  const [codaVeloce, setCodaVeloce] = useState<Config | null>(null);  // 🎲 coda casuale (Gioca veloce)
   const [sfidaOnline, setSfidaOnline] = useState<Sfida | null>(null); // (D3)
   const [vediClassifiche, setVediClassifiche] = useState(false);      // (C6)
   const [mostraImpostazioni, setMostraImpostazioni] = useState(false); // NEW (Lotto 2)
@@ -65,11 +67,28 @@ export function Wordilo() {
     );
   }
 
+  // 🎲 Coda casuale (Gioca veloce): matchmaking senza codice. Come la lobby,
+  // quando la stretta di mano è completa passa la sfida → SchermataGiocoOnline.
+  if (codaVeloce) {
+    return (
+      <SchermataCodaVeloce
+        modalita={codaVeloce.modalita}
+        lunghezza={codaVeloce.lunghezza}
+        onEntraInPartita={(sfida) => {
+          setCodaVeloce(null);
+          setSfidaOnline(sfida);
+        }}
+        onIndietro={() => setCodaVeloce(null)}
+      />
+    );
+  }
+
   if (!config) {
     return (
       <SchermataMenu
         onGioca={(modalita, lunghezza) => setConfig({ modalita, lunghezza })}
-        onSfidaOnline={(modalita, lunghezza) => setLobby({ modalita, lunghezza })} // (1b)
+        onGiocaVeloce={(modalita, lunghezza) => setCodaVeloce({ modalita, lunghezza })} // 🎲 coda casuale
+        onSfidaOnline={(modalita, lunghezza) => setLobby({ modalita, lunghezza })} // (1b) col codice
         onClassifiche={() => setVediClassifiche(true)}         // (C6)
         onApriImpostazioni={() => setMostraImpostazioni(true)} // NEW (Lotto 2)
       />

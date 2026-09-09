@@ -29,7 +29,33 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
   `TemaProvider`/`useTema`, scelto dal menu (**⚙️ → Impostazioni**). Due temi: **Vetro**
   (glass scuro, default) e **Giallo** (chiaro flat). A tema: menu, gioco, login,
   impostazioni, loading. *Ancora statiche*: schermate **online** e `Avatar`.
-- **NUOVO in quest'ultima sessione — Lingua della sfida ONLINE (multilingua ONLINE completo):**
+- **NUOVO in quest'ultima sessione — Coda casuale (🎲 Gioca veloce):** seconda modalità
+  online che **convive** con quella col codice. Un giocatore preme 🎲 e l'app lo accoppia
+  automaticamente con un altro in attesa che abbia le **stesse impostazioni** (modalità +
+  lunghezza + lingua); niente codice da scambiare. **Provato in app con due browser.**
+  - **DB:** aggiunta a `matches` la colonna **`is_public`** (`boolean not null default
+    false`): `true` = stanze della coda, `false` (default) = stanze col codice, così
+    `creaStanza`/`creaRivincita` restano private senza modifiche. **Nessuna policy RLS
+    nuova**: la coda riusa i permessi esistenti (SELECT delle `waiting` + UPDATE per
+    entrare in una `waiting` con `guest_id IS NULL`) — verificato prima di scrivere codice.
+  - **Logica (`stanze.ts`):** nuova `trovaOCreaStanzaPubblica(modalita, lunghezza, lingua)`
+    — *prima cerca* una stanza pubblica compatibile ed entra (ruolo `guest`, parte subito),
+    *poi crea* la propria se non c'è (ruolo `host`, attende). Il "prima cerca poi crea" +
+    la guardia `guest_id IS NULL` disinnesca la corsa dei due-che-premono-insieme. Ritorna
+    anche il **ruolo**. `creaStanza`/`entraInStanza`/`creaRivincita` **non toccate**.
+  - **UI:** nuovo pulsante **🎲 Gioca veloce** nel menu (accanto a ⚔️ Sfida online) via
+    prop opzionale `onGiocaVeloce`; nuova **`SchermataCodaVeloce.tsx`** che riusa la
+    **stessa stretta di mano e gli stessi stili** della lobby (mostra "cerco/attendo/
+    trovato"); collegamento nel router `Wordilo.tsx` (stato `codaVeloce`). L'Indietro
+    dell'host chiude la stanza pubblica (`annullaStanza`).
+  - **Header di gioco:** la riga in alto ora mostra anche la **lingua effettiva** con la
+    bandierina (`linguaForzata ?? linguaApp`) — in single la lingua dell'app, online quella
+    della sfida (es. 🇬🇧 anche con app in italiano). Modifica in `SchermataGioco.tsx`.
+  - *Limite noto:* una stanza pubblica il cui host **chiude di colpo la scheda** resta lì
+    finché non scade (10 min): un altro giocatore può agganciarla e vedere "l'avversario
+    non risponde" dopo ~8s. Stessa classe del limite "chi crolla" della v1 → da rifinire
+    ("stanze fantasma").
+- **Lingua della sfida ONLINE (multilingua ONLINE completo):**
   la lingua è ora una **proprietà della sfida**, uguale per host e guest, così i due
   validano sempre sullo **stesso** dizionario (prima ognuno usava la lingua **locale**: con
   lingue diverse la sfida si rompeva). Fatto e **provato in app**: colonna **`lang`** in
@@ -82,17 +108,25 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
 
 ## Cosa manca / prossimi passi (in ordine consigliato)
 
-1. **Scelta del font** in Impostazioni (accanto a lingua e tema). Richiede: caricare i
+1. **Rifiniture della coda casuale** (seguito naturale di quanto appena fatto):
+   **stanze fantasma** — chi resta in attesa e chiude di colpo la scheda lascia una stanza
+   pubblica che un altro può agganciare a vuoto (~8s di timeout). Idee: usare la **Presence**
+   per accoppiarsi solo con host davvero online, oppure far **riprovare** in automatico il
+   guest (crea la sua stanza) invece di fermarsi al messaggio d'errore. Più eventuale
+   **scadenza** più aggressiva delle stanze pubbliche mai accoppiate.
+2. **Scelta del font** in Impostazioni (accanto a lingua e tema). Richiede: caricare i
    `.ttf` dei font alternativi in `App.tsx` (`useFonts`) + far **sovrascrivere**
    `tema.font` dalla scelta utente (un piccolo override che avvolge il tema). *Serve
    decidere quali font rendere disponibili e da dove prenderli.*
-2. **Persistenza di lingua e tema** (AsyncStorage): oggi entrambi ripartono dal default
+3. **Persistenza di lingua e tema** (AsyncStorage): oggi entrambi ripartono dal default
    a ogni avvio. Stesso meccanismo per i due contesti (`LinguaContext` e `TemaContext`).
-3. **Temi — completare**: tematizzare le schermate **online** (Classifiche, Lobby,
-   partita online) e il componente **Avatar** (oggi ancora a colori statici). Quando si
-   toccano `SchermataGioco.tsx`/`Griglia.tsx`, usare le versioni **con le props online**
+4. **Temi — completare**: tematizzare le schermate **online** (Classifiche, Lobby,
+   partita online, **coda veloce**) e il componente **Avatar** (oggi ancora a colori
+   statici). *Nota: `SchermataCodaVeloce` riusa già gli stili della lobby, quindi si
+   tematizza "in automatico" quando si tematizza la lobby.* Quando si toccano
+   `SchermataGioco.tsx`/`Griglia.tsx`, usare le versioni **con le props online**
    (`parolaForzata`, `righeAvversario`, pallini), non quelle single-player.
-4. **Rifinitura classifiche (opzionale)**: mostrare anche la **bravura** in UI (la vista
+5. **Rifinitura classifiche (opzionale)**: mostrare anche la **bravura** in UI (la vista
    `leaderboard_skill` è già pronta lato DB) — tab Punti/Bravura in `SchermataClassifiche`.
 
 ## Punti dove si può migliorare (debito tecnico / idee)
@@ -111,14 +145,16 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
   nomi propri/forestierismi dai bersagli con un `UPDATE` di `is_solution`.
 - **Maiuscolo/minuscolo nel DB**: le parole importate sono in MAIUSCOLO; verificare che
   siano coerenti con le righe già presenti (il gioco normalizza comunque a monte).
-- **`parola_casuale(lunghezza)` lato DB** va resa **per lingua** (parametro `lang`) prima
-  di usarla per l'online v2.
+- ~~**`parola_casuale(lunghezza)` lato DB** va resa **per lingua**~~ ✅ **fatto**: ora è
+  `parola_casuale(lunghezza, p_lang)` (default `'it'`), usata da codice e coda.
 - **Online v2 (anti-cheat)**: spostare scelta parola + valutazione in un'**Edge Function**
   (parola solo lato server), rendendo le classifiche pubbliche non falsificabili;
   la scelta parola dovrà essere **per lingua**.
 - **Limiti online v1 noti**: chi **crolla** (scheda chiusa) non scrive la riga `lost`; la
   Presence reagisce dopo ~10–20s; nelle gare al millesimo può vincere l'host per il
-  ritardo di rete (esito arbitrato dall'host, accettato in v1).
+  ritardo di rete (esito arbitrato dall'host, accettato in v1). **Coda casuale**: stessa
+  radice del problema "stanze fantasma" (host in attesa che chiude la scheda) → vedi punto 1
+  dei prossimi passi.
 - **Barrel del core**: se `@wordilo/core` ha un `index.ts` che ri-esporta, valutare di
   esportare anche `type Lingua` per averlo disponibile lato app (non obbligatorio: l'app
   usa `CodiceLingua` da `LinguaContext`, che è lo stesso `'it' | 'en'`).
@@ -137,6 +173,10 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
 - **Lingua = contesto gemello del tema** (`LinguaProvider`/`useLingua`), estendibile con
   una riga; il dizionario è **splittato per lingua** e unito da un indice.
 - **Online v1 = parola sul client** (classifica "sulla fiducia"); anti-cheat vero = v2.
+- **Due accoppiamenti online che convivono**: **codice-stanza** (con un amico) e **coda
+  casuale** (🎲, con uno sconosciuto). Le stanze della coda hanno `matches.is_public = true`;
+  quelle col codice `false` (default). La coda **riusa** stretta di mano, stili e pulizia
+  della lobby: quando tocchi quei pezzi, ricordati che valgono per entrambe.
 - **Esito arbitrato dall'host**; **abbandono/disconnessione**: chi lascia perde.
   **Rivincita**: il nuovo match lo crea **sempre l'host** (RLS), sullo stesso canale.
 - **Sicurezza**: chiave `anon` nell'app protetta da **RLS**; `service_role` e client
@@ -162,9 +202,10 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
 ## Come iniziare
 
 Per prima cosa: leggi la specifica, poi **riassumimi in poche righe dove siamo** (per
-confermare che il contesto è chiaro). Il **multilingua è ora completo anche nell'online**
-(lingua = proprietà della sfida), quindi il prossimo passo naturale è la **scelta del
-font** (punto 1 qui sopra). In alternativa possiamo fare la **persistenza** di lingua+tema,
-**completare i temi** sulle schermate online, o la piccola **pulizia del `console.log`**
-che stampa la parola. Dimmi tu da dove ripartire, con lo stesso metodo qui sopra: un
-sotto-passo alla volta, chiedendomi i file prima di modificarli.
+confermare che il contesto è chiaro). L'online ha ora **due modalità** (codice + coda
+casuale 🎲) e il **multilingua è completo anche online**. Il prossimo passo naturale sono le
+**rifiniture della coda** (stanze fantasma, punto 1 qui sopra); in alternativa **scelta del
+font**, **persistenza** di lingua+tema, **completare i temi** sulle schermate online, o la
+piccola **pulizia del `console.log`** che stampa la parola. Dimmi tu da dove ripartire, con
+lo stesso metodo qui sopra: un sotto-passo alla volta, chiedendomi i file prima di
+modificarli.

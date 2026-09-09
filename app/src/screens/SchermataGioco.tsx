@@ -22,6 +22,7 @@ import { ombra } from '../theme';
 import { useTema } from '../temi/TemaContext';
 import { creaStili } from './SchermataGioco.stili';
 import type { StiliGioco } from './SchermataGioco.stili';
+import { useControlliLingua } from '../lingua/LinguaContext';
 
 type Props = {
   modalita?: Modalita;
@@ -74,6 +75,15 @@ export function SchermataGioco({
   const tema = useTema();
   const stili = useMemo(() => creaStili(tema), [tema]);
 
+
+  // Lingua da mostrare nell'header: quella della SFIDA se online (linguaForzata),
+  // altrimenti quella dell'app. Prendo la bandierina dall'elenco lingue.
+  const { lingua: linguaApp, lingueDisponibili } = useControlliLingua();
+  const linguaMostrata: CodiceLingua = linguaForzata ?? linguaApp;
+  const bandieraLingua =
+    lingueDisponibili.find((l) => l.codice === linguaMostrata)?.bandiera ?? linguaMostrata.toUpperCase();
+	
+	
   const { registra } = useStatistiche();
   const { stato, problema, scossa, secondiRimasti, tastiera, digita, cancella, svuotaRiga, conferma, nuovaPartita } =
     useGioco(modalita, lunghezza, registra, parolaForzata, linguaForzata); // ← 4°: parola online · 5°: lingua della sfida
@@ -222,7 +232,7 @@ export function SchermataGioco({
             </View>
 
             <Text style={stili.sottotitolo}>
-              {modalita} · {lunghezza} lettere · tentativo {tentativoCorrente}/{stato.maxTentativi}
+              {modalita} · {lunghezza} lettere · tentativo {tentativoCorrente}/{stato.maxTentativi} · {bandieraLingua}
             </Text>
           </View>
 

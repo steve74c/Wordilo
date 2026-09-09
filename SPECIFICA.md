@@ -31,7 +31,14 @@ all'apertura della lobby + `annullaStanza` che **chiude** la stanza invece di
 cancellarla). Manca solo, come rifinitura **opzionale**, mostrare in UI anche la
 **classifica bravura** (`leaderboard_skill`, già pronta lato DB). Aggiunta inoltre la
 **rivincita online**: a fine sfida si può chiedere/accettare/rifiutare una nuova
-partita e ripartire subito (nuovo `matches`, parola nuova, stesso canale). Ancora da
+partita e ripartire subito (nuovo `matches`, parola nuova, stesso canale). **Multilingua
+completo anche online**: la lingua è una proprietà della sfida (colonna `matches.lang`,
+`linguaForzata` fino a `useGioco`), scelta dall'host (chip 🇮🇹/🇬🇧 in lobby) o ereditata
+dalla coda; l'header di gioco mostra la bandierina della lingua effettiva. **NUOVA
+modalità online — coda casuale (🎲 Gioca veloce):** oltre alla sfida col codice, un
+giocatore può mettersi in coda e l'app lo accoppia automaticamente con un altro giocatore
+in attesa con le stesse impostazioni (modalità+lunghezza+lingua); stanze marcate
+`is_public`, stessa stretta di mano/pulizia della modalità col codice. Ancora da
 fare fuori dall'online: **test del login Google su Android/iOS** (serve un *development
 build*) e **login Facebook**. L'anti-cheat server-side resta rimandato alla **v2**.
 **Ultimo aggiornamento:** 2026-09-09
@@ -113,11 +120,12 @@ over-the-air del codice JS senza ripassare dagli store.
   src/components/Coriandoli.tsx  particelle leggere per la vittoria
   src/screens/Wordilo.tsx      router minimale menu ↔ partita ↔ classifiche ↔ lobby ↔ sfida online (senza librerie di navigazione)
   src/screens/SchermataAuth.tsx  accesso/registrazione (email/password)
-  src/screens/SchermataMenu.tsx  saluto+logout, scelta lunghezza/modalità, contatori, legenda, pulsanti ⚔️ Sfida online + 🏆 Classifica affiancati, + ⚙️ Impostazioni (tema) accanto a Esci (la modalità/lunghezza scelte valgono anche per l'online)
+  src/screens/SchermataMenu.tsx  saluto+logout, scelta lunghezza/modalità, contatori, legenda, pulsanti 🎲 Gioca veloce (coda casuale) + ⚔️ Sfida online (col codice) affiancati e 🏆 Classifica, + ⚙️ Impostazioni (tema) accanto a Esci (la modalità/lunghezza scelte valgono anche per l'online)
   src/screens/SchermataClassifiche.tsx  schermata Classifiche (C6): legge leaderboard_points, lista con medaglie/avatar/punti, evidenzia la propria riga [FILONE C]
   src/screens/SchermataLobby.tsx  lobby online (1b): crea/entra stanza col codice + attesa avversario in Realtime + INGRESSO AUTOMATICO in partita; Indietro dell'host → annullaStanza; all'apertura chiama pulisciStanzeVecchie (2c) [FILONE C]
+  src/screens/SchermataCodaVeloce.tsx  coda casuale (🎲 Gioca veloce): all'apertura chiama trovaOCreaStanzaPubblica → host in attesa o guest che entra; RIUSA la stessa stretta di mano/stili della lobby; lingua = quella dell'app; Indietro dell'host → annullaStanza [CODA]
   src/screens/SchermataGioco.tsx  props ONLINE opzionali (parolaForzata, online, onRigaConfermata, righeAvversario, onPartitaFinita, esitoOnline) + RIVINCITA (statoRivincita, onRichiediRivincita, onAccettaRivincita, onRifiutaRivincita → bottoni 🔁/✓/Rifiuta nel pop-up); senza, è il single player di sempre
-  src/online/stanze.ts         creaStanza/entraInStanza (parola dal DB via parola_casuale, codice-stanza, scrittura in matches) + annullaStanza (chiude la stanza a 'finished') + pulisciStanzeVecchie (2c: rimuove i residui propri non finiti >10 min) + creaRivincita (nuovo match per la rivincita: parola nuova, status='playing', guest già noto — solo host per RLS) [FILONE C]
+  src/online/stanze.ts         creaStanza/entraInStanza (parola dal DB via parola_casuale, codice-stanza, scrittura in matches) + annullaStanza (chiude la stanza a 'finished') + pulisciStanzeVecchie (2c: rimuove i residui propri non finiti >10 min) + creaRivincita (nuovo match per la rivincita: parola nuova, status='playing', guest già noto — solo host per RLS) + trovaOCreaStanzaPubblica (CODA casuale: cerca una stanza pubblica compatibile ed entra come guest, altrimenti crea una stanza is_public='waiting' e attende come host; ritorna anche il ruolo) [FILONE C / CODA]
   src/online/canaleStanza.ts   canale Realtime broadcast: inviaRiga (riepiloghi) + ingresso guest (guest-entrato/host-ok) + fine partita (finito/esito) + abbandono/Presence (C7) + RIVINCITA (rivincita-richiesta/risposta/via) [FILONE C]
   src/online/classifiche.ts    leggiClassificaPunti: legge la vista leaderboard_points → voci pronte per la UI [FILONE C]
   src/online/SchermataGiocoOnline.tsx  contenitore sfida online: apre il canale, monta SchermataGioco sulla parola condivisa, passa righeAvversario (pallini), fa da ARBITRO dell'esito (host) → esitoOnline condiviso, SCRIVE l'esito (C5b: games + matches finished) e gestisce abbandono/disconnessione (C7) + RIVINCITA (negoziato richiesta/accetta/rifiuta, riavvio del round con reset guardie + key; canale aperto una sola volta via handlersRef) [FILONE C]
@@ -221,23 +229,34 @@ I valori numerici qui sotto sono **default parametrizzabili lato server**.
 - Sfida tra **due giocatori** sulla **stessa parola target**.
 - Si sceglie se giocare in modalità **principiante o esperto** (ne eredita le
   regole: tentativi e/o timer).
-- **Accoppiamento: solo tramite codice-stanza** (per ora). Un giocatore crea la
-  stanza e riceve un codice breve da condividere; l'altro entra digitandolo.
-  *(La coda casuale è prevista in futuro e non cambierà la struttura dati.)*
+- **Accoppiamento: due modalità che convivono.**
+  1. **Con un amico — codice-stanza** (⚔️ Sfida online): un giocatore crea la stanza
+     e riceve un codice breve da condividere; l'altro entra digitandolo.
+  2. **Con uno sconosciuto — coda casuale** (🎲 Gioca veloce): il giocatore non digita
+     codici; l'app **cerca** una stanza pubblica in attesa con le **stesse impostazioni**
+     (modalità + lunghezza + lingua) e vi **entra**; se non ce n'è, ne **crea** una
+     pubblica e **aspetta** che arrivi il prossimo. Regola anti-corsa: *prima cerca, poi
+     crea* (+ guardia `guest_id IS NULL` sull'update), così due che premono insieme si
+     accoppiano invece di restare entrambi in attesa. Le stanze della coda sono marcate
+     `is_public = true` (le stanze col codice restano `false`), così un giocatore casuale
+     non entra mai in una partita creata per un amico. Riusa la **stessa stretta di mano**
+     Realtime e la stessa pulizia/scadenza stanze della modalità col codice.
 - **Indicatore avversario:** a lato di ogni riga giocata dall'avversario
   compaiono due pallini che riassumono il suo tentativo su quella riga —
   **un pallino verde con il numero di lettere corrette** e **un pallino arancione
   con il numero di lettere presenti ma fuori posizione**. Si trasmettono **solo i
   conteggi, mai le lettere**, così si vede l'andamento dell'avversario senza poter
   copiare.
-- **Lingua della sfida — DA COMPLETARE.** Con il multilingua (it/en), la parola
-  online è già condivisa (va bene), ma **la validazione dei tentativi usa ancora la
-  lingua LOCALE** di ciascun giocatore (`useLingua()`), non quella della sfida. Se i
-  due hanno impostato lingue **diverse**, la sfida si rompe: uno valida sul dizionario
-  sbagliato e non riesce a confermare parole valide. Va reso la **lingua una proprietà
-  della sfida** (scelta alla creazione, salvata in `matches`, propagata fino a
-  `useGioco` come `linguaForzata`, gemella di `parolaForzata`). Vedi §15. *Finché i due
-  tengono la stessa lingua, l'online funziona correttamente.*
+- **Lingua della sfida — FATTO.** La lingua è una **proprietà della sfida**, uguale per
+  host e guest, così entrambi validano sullo **stesso** dizionario. È salvata nella
+  colonna **`lang`** di `matches`, esposta nel tipo `Sfida` (`stanze.ts`) e propagata a
+  `useGioco` come **`linguaForzata`** (gemella di `parolaForzata`), che valida/pesca con
+  `linguaEffettiva = linguaForzata ?? lingua`. Nella modalità **col codice** la sceglie
+  l'host (chip 🇮🇹/🇬🇧 in lobby, stato locale che non tocca la lingua globale); nella
+  **coda casuale** è la lingua che il giocatore sta usando nell'app (fa parte dei criteri
+  di accoppiamento). La parola bersaglio si pesca dal DB **nella lingua della sfida**
+  (`parola_casuale(lunghezza, p_lang)`). L'header della schermata di gioco mostra la
+  lingua **effettiva** con la bandierina (`linguaForzata ?? linguaApp`).
 - **Rivincita:** a fine sfida il pop-up di esito offre **🔁 Rivincita**. Chi la
   chiede manda una richiesta sul canale Realtime; l'altro vede **✓ Accetta /
   Rifiuta**. Se rifiuta, il richiedente legge "Rivincita rifiutata" e può solo
@@ -334,8 +353,9 @@ rigenerando con una soglia diversa), senza reimportare. **Offline-first**: il di
 `dizionarioDati.en.ts`, generati dai dati). Le funzioni del core prendono la lingua:
 `pescaParolaCasuale(lingua, lunghezza)` e `parolaValida(parola, lingua, lunghezza)`. La
 lingua attiva arriva dal `LinguaProvider` (§16), letta in `useGioco` con `useLingua()`.
-Il DB resta la **fonte di verità**; la funzione SQL `parola_casuale(lunghezza)` è pronta
-per l'online (in v2 dovrà diventare **per lingua**).
+Il DB resta la **fonte di verità**; la funzione SQL è ora **per lingua**,
+`parola_casuale(lunghezza, p_lang)` (default `p_lang='it'`), usata dall'online per pescare
+il bersaglio nella lingua della sfida.
 
 ---
 
@@ -388,6 +408,8 @@ matches
   status        text                        -- 'waiting' | 'playing' | 'finished'
   winner_id     uuid → profiles.id          (nullable)
   is_draw       boolean default false
+  lang          text default 'it'           -- lingua della sfida (it/en), uguale per i due
+  is_public     boolean not null default false -- true = stanza della CODA casuale; false = col codice
   created_at    timestamptz
   finished_at   timestamptz
 
@@ -480,6 +502,13 @@ leaderboard_skill (view)
   cancella ma **chiude** la stanza a `finished` via la policy di UPDATE dell'host.
   Fatta anche una **pulizia una-tantum** dei residui `playing` dei test (con le relative
   righe `games` collegate).
+  **Aggiornamento coda casuale (🎲):** aggiunta a `matches` la colonna **`is_public`**
+  (`boolean not null default false`): `true` marca le stanze della coda, `false` (default)
+  quelle col codice — così `creaStanza`/`creaRivincita` restano private senza modifiche.
+  **Nessuna nuova policy RLS**: la coda riusa i permessi già esistenti (la SELECT lascia
+  leggere le stanze `waiting`; la UPDATE lascia entrare in una `waiting` con
+  `guest_id IS NULL`), verificato prima di implementare. `parola_casuale` estesa a
+  `(lunghezza, p_lang)` per pescare il bersaglio nella lingua della sfida.
 
 ---
 
@@ -567,7 +596,8 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
   **solo quel tentativo**.
 - Tutti i valori numerici chiave sono **parametrici lato server**.
 - Single player: **nessun punteggio**, solo vinta/persa, niente pareggio.
-- Online: **solo codice-stanza** ora; coda casuale in futuro.
+- Online: **due accoppiamenti** — codice-stanza (con un amico) e **coda casuale**
+  (🎲 Gioca veloce, con uno sconosciuto: stesse impostazioni, stanze `is_public`).
 - Punti online: **10 / 0 / 5**.
 - **Due classifiche** distinte (punti + bravura), bravura con **soglia minima**
   (default 10 partite).

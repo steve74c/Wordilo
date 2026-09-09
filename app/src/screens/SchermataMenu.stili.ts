@@ -170,7 +170,9 @@ export function creaStili(tema: Tema) {
     statNum: { color: P.testo, fontSize: 20, fontFamily: F.black, fontWeight: '800' },
     statLab: { marginTop: 4, color: P.testoTenue, fontSize: 12, fontFamily: F.medium, fontWeight: '500' },
 
-    // Azioni affiancate (Sfida online + Classifica)
+    // Azioni online + Classifica. `azioniGruppo` impila due righe (online / classifica);
+    // `azioni` è la singola riga di pulsanti affiancati (ciascuno flex:1).
+    azioniGruppo: { gap: 11 },
     azioni: { flexDirection: 'row', gap: 11 },
     azioneBtn: {
       flex: 1,
