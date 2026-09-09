@@ -36,6 +36,12 @@ type Props = {
   righeAvversario?: Record<number, { verdi: number; arancioni: number }>;      // online: pallini avversario
   onPartitaFinita?: (indovinato: boolean, tentativi: number) => void;          // online: ho finito
   esitoOnline?: 'vinta' | 'persa' | 'pareggio' | null;                         // online: verdetto condiviso (host)
+
+  // --- Rivincita (online) ---
+  statoRivincita?: 'idle' | 'inviata' | 'ricevuta' | 'in-avvio' | 'rifiutata';
+  onRichiediRivincita?: () => void;
+  onAccettaRivincita?: () => void;
+  onRifiutaRivincita?: () => void;
 };
 
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
@@ -60,6 +66,10 @@ export function SchermataGioco({
   righeAvversario,
   onPartitaFinita,
   esitoOnline,
+  statoRivincita = 'idle',
+  onRichiediRivincita,
+  onAccettaRivincita,
+  onRifiutaRivincita,
 }: Props) {
   const tema = useTema();
   const stili = useMemo(() => creaStili(tema), [tema]);
@@ -278,8 +288,60 @@ export function SchermataGioco({
                     : `La parola era ${stato.target}`}
               </Text>
 
-              {/* Single player: rigioca. Online: non si rigioca la stessa stanza. */}
-              {!online && (
+              {/* Online: rivincita (richiedi / accetta / rifiuta). Single: rigioca. */}
+              {online ? (
+                <>
+                  {statoRivincita === 'idle' && (
+                    <Pressable
+                      onPress={onRichiediRivincita}
+                      style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.97 : 1 }], width: '100%' }]}
+                    >
+                      <LinearGradient
+                        colors={tema.gradienti.accento}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={[stili.bottone, ombra(0.35, 10, 5, 6)]}
+                      >
+                        <Text style={stili.bottoneTesto}>🔁  Rivincita</Text>
+                      </LinearGradient>
+                    </Pressable>
+                  )}
+
+                  {statoRivincita === 'inviata' && (
+                    <Text style={stili.esitoSub}>In attesa della risposta dell’avversario…</Text>
+                  )}
+
+                  {statoRivincita === 'in-avvio' && (
+                    <Text style={stili.esitoSub}>Avvio della rivincita…</Text>
+                  )}
+
+                  {statoRivincita === 'ricevuta' && (
+                    <>
+                      <Text style={stili.esitoSub}>L’avversario chiede la rivincita</Text>
+                      <Pressable
+                        onPress={onAccettaRivincita}
+                        style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.97 : 1 }], width: '100%' }]}
+                      >
+                        <LinearGradient
+                          colors={tema.gradienti.accento}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={[stili.bottone, ombra(0.35, 10, 5, 6)]}
+                        >
+                          <Text style={stili.bottoneTesto}>✓  Accetta</Text>
+                        </LinearGradient>
+                      </Pressable>
+                      <Pressable onPress={onRifiutaRivincita} hitSlop={8} style={stili.linkIndietro}>
+                        <Text style={stili.linkIndietroTesto}>Rifiuta</Text>
+                      </Pressable>
+                    </>
+                  )}
+
+                  {statoRivincita === 'rifiutata' && (
+                    <Text style={stili.esitoSub}>Rivincita rifiutata.</Text>
+                  )}
+                </>
+              ) : (
                 <Pressable
                   onPress={nuovaPartita}
                   style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.97 : 1 }], width: '100%' }]}

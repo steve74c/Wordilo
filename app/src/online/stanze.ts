@@ -251,3 +251,69 @@ export async function annullaStanza(idSfida: string): Promise<void> {
     // se non riesce, la stanza scadrà comunque con pulisciStanzeVecchie
   }
 }
+
+
+/**
+ * CREA LA RIVINCITA (solo HOST).
+ * Apre un NUOVO match sulla falsariga di quello appena concluso: stessa
+ * modalità, lunghezza e lingua, con guest già noto e status 'playing' (i due
+ * giocatori sono già insieme, niente handshake). La parola è NUOVA (pescata dal
+ * DB nella lingua della sfida). Ritorna la Sfida pronta da giocare.
+ *
+ * Solo l'host può inserire in matches (RLS: `insert with check host_id = auth.uid()`),
+ * quindi questa funzione è pensata per essere chiamata dall'host. Se la chiama un
+ * altro, esce con un errore leggibile.
+ */
+export async function creaRivincita(precedente: Sfida): Promise<RisultatoStanza> {
+  const { data: auth } = await supabase.auth.getUser();
+  const utente = auth?.user;
+  if (!utente) return { ok: false, errore: 'Devi essere loggato per la rivincita.' };
+  if (utente.id !== precedente.hostId) {
+    return { ok: false, errore: 'Solo l’host può avviare la rivincita.' };
+  }
+
+  // Parola nuova, stessa lunghezza e lingua della sfida precedente.
+  const parola = await pescaParolaDalDb(precedente.lunghezza, precedente.lingua);
+  if (!parola) return { ok: false, errore: 'Nessuna parola disponibile per la rivincita.' };
+
+  // Inserimento con qualche tentativo in caso di collisione del codice.
+  for (let tentativo = 0; tentativo < 5; tentativo++) {
+    const codice = generaCodice();
+    const { data, error } = await supabase
+      .from('matches')
+      .insert({
+        room_code: codice,
+        mode: precedente.modalita,
+        word_id: parola.id,
+        word_length: precedente.lunghezza,
+        lang: precedente.lingua,
+        host_id: utente.id,
+        guest_id: precedente.guestId, // già noto: partita a due, nessun handshake
+        status: 'playing',            // parte subito
+      })
+      .select()
+      .single();
+
+    if (!error && data) {
+      return {
+        ok: true,
+        sfida: {
+          id: data.id,
+          codice: data.room_code,
+          modalita: data.mode,
+          lunghezza: data.word_length,
+          lingua: data.lang,
+          parola: parola.testo,
+          hostId: data.host_id,
+          guestId: data.guest_id,
+          stato: data.status,
+        },
+      };
+    }
+    // Codice duplicato (unique) → riprova; altri errori → esci.
+    if (error && error.code !== '23505') {
+      return { ok: false, errore: 'Non è stato possibile creare la rivincita.' };
+    }
+  }
+  return { ok: false, errore: 'Troppi tentativi di generare un codice. Riprova.' };
+}

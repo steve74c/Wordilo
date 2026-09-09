@@ -29,10 +29,12 @@ automatico** in partita), **rimosso il banco di prova** e implementata la
 **pulizia/scadenza delle stanze** (policy DELETE allargata + `pulisciStanzeVecchie`
 all'apertura della lobby + `annullaStanza` che **chiude** la stanza invece di
 cancellarla). Manca solo, come rifinitura **opzionale**, mostrare in UI anche la
-**classifica bravura** (`leaderboard_skill`, già pronta lato DB). Ancora da fare fuori
-dall'online: **test del login Google su Android/iOS** (serve un *development build*) e
-**login Facebook**. L'anti-cheat server-side resta rimandato alla **v2**.
-**Ultimo aggiornamento:** 2026-09-05
+**classifica bravura** (`leaderboard_skill`, già pronta lato DB). Aggiunta inoltre la
+**rivincita online**: a fine sfida si può chiedere/accettare/rifiutare una nuova
+partita e ripartire subito (nuovo `matches`, parola nuova, stesso canale). Ancora da
+fare fuori dall'online: **test del login Google su Android/iOS** (serve un *development
+build*) e **login Facebook**. L'anti-cheat server-side resta rimandato alla **v2**.
+**Ultimo aggiornamento:** 2026-09-09
 
 ---
 
@@ -114,11 +116,11 @@ over-the-air del codice JS senza ripassare dagli store.
   src/screens/SchermataMenu.tsx  saluto+logout, scelta lunghezza/modalità, contatori, legenda, pulsanti ⚔️ Sfida online + 🏆 Classifica affiancati, + ⚙️ Impostazioni (tema) accanto a Esci (la modalità/lunghezza scelte valgono anche per l'online)
   src/screens/SchermataClassifiche.tsx  schermata Classifiche (C6): legge leaderboard_points, lista con medaglie/avatar/punti, evidenzia la propria riga [FILONE C]
   src/screens/SchermataLobby.tsx  lobby online (1b): crea/entra stanza col codice + attesa avversario in Realtime + INGRESSO AUTOMATICO in partita; Indietro dell'host → annullaStanza; all'apertura chiama pulisciStanzeVecchie (2c) [FILONE C]
-  src/screens/SchermataGioco.tsx  props ONLINE opzionali (parolaForzata, online, onRigaConfermata, righeAvversario, onPartitaFinita, esitoOnline); senza, è il single player di sempre
-  src/online/stanze.ts         creaStanza/entraInStanza (parola dal DB via parola_casuale, codice-stanza, scrittura in matches) + annullaStanza (chiude la stanza a 'finished') + pulisciStanzeVecchie (2c: rimuove i residui propri non finiti >10 min) [FILONE C]
-  src/online/canaleStanza.ts   canale Realtime broadcast: inviaRiga (riepiloghi) + ingresso guest (guest-entrato/host-ok) + fine partita (finito/esito) + abbandono/Presence (C7) [FILONE C]
+  src/screens/SchermataGioco.tsx  props ONLINE opzionali (parolaForzata, online, onRigaConfermata, righeAvversario, onPartitaFinita, esitoOnline) + RIVINCITA (statoRivincita, onRichiediRivincita, onAccettaRivincita, onRifiutaRivincita → bottoni 🔁/✓/Rifiuta nel pop-up); senza, è il single player di sempre
+  src/online/stanze.ts         creaStanza/entraInStanza (parola dal DB via parola_casuale, codice-stanza, scrittura in matches) + annullaStanza (chiude la stanza a 'finished') + pulisciStanzeVecchie (2c: rimuove i residui propri non finiti >10 min) + creaRivincita (nuovo match per la rivincita: parola nuova, status='playing', guest già noto — solo host per RLS) [FILONE C]
+  src/online/canaleStanza.ts   canale Realtime broadcast: inviaRiga (riepiloghi) + ingresso guest (guest-entrato/host-ok) + fine partita (finito/esito) + abbandono/Presence (C7) + RIVINCITA (rivincita-richiesta/risposta/via) [FILONE C]
   src/online/classifiche.ts    leggiClassificaPunti: legge la vista leaderboard_points → voci pronte per la UI [FILONE C]
-  src/online/SchermataGiocoOnline.tsx  contenitore sfida online: apre il canale, monta SchermataGioco sulla parola condivisa, passa righeAvversario (pallini), fa da ARBITRO dell'esito (host) → esitoOnline condiviso, SCRIVE l'esito (C5b: games + matches finished) e gestisce abbandono/disconnessione (C7) [FILONE C]
+  src/online/SchermataGiocoOnline.tsx  contenitore sfida online: apre il canale, monta SchermataGioco sulla parola condivisa, passa righeAvversario (pallini), fa da ARBITRO dell'esito (host) → esitoOnline condiviso, SCRIVE l'esito (C5b: games + matches finished) e gestisce abbandono/disconnessione (C7) + RIVINCITA (negoziato richiesta/accetta/rifiuta, riavvio del round con reset guardie + key; canale aperto una sola volta via handlersRef) [FILONE C]
   src/LoadingScreen.tsx        schermata di caricamento brandizzata
   src/theme.ts                 palette del tema VETRO + token del sistema temi + funzioni pure (ombra/bagliore/coloreDiSfondo)
   src/temi/tipi.ts             forma di un Tema (palette/gradienti/font/misure); le chiavi di palette derivano da keyof typeof C (niente token dimenticati)
@@ -236,6 +238,14 @@ I valori numerici qui sotto sono **default parametrizzabili lato server**.
   della sfida** (scelta alla creazione, salvata in `matches`, propagata fino a
   `useGioco` come `linguaForzata`, gemella di `parolaForzata`). Vedi §15. *Finché i due
   tengono la stessa lingua, l'online funziona correttamente.*
+- **Rivincita:** a fine sfida il pop-up di esito offre **🔁 Rivincita**. Chi la
+  chiede manda una richiesta sul canale Realtime; l'altro vede **✓ Accetta /
+  Rifiuta**. Se rifiuta, il richiedente legge "Rivincita rifiutata" e può solo
+  tornare al menu. Se accetta, l'**host** crea un **nuovo match** (parola nuova,
+  stessa modalità/lunghezza/lingua, guest già dentro, `status='playing'`) e lo
+  diffonde: entrambi ripartono su una partita fresca **sullo stesso canale**
+  (nessun nuovo handshake). Solo l'host può creare (lo impone la RLS di `matches`),
+  perciò la creazione è sempre instradata a lui, chiunque abbia chiesto la rivincita.
 
 ---
 
@@ -252,6 +262,9 @@ I valori numerici qui sotto sono **default parametrizzabili lato server**.
 - Punti (default parametrici): **vittoria 10**, **sconfitta 0**, **pareggio 5 a
   testa**.
 - I punti si accumulano **solo dall'online** (il single player vale sempre 0).
+- La **rivincita** apre una **nuova partita = nuovo `matches`**: ogni round ha la
+  sua riga in `games` e il proprio esito (`winner_id`/`is_draw`), quindi statistiche
+  e classifiche contano tutti i round.
 
 ---
 
@@ -786,8 +799,8 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
     **la sfida è completa e giocabile** — creazione/ingresso, parola condivisa,
     riepiloghi/pallini, esito arbitrato **scritto** su DB, classifiche e casi limite,
     **lobby dal menu** e **pulizia/scadenza stanze**. Provato **su web** con due browser
-    (account diversi). **Filone C v1 CHIUSO** (resta solo la rifinitura opzionale della
-    classifica bravura in UI). Dettaglio:
+    (account diversi). **Filone C v1 CHIUSO**, con in più la **rivincita online**
+    (resta solo la rifinitura opzionale della classifica bravura in UI). Dettaglio:
     - ✅ **C1** — tabella `matches` + RLS (vincoli e policy verificati).
     - ✅ **C2** — crea/entra stanza col **codice** (`stanze.ts`: `creaStanza`/
       `entraInStanza`, parola dal DB uguale per i due). Lungo la strada risolto un
@@ -848,6 +861,18 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
       allargata (`status<>'finished'` + 10 min); `pulisciStanzeVecchie` all'apertura
       lobby; `annullaStanza` chiude la stanza a `finished`. **Testato** (Annulla +
       scadenza forzata). **Con questo il filone C v1 è CHIUSO.**
+    - ✅ **Rivincita (online)** — a fine partita si può **chiedere/accettare/rifiutare**
+      la rivincita dal pop-up di esito. Nuovi eventi Realtime in `canaleStanza.ts`
+      (`rivincita-richiesta` / `rivincita-risposta` / `rivincita-via`); nuova
+      `creaRivincita` in `stanze.ts` (crea un **nuovo match** con parola nuova,
+      `status='playing'`, guest già noto — **solo l'host**, per RLS);
+      `SchermataGiocoOnline` orchestra il negoziato e **riavvia il round** (reset delle
+      guardie C5b/C7 + `key` che rimonta `SchermataGioco`; il canale resta aperto **una
+      sola volta** grazie a `handlersRef`, così cambiare round non rifà scattare
+      presence/handshake); `SchermataGioco` mostra i bottoni **🔁 Rivincita / ✓ Accetta /
+      Rifiuta**. Richieste incrociate → accordo automatico; se l'avversario esce durante
+      l'attesa, la **Presence** la tratta come rifiuto. **Testato su web** (accetta,
+      rifiuta, richieste incrociate).
     - ⏭️ **Rifinitura opzionale** — mostrare in UI anche la **classifica bravura**
       (`leaderboard_skill` già pronta lato DB): tab Punti/Bravura in `SchermataClassifiche`.
   - 🎨 **Temi e interfaccia (dopo il filone C)** — introdotto un **sistema di temi**

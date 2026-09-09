@@ -1,7 +1,24 @@
 // -----------------------------------------------------------------------------
 // Contenitore della sfida online (D3/D4 + esito C5a + scrittura C5b
-//  + abbandono/disconnessione C7).
+//  + abbandono/disconnessione C7 + RIVINCITA).
 // Va salvato in:  app/src/online/SchermataGiocoOnline.tsx
+//
+// RIVINCITA (novità):
+//   • A fine partita, il pop-up offre "🔁 Rivincita". Chi la chiede manda
+//     `rivincita-richiesta` sul canale; l'altro vede "Accetta / Rifiuta".
+//   • Rifiuto → il richiedente vede "Rivincita rifiutata".
+//   • Accordo → l'HOST (chiunque abbia chiesto) crea un NUOVO match con parola
+//     nuova (stessa lingua/modalità/lunghezza, guest già noto, status 'playing')
+//     e lo diffonde con `rivincita-via`. Entrambi ripartono con una partita
+//     fresca SULLO STESSO CANALE (nessun nuovo handshake).
+//   • Solo l'host può creare (lo impone la RLS: insert se host_id = auth.uid()),
+//     perciò la creazione è sempre instradata a lui.
+//
+// NB tecnica: il canale Realtime resta aperto UNA volta sola per tutta la vita
+// del contenitore (dipende solo da mioId + codice della PROP `sfida`, che non
+// cambia). Gli handler del canale leggono sempre la versione più recente delle
+// callback tramite `handlersRef`, così cambiare partita NON riapre il canale
+// (che rifarebbe scattare presence/handshake).
 // -----------------------------------------------------------------------------
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
@@ -14,9 +31,17 @@ import {
   type EsitoMsg,
   type MotivoAssenza,
 } from './canaleStanza';
-import type { Sfida } from './stanze';
+import { creaRivincita, type Sfida } from './stanze';
 
 type EsitoOnline = 'vinta' | 'persa' | 'pareggio';
+
+// Stato del "negoziato" di rivincita, guida la UI del pop-up:
+//   idle      → nessuna richiesta in ballo (mostra il bottone "Rivincita")
+//   inviata   → ho chiesto io, aspetto la risposta
+//   ricevuta  → l'avversario ha chiesto, mostro Accetta/Rifiuta
+//   in-avvio  → accordo raggiunto, sto preparando/attendendo la nuova partita
+//   rifiutata → la mia richiesta è stata rifiutata
+type StatoRivincita = 'idle' | 'inviata' | 'ricevuta' | 'in-avvio' | 'rifiutata';
 
 type Props = {
   sfida: Sfida;
@@ -38,35 +63,48 @@ export function SchermataGiocoOnline({ sfida, onIndietro }: Props) {
   const [righeAvversario, setRigheAvversario] = useState<Record<number, { verdi: number; arancioni: number }>>({});
   const [esito, setEsito] = useState<EsitoOnline | null>(null);
 
+  // [RIVINCITA] La sfida "corrente": parte dalla prop e cambia a ogni rivincita.
+  // La PROP `sfida` non cambia mai (il contenitore possiede lo stato del rematch):
+  // così il suo `codice` resta stabile e lo usiamo come chiave fissa del canale.
+  const [sfidaCorrente, setSfidaCorrente] = useState<Sfida>(sfida);
+  const [statoRivincita, setStatoRivincita] = useState<StatoRivincita>('idle');
+  const [roundKey, setRoundKey] = useState(0); // rimonta SchermataGioco a ogni round
+
   const connessione = useRef<ConnessioneStanza | null>(null);
   const esitoRef = useRef<EsitoOnline | null>(null);
   const reinvio = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // [C5b] Guardia SINCRONA: la riga in games si scrive una volta sola,
-  // anche se l'esito rimbalza più volte (ribattute).
+  // [C5b] Guardia SINCRONA: la riga in games si scrive una volta sola per round.
   const scritturaFatta = useRef(false);
-  // [C5b] Guardia SINCRONA per la chiusura di matches (una volta sola).
+  // [C5b] Guardia SINCRONA per la chiusura di matches (una volta sola per round).
   const chiusuraFatta = useRef(false);
-  // [C5b] Conteggio tentativi: quello "vero" quando la mia partita finisce da sola;
-  // in mancanza (l'avversario indovina prima e l'esito mi ferma) uso il contatore live.
+  // [C5b] Conteggio tentativi del round corrente.
   const tentativiFinali = useRef<number | null>(null);
   const tentativiLive = useRef(0);
-  // [C7] true quando la partita è finita per abbandono/disconnessione dell'altro:
-  // in quel caso a chiudere matches può essere anche il guest (non solo l'host).
+  // [C7] true quando il round è finito per abbandono/disconnessione dell'altro.
   const perAbbandono = useRef(false);
 
-  // Stato dell'arbitrato (lo usa solo l'HOST).
+  // Stato dell'arbitrato (lo usa solo l'HOST), azzerato a ogni round.
   const arbitro = useRef<{
     ioNonIndovinato: boolean;
     avvNonIndovinato: boolean;
     deciso: { winnerId: string | null; pareggio: boolean } | null;
   }>({ ioNonIndovinato: false, avvNonIndovinato: false, deciso: null });
 
+  // Specchi sincroni per gli handler del canale (che leggono fuori da React).
+  const sfidaRef = useRef<Sfida>(sfidaCorrente);
+  const statoRivincitaRef = useRef<StatoRivincita>(statoRivincita);
 
-useEffect(() => {
-  console.log('[DEBUG parola] =', sfida.parola);
-}, [sfida.parola]);
+  useEffect(() => {
+    sfidaRef.current = sfidaCorrente;
+  }, [sfidaCorrente]);
+  useEffect(() => {
+    statoRivincitaRef.current = statoRivincita;
+  }, [statoRivincita]);
 
+  useEffect(() => {
+    console.log('[DEBUG parola] =', sfidaCorrente.parola);
+  }, [sfidaCorrente.parola]);
 
   useEffect(() => {
     esitoRef.current = esito;
@@ -76,6 +114,7 @@ useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setMioId(data?.user?.id ?? null));
   }, []);
 
+  // L'host non cambia tra un round e l'altro → lo derivo dalla PROP (stabile).
   const sonoHost = mioId != null && mioId === sfida.hostId;
 
   const fermaReinvio = useCallback(() => {
@@ -101,16 +140,16 @@ useEffect(() => {
           is_draw: deciso.pareggio,
           finished_at: new Date().toISOString(),
         })
-        .eq('id', sfida.id);
+        .eq('id', sfidaCorrente.id);
       if (error) {
         console.warn('[C7] chiusura match non riuscita:', error.message);
       }
     },
-    [sonoHost, sfida.id],
+    [sonoHost, sfidaCorrente.id],
   );
 
-  // [C5b] Scrive la MIA riga in games (una sola volta). Punti da game_settings
-  // (con fallback 10/0/5). `tentativiOverride` serve al percorso abbandono.
+  // [C5b] Scrive la MIA riga in games (una sola volta per round). Punti da
+  // game_settings (con fallback 10/0/5). `tentativiOverride` serve all'abbandono.
   const scriviRigaGioco = useCallback(
     async (mio: EsitoOnline, tentativiOverride?: number) => {
       if (scritturaFatta.current) return; // già scritta
@@ -122,7 +161,7 @@ useEffect(() => {
         const { data } = await supabase
           .from('game_settings')
           .select('points_win, points_lose, points_draw')
-          .eq('mode', sfida.modalita)
+          .eq('mode', sfidaCorrente.modalita)
           .maybeSingle();
         if (data) {
           punti =
@@ -140,9 +179,9 @@ useEffect(() => {
 
       const { error } = await supabase.from('games').insert({
         user_id: mioId,
-        match_id: sfida.id,
+        match_id: sfidaCorrente.id,
         mode: 'online',
-        word_length: sfida.lunghezza,
+        word_length: sfidaCorrente.lunghezza,
         result: RESULT_DB[mio],
         attempts_used: tentativi,
         points: punti,
@@ -151,7 +190,7 @@ useEffect(() => {
         console.warn('[C5b] riga games non salvata:', error.message);
       }
     },
-    [mioId, sfida.id, sfida.modalita, sfida.lunghezza],
+    [mioId, sfidaCorrente.id, sfidaCorrente.modalita, sfidaCorrente.lunghezza],
   );
 
   // Applica un verdetto e lo traduce dal MIO punto di vista.
@@ -197,37 +236,128 @@ useEffect(() => {
     [mioId, applicaEsito],
   );
 
-  // [C7] L'avversario è assente (uscito o caduto) → IO vinco.
-  // Chi resta si auto-dichiara vincitore e scrive/chiude (niente arbitro qui:
-  // l'altro non c'è più da avvisare).
-  const gestisciAvversarioAssente = useCallback(
-    (_motivo: MotivoAssenza) => {
-      if (esitoRef.current) return;      // partita già decisa: ignoro
-      perAbbandono.current = true;       // abilita la chiusura anche se sono guest
-      // Fermo eventuali ribattute del mio "finito" (se avevo già finito, ho vinto lo stesso).
+  // -----------------------------------------------------------------------------
+  // [RIVINCITA] Reset di tutto lo stato di round e avvio della partita nuova.
+  // -----------------------------------------------------------------------------
+  const avviaNuovoRound = useCallback(
+    (nuova: Sfida) => {
+      if (sfidaRef.current.id === nuova.id) return; // già su questo round
+
       fermaReinvio();
-      applicaEsito({ winnerId: mioId ?? null, pareggio: false });
+
+      // Azzero le guardie/stato del round precedente.
+      esitoRef.current = null;
+      arbitro.current = { ioNonIndovinato: false, avvNonIndovinato: false, deciso: null };
+      scritturaFatta.current = false;
+      chiusuraFatta.current = false;
+      perAbbandono.current = false;
+      tentativiFinali.current = null;
+      tentativiLive.current = 0;
+
+      // Nuovo stato visibile.
+      setEsito(null);
+      setRigheAvversario({});
+      setStatoRivincita('idle');
+      sfidaRef.current = nuova;
+      setSfidaCorrente(nuova);
+      setRoundKey((k) => k + 1); // rimonta SchermataGioco → useGioco con la parola nuova
     },
-    [mioId, fermaReinvio, applicaEsito],
+    [fermaReinvio],
   );
 
-  // Apertura canale (una volta noto il mio id).
+  // [RIVINCITA] Solo l'HOST: crea il match della rivincita e lo diffonde.
+  const creaEAvviaRivincita = useCallback(async () => {
+    const r = await creaRivincita(sfidaRef.current);
+    if (!r.ok) {
+      console.warn('[RIVINCITA] creazione fallita:', r.errore);
+      // Sblocco l'avversario e torno a idle: si può riprovare.
+      connessione.current?.inviaRivincitaRisposta(false);
+      setStatoRivincita('idle');
+      return;
+    }
+    connessione.current?.inviaRivincitaVia(r.sfida); // avvisa il guest
+    avviaNuovoRound(r.sfida);                          // riparto anch'io
+  }, [avviaNuovoRound]);
+
+  // -----------------------------------------------------------------------------
+  // Handler del canale, sempre "freschi": riletti tramite handlersRef, così il
+  // canale non va riaperto quando cambiano (a ogni round o cambio di stato).
+  // -----------------------------------------------------------------------------
+  const handlersRef = useRef({
+    onRiga: (_r: RiepilogoRiga) => {},
+    onFinito: (_f: FinitoMsg) => {},
+    onEsito: (_e: EsitoMsg) => {},
+    onAssente: (_m: MotivoAssenza) => {},
+    onRivRichiesta: () => {},
+    onRivRisposta: (_a: boolean) => {},
+    onRivVia: (_s: Sfida) => {},
+  });
+
+  handlersRef.current.onRiga = (r) => {
+    setRigheAvversario((prec) => ({ ...prec, [r.riga]: { verdi: r.verdi, arancioni: r.arancioni } }));
+  };
+  handlersRef.current.onFinito = (f) => {
+    if (sonoHost) registraFinale('avv', f.indovinato, f.mittente);
+  };
+  handlersRef.current.onEsito = (e) => {
+    applicaEsito({ winnerId: e.winnerId ?? null, pareggio: !!e.pareggio });
+  };
+  handlersRef.current.onAssente = (_motivo) => {
+    // Se il round è già deciso e c'era un negoziato di rivincita aperto,
+    // l'uscita dell'avversario equivale a un rifiuto/annullamento.
+    if (esitoRef.current) {
+      const s = statoRivincitaRef.current;
+      if (s === 'inviata' || s === 'ricevuta' || s === 'in-avvio') {
+        setStatoRivincita('rifiutata');
+      }
+      return;
+    }
+    // Round ancora in corso: chi resta vince (C7).
+    perAbbandono.current = true;
+    fermaReinvio();
+    applicaEsito({ winnerId: mioId ?? null, pareggio: false });
+  };
+  handlersRef.current.onRivRichiesta = () => {
+    const s = statoRivincitaRef.current;
+    if (s === 'inviata') {
+      // Richieste incrociate → accordo: l'host prepara la partita.
+      setStatoRivincita('in-avvio');
+      if (sonoHost) void creaEAvviaRivincita();
+    } else if (s === 'idle') {
+      setStatoRivincita('ricevuta');
+    }
+    // negli altri stati (in-avvio/rifiutata/ricevuta) ignoro la richiesta doppia
+  };
+  handlersRef.current.onRivRisposta = (accetta) => {
+    if (accetta) {
+      // L'avversario ha accettato: l'host crea la partita, il guest attende.
+      setStatoRivincita('in-avvio');
+      if (sonoHost) void creaEAvviaRivincita();
+    } else {
+      const s = statoRivincitaRef.current;
+      // Se avevo chiesto io → "rifiutata"; se ero in altro stato → torno idle.
+      setStatoRivincita(s === 'inviata' ? 'rifiutata' : 'idle');
+    }
+  };
+  handlersRef.current.onRivVia = (nuova) => {
+    avviaNuovoRound(nuova); // arriva dall'host: entrambi ripartono
+  };
+
+  // Apertura canale (UNA volta, alla comparsa di mioId). Chiave = codice della
+  // PROP `sfida` (stabile tra i round). Gli handler passano per handlersRef.
   useEffect(() => {
     if (!mioId) return;
     const conn = apriCanaleStanza(
       sfida.codice,
       mioId,
-      (r: RiepilogoRiga) => {
-        setRigheAvversario((prec) => ({ ...prec, [r.riga]: { verdi: r.verdi, arancioni: r.arancioni } }));
-      },
-      undefined, // onGuestEntrato: gestito nel banco/lobby
-      (f: FinitoMsg) => {
-        if (sonoHost) registraFinale('avv', f.indovinato, f.mittente);
-      },
-      (e: EsitoMsg) => {
-        applicaEsito({ winnerId: e.winnerId ?? null, pareggio: !!e.pareggio });
-      },
-      (motivo: MotivoAssenza) => gestisciAvversarioAssente(motivo), // [C7]
+      (r) => handlersRef.current.onRiga(r),
+      undefined, // onGuestEntrato: gestito nella lobby
+      (f) => handlersRef.current.onFinito(f),
+      (e) => handlersRef.current.onEsito(e),
+      (m) => handlersRef.current.onAssente(m),
+      () => handlersRef.current.onRivRichiesta(),
+      (a) => handlersRef.current.onRivRisposta(a),
+      (s) => handlersRef.current.onRivVia(s),
     );
     connessione.current = conn;
     return () => {
@@ -235,7 +365,9 @@ useEffect(() => {
       conn.chiudi();
       connessione.current = null;
     };
-  }, [mioId, sfida.codice, sonoHost, registraFinale, applicaEsito, gestisciAvversarioAssente, fermaReinvio]);
+    // Volutamente NON dipende da sfidaCorrente/handler: il canale resta lo stesso.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mioId, sfida.codice]);
 
   const inviaRiga = (riga: number, verdi: number, arancioni: number) => {
     tentativiLive.current += 1; // [C5b] conta le righe confermate (fallback tentativi)
@@ -263,28 +395,57 @@ useEffect(() => {
     }
   };
 
-  // [C7] Uscita: se la partita NON è ancora decisa, "Indietro" = ABBANDONO
+  // [C7] Uscita: se il round NON è ancora deciso, "Indietro" = ABBANDONO
   // (avviso l'avversario e scrivo la mia riga come persa); poi torno al menu.
+  // Se il round è deciso ma c'era un negoziato di rivincita aperto, avviso
+  // l'avversario che la rivincita è saltata.
   const gestisciIndietro = useCallback(() => {
     if (!esitoRef.current) {
       connessione.current?.inviaAbbandono();
       void scriviRigaGioco('persa'); // la mia riga "lost" (guardia interna)
+    } else if (statoRivincitaRef.current !== 'idle' && statoRivincitaRef.current !== 'rifiutata') {
+      connessione.current?.inviaRivincitaRisposta(false);
     }
     onIndietro?.();
   }, [onIndietro, scriviRigaGioco]);
 
+  // [RIVINCITA] Azioni del pop-up (passate a SchermataGioco).
+  const chiediRivincita = useCallback(() => {
+    setStatoRivincita('inviata');
+    connessione.current?.inviaRivincitaRichiesta();
+  }, []);
+
+  const accettaRivincita = useCallback(() => {
+    setStatoRivincita('in-avvio');
+    if (sonoHost) {
+      void creaEAvviaRivincita(); // l'host crea subito e diffonde
+    } else {
+      connessione.current?.inviaRivincitaRisposta(true); // chiede all'host di creare
+    }
+  }, [sonoHost, creaEAvviaRivincita]);
+
+  const rifiutaRivincita = useCallback(() => {
+    connessione.current?.inviaRivincitaRisposta(false);
+    setStatoRivincita('idle');
+  }, []);
+
   return (
     <SchermataGioco
-      modalita={sfida.modalita}
-      lunghezza={sfida.lunghezza}
-      parolaForzata={sfida.parola}
-      linguaForzata={sfida.lingua}
+      key={roundKey}
+      modalita={sfidaCorrente.modalita}
+      lunghezza={sfidaCorrente.lunghezza}
+      parolaForzata={sfidaCorrente.parola}
+      linguaForzata={sfidaCorrente.lingua}
       online
       onRigaConfermata={inviaRiga}
       righeAvversario={righeAvversario}
       onPartitaFinita={gestisciMioFine}
       esitoOnline={esito}
       onIndietro={gestisciIndietro}
+      statoRivincita={statoRivincita}
+      onRichiediRivincita={chiediRivincita}
+      onAccettaRivincita={accettaRivincita}
+      onRifiutaRivincita={rifiutaRivincita}
     />
   );
 }

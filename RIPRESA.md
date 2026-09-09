@@ -29,12 +29,41 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
   `TemaProvider`/`useTema`, scelto dal menu (**⚙️ → Impostazioni**). Due temi: **Vetro**
   (glass scuro, default) e **Giallo** (chiaro flat). A tema: menu, gioco, login,
   impostazioni, loading. *Ancora statiche*: schermate **online** e `Avatar`.
-- **NUOVO in quest'ultima sessione — Multilingua (it/en) + rifiniture mobile:**
+- **NUOVO in quest'ultima sessione — Lingua della sfida ONLINE (multilingua ONLINE completo):**
+  la lingua è ora una **proprietà della sfida**, uguale per host e guest, così i due
+  validano sempre sullo **stesso** dizionario (prima ognuno usava la lingua **locale**: con
+  lingue diverse la sfida si rompeva). Fatto e **provato in app**: colonna **`lang`** in
+  `matches`; campo **`lingua`** nel tipo `Sfida` (`stanze.ts`), scritto in
+  `creaStanza`/`creaRivincita` ed **ereditato** dal guest in `entraInStanza`; bersaglio
+  pescato dal DB **nella lingua della sfida** (`parola_casuale(lunghezza, p_lang)`); **chip
+  🇮🇹/🇬🇧 nella lobby** (sceglie solo l'host, come stato **locale** che non tocca la lingua
+  globale dell'app; il guest eredita); `SchermataGiocoOnline` passa `sfida.lingua` come
+  **`linguaForzata`** a `SchermataGioco` → `useGioco`, che valida/pesca con
+  `linguaEffettiva = linguaForzata ?? lingua`. La **rivincita mantiene la lingua**. Con
+  questo il **multilingua è completo anche nell'online**.
+- **Rivincita online:**
+  - A fine sfida il pop-up di esito offre **🔁 Rivincita**; l'avversario **✓ Accetta /
+    Rifiuta**. Sull'accordo, l'**host** crea un **nuovo match** (parola nuova, stessa
+    modalità/lunghezza/lingua, guest già dentro, `status='playing'`) e lo diffonde:
+    entrambi ripartono su una partita fresca **sullo stesso canale** (niente nuovo
+    handshake). Solo l'host può creare (lo impone la RLS di `matches`), quindi la
+    creazione è sempre instradata a lui.
+  - **File toccati:** `canaleStanza.ts` (nuovi eventi Realtime `rivincita-richiesta` /
+    `rivincita-risposta` / `rivincita-via` + relativi `invia*`), `stanze.ts` (nuova
+    `creaRivincita`), `SchermataGiocoOnline.tsx` (orchestrazione del negoziato + reset
+    del round con `key` che rimonta `SchermataGioco`; **il canale resta aperto una sola
+    volta** grazie a `handlersRef`, così cambiare round non rifà scattare
+    presence/handshake), `SchermataGioco.tsx` (bottoni 🔁 Rivincita / ✓ Accetta / Rifiuta
+    nel pop-up, via 4 props opzionali `statoRivincita` + `onRichiedi/Accetta/RifiutaRivincita`).
+  - Ogni rivincita è un **nuovo `matches`** → le statistiche e le classifiche contano
+    tutti i round. Richieste incrociate → accordo automatico; se l'avversario esce
+    durante l'attesa, la **Presence** la tratta come rifiuto. **Provato su web.**
+- **Sessione precedente — Multilingua (it/en) + rifiniture mobile:**
   - **Parole inglesi nel DB**: importate in `words` (`lang='en'`) 12.041 da 5 lettere e
     21.441 da 6; `is_solution` scelto per **frequenza d'uso** (`wordfreq`, **Zipf ≥ 3.5**
     → 1.769 e 2.039 bersagli). Import via **CSV** senza la colonna `id` (è
     `GENERATED ALWAYS AS IDENTITY`, la genera il DB).
-  - **Sistema lingua**: nuovo `LinguaContext` (`app/src/lingua/`), montato in `App.tsx`
+  - **Sistema lingua**: `LinguaContext` (`app/src/lingua/`), montato in `App.tsx`
     accanto a `TemaProvider`; **estendibile con una riga**. Selettore **🌐 Lingua** in
     `SchermataImpostazioni` (accanto al tema).
   - **Dizionario per lingua**: `dizionarioDati.ts` diventato **indice**
@@ -53,30 +82,29 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
 
 ## Cosa manca / prossimi passi (in ordine consigliato)
 
-1. **⚠️ Lingua della sfida ONLINE (importante).** Oggi la partita online valida i
-   tentativi sulla lingua **locale** di chi gioca, non su quella della sfida: se i due
-   giocatori hanno lingue **diverse**, la sfida si rompe (uno valida sul dizionario
-   sbagliato). Da fare: rendere la **lingua una proprietà della sfida** — salvarla in
-   `matches`, aggiungerla al tipo `Sfida` (`app/src/online/stanze.ts`), sceglierla alla
-   creazione, e passarla fino a `useGioco` come **`linguaForzata`** (gemella di
-   `parolaForzata`). *Decisione da prendere*: lingua della sfida **automatica** (= quella
-   dell'host al momento della creazione) oppure **esplicita** (piccolo selettore nella
-   lobby). *Finché i due tengono la stessa lingua, l'online già funziona.*
-2. **Scelta del font** in Impostazioni (accanto a lingua e tema). Richiede: caricare i
+1. **Scelta del font** in Impostazioni (accanto a lingua e tema). Richiede: caricare i
    `.ttf` dei font alternativi in `App.tsx` (`useFonts`) + far **sovrascrivere**
    `tema.font` dalla scelta utente (un piccolo override che avvolge il tema). *Serve
    decidere quali font rendere disponibili e da dove prenderli.*
-3. **Persistenza di lingua e tema** (AsyncStorage): oggi entrambi ripartono dal default
+2. **Persistenza di lingua e tema** (AsyncStorage): oggi entrambi ripartono dal default
    a ogni avvio. Stesso meccanismo per i due contesti (`LinguaContext` e `TemaContext`).
-4. **Temi — completare**: tematizzare le schermate **online** (Classifiche, Lobby,
+3. **Temi — completare**: tematizzare le schermate **online** (Classifiche, Lobby,
    partita online) e il componente **Avatar** (oggi ancora a colori statici). Quando si
    toccano `SchermataGioco.tsx`/`Griglia.tsx`, usare le versioni **con le props online**
    (`parolaForzata`, `righeAvversario`, pallini), non quelle single-player.
-5. **Rifinitura classifiche (opzionale)**: mostrare anche la **bravura** in UI (la vista
+4. **Rifinitura classifiche (opzionale)**: mostrare anche la **bravura** in UI (la vista
    `leaderboard_skill` è già pronta lato DB) — tab Punti/Bravura in `SchermataClassifiche`.
 
 ## Punti dove si può migliorare (debito tecnico / idee)
 
+- **Rivincita — limiti/idee**: se la `creaRivincita` (lato host) fallisce per rete,
+  l'avversario viene sbloccato (rifiuto automatico) e si può riprovare. Idea futura: un
+  piccolo **timeout** sulla richiesta di rivincita (ora resta in attesa finché l'altro
+  non risponde o esce).
+- **Pulizia debug (piccola, ma da fare)**: in `SchermataGiocoOnline.tsx` (righe ~106-107)
+  c'è un `console.log('[DEBUG parola]', …)` che **stampa la parola da indovinare** nel log
+  a ogni round. Innocuo in sé, ma in una partita online scrive la **soluzione** nella
+  console: togliere prima di considerare l'online davvero rifinito.
 - **Affinamento bersagli del dizionario**: l'inglese usa Zipf ≥ 3.5 (regolabile);
   l'italiano fu scelto con una soglia di frequenza più grezza. Si può riallineare
   l'italiano con lo **stesso metodo** (`wordfreq` supporta l'italiano) e ripulire
@@ -110,6 +138,7 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
   una riga; il dizionario è **splittato per lingua** e unito da un indice.
 - **Online v1 = parola sul client** (classifica "sulla fiducia"); anti-cheat vero = v2.
 - **Esito arbitrato dall'host**; **abbandono/disconnessione**: chi lascia perde.
+  **Rivincita**: il nuovo match lo crea **sempre l'host** (RLS), sullo stesso canale.
 - **Sicurezza**: chiave `anon` nell'app protetta da **RLS**; `service_role` e client
   secret Google **mai** nell'app. Segreti nel `.env`/pannelli, mai in chat né in Git.
 - Gotcha: URL Supabase = `https://<progetto>.supabase.co`; il `.env` si legge **solo
@@ -133,8 +162,9 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
 ## Come iniziare
 
 Per prima cosa: leggi la specifica, poi **riassumimi in poche righe dove siamo** (per
-confermare che il contesto è chiaro). Il prossimo passo naturale è la **lingua della
-sfida online** (punto 1 qui sopra), che chiude il multilingua anche nell'online. In
-alternativa possiamo fare la **scelta del font**, la **persistenza** di lingua+tema, o
-**completare i temi** sulle schermate online. Dimmi tu da dove ripartire, con lo stesso
-metodo qui sopra: un sotto-passo alla volta, chiedendomi i file prima di modificarli.
+confermare che il contesto è chiaro). Il **multilingua è ora completo anche nell'online**
+(lingua = proprietà della sfida), quindi il prossimo passo naturale è la **scelta del
+font** (punto 1 qui sopra). In alternativa possiamo fare la **persistenza** di lingua+tema,
+**completare i temi** sulle schermate online, o la piccola **pulizia del `console.log`**
+che stampa la parola. Dimmi tu da dove ripartire, con lo stesso metodo qui sopra: un
+sotto-passo alla volta, chiedendomi i file prima di modificarli.
