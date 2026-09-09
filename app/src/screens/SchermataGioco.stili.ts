@@ -15,8 +15,19 @@ export function creaStili(tema: Tema) {
       paddingTop: 12,
       paddingBottom: 16,
     },
-    header: { paddingTop: 4, paddingBottom: 6, gap: 8 },
-    barraTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    // Header su UNA riga: [indietro] · [titolo + sottotitolo] · [pallini + contatore].
+    header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 4, paddingBottom: 6 },
+    titoloGruppo: { flex: 1, justifyContent: 'center', gap: 2 },
+    sottoRiga: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    puntoStato: { width: 8, height: 8, borderRadius: 4, backgroundColor: tema.palette.verde },
+    // Tentativi come pallini che si riempiono + contatore "X/max".
+    tentativiWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    pallini: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+    pallino: { width: 8, height: 8, borderRadius: 4 },
+    pallinoVuoto: { backgroundColor: tema.palette.hair },
+    pallinoPieno: { backgroundColor: tema.palette.accento },
+    pallinoCorrente: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: tema.palette.accento },
+    contatore: { color: tema.palette.accentoSoft, fontSize: 13, fontFamily: tema.font.bold, fontWeight: '800', letterSpacing: 0.5 },
     tondo: {
       width: 48,
       height: 48,
@@ -28,26 +39,13 @@ export function creaStili(tema: Tema) {
       justifyContent: 'center',
     },
     tondoIcona: { color: tema.palette.testo, fontSize: 22, fontFamily: tema.font.bold, fontWeight: '800', marginTop: -1 },
-    gomma: {
-      width: 22,
-      height: 15,
-      borderRadius: 4,
-      overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: tema.palette.gommaBordo, // era 'rgba(255,255,255,0.35)'
-      transform: [{ rotate: '-18deg' }],
-    },
-    gommaCorpo: { flex: 2, backgroundColor: tema.palette.testo }, // era '#EAF6F4' (= testo Vetro)
-    gommaFascia: { flex: 1, backgroundColor: tema.palette.accento },
     titolo: {
-      flex: 1,
-      textAlign: 'center',
       color: tema.palette.accentoSoft,
-      fontSize: 30,
+      fontSize: 22,
       fontFamily: tema.font.serif,
       fontWeight: '600',
       letterSpacing: 0.5,
-      ...bagliore(tema.palette.glow, 20),
+      ...bagliore(tema.palette.glow, 14),
     },
     sottotitolo: {
       color: tema.palette.accentoTenue,
@@ -55,7 +53,7 @@ export function creaStili(tema: Tema) {
       fontFamily: tema.font.medium,
       fontWeight: '600',
       letterSpacing: 0.5,
-      textAlign: 'center',
+      flexShrink: 1,
     },
     // LAYOUT: griglia + tastiera nello STESSO blocco, centrato verticalmente e
     // ravvicinato (gap). Prima la griglia stava in alto e la tastiera in fondo,

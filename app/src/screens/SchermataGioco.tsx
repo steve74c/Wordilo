@@ -23,12 +23,12 @@ import { useTema } from '../temi/TemaContext';
 import { creaStili } from './SchermataGioco.stili';
 import type { StiliGioco } from './SchermataGioco.stili';
 import { useControlliLingua } from '../lingua/LinguaContext';
-
+ 
 type Props = {
   modalita?: Modalita;
   lunghezza?: LunghezzaParola;
   onIndietro?: () => void; // torna al menu
-
+ 
   // --- Online (tutte opzionali: se assenti, è il single player di sempre) ---
   parolaForzata?: string;   // la parola condivisa della stanza
   linguaForzata?: CodiceLingua; // la lingua della sfida (valida i tentativi su questa)
@@ -37,25 +37,48 @@ type Props = {
   righeAvversario?: Record<number, { verdi: number; arancioni: number }>;      // online: pallini avversario
   onPartitaFinita?: (indovinato: boolean, tentativi: number) => void;          // online: ho finito
   esitoOnline?: 'vinta' | 'persa' | 'pareggio' | null;                         // online: verdetto condiviso (host)
-
+ 
   // --- Rivincita (online) ---
   statoRivincita?: 'idle' | 'inviata' | 'ricevuta' | 'in-avvio' | 'rifiutata';
   onRichiediRivincita?: () => void;
   onAccettaRivincita?: () => void;
   onRifiutaRivincita?: () => void;
 };
-
+ 
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
-
-function IconaGomma({ stili }: { stili: StiliGioco }) {
+ 
+// Fila di pallini = tentativi. Pieni = tentativi già fatti; il tentativo corrente
+// (se la partita è in corso) ha un anello; i restanti sono vuoti.
+function PalliniTentativi({
+  totale,
+  fatti,
+  mostraCorrente,
+  stili,
+}: {
+  totale: number;
+  fatti: number;
+  mostraCorrente: boolean;
+  stili: StiliGioco;
+}) {
   return (
-    <View style={stili.gomma}>
-      <View style={stili.gommaCorpo} />
-      <View style={stili.gommaFascia} />
+    <View style={stili.pallini}>
+      {Array.from({ length: totale }).map((_, i) => {
+        const pieno = i < fatti;
+        const corrente = mostraCorrente && i === fatti;
+        return (
+          <View
+            key={i}
+            style={[
+              stili.pallino,
+              pieno ? stili.pallinoPieno : corrente ? stili.pallinoCorrente : stili.pallinoVuoto,
+            ]}
+          />
+        );
+      })}
     </View>
   );
 }
-
+ 
 export function SchermataGioco({
   modalita = 'principiante',
   lunghezza = 5,
@@ -74,37 +97,38 @@ export function SchermataGioco({
 }: Props) {
   const tema = useTema();
   const stili = useMemo(() => creaStili(tema), [tema]);
-
-
+ 
+ 
   // Lingua da mostrare nell'header: quella della SFIDA se online (linguaForzata),
-  // altrimenti quella dell'app. Prendo la bandierina dall'elenco lingue.
+  // altrimenti quella dell'app. Mostro il NOME (testo) e non l'emoji-bandiera,
+  // perché le bandierine non vengono disegnate su tutte le piattaforme (es. Windows/web).
   const { lingua: linguaApp, lingueDisponibili } = useControlliLingua();
   const linguaMostrata: CodiceLingua = linguaForzata ?? linguaApp;
-  const bandieraLingua =
-    lingueDisponibili.find((l) => l.codice === linguaMostrata)?.bandiera ?? linguaMostrata.toUpperCase();
+  const nomeLingua =
+    lingueDisponibili.find((l) => l.codice === linguaMostrata)?.nome ?? linguaMostrata.toUpperCase();
 	
 	
   const { registra } = useStatistiche();
-  const { stato, problema, scossa, secondiRimasti, tastiera, digita, cancella, svuotaRiga, conferma, nuovaPartita } =
+  const { stato, problema, scossa, secondiRimasti, tastiera, digita, cancella, conferma, nuovaPartita } =
     useGioco(modalita, lunghezza, registra, parolaForzata, linguaForzata); // ← 4°: parola online · 5°: lingua della sfida
   const finita = stato.esito !== 'in_corso';
   const vinta = stato.esito === 'won';
-
+ 
   // Online: la partita è "bloccata" se ho finito io OPPURE se è arrivato il verdetto
   // (es. l'avversario ha indovinato per primo mentre stavo ancora giocando).
   const bloccato = finita || (online && esitoOnline != null);
-
+ 
   const { width, height } = useWindowDimensions();
   const righe = stato.maxTentativi;
-
+ 
   const altezzaTasto = width < 600 ? 52 : 46;
   const keyboardH = altezzaTasto * 3 + 16;
-
+ 
   const HEADER_H = 92;
   const AVVISO_H = 34;
   const CONTORNO_V = 28 + 24;
   const spazioGriglia = Math.max(140, height - HEADER_H - AVVISO_H - keyboardH - CONTORNO_V);
-
+ 
   const gapRiga = 0.16;
   const latoAltezza = spazioGriglia / (righe + (righe - 1) * gapRiga);
   // Riserva di colonne "virtuali" per fare spazio ai badge che stanno FUORI
@@ -119,7 +143,7 @@ export function SchermataGioco({
   const latoLarghezza =
     (Math.min(width - 24, 470) - 6 * (lunghezza - 1)) / (lunghezza + riserva);
   const lato = clamp(Math.min(latoLarghezza, latoAltezza), 30, 64);
-
+ 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const onKey = (e: KeyboardEvent) => {
@@ -131,7 +155,7 @@ export function SchermataGioco({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [bloccato, conferma, cancella, digita]);
-
+ 
   // Online: ogni volta che compare una NUOVA riga confermata, spedisci il suo
   // riepilogo (verdi/arancioni) al canale. Salta le righe perse per timeout.
   const righeInviate = useRef(0);
@@ -146,7 +170,7 @@ export function SchermataGioco({
     }
     righeInviate.current = stato.righe.length;
   }, [stato.righe, onRigaConfermata]);
-
+ 
   // Online: appena la MIA partita finisce, avvisa il contenitore (una volta sola).
   const notificato = useRef(false);
   useEffect(() => {
@@ -156,12 +180,12 @@ export function SchermataGioco({
       onPartitaFinita(vinta, stato.righe.length);
     }
   }, [online, finita, vinta, onPartitaFinita, stato.righe.length]);
-
+ 
   // Esito da mostrare nel pop-up: online = verdetto condiviso; altrimenti locale.
   const esitoFin: 'vinta' | 'persa' | 'pareggio' =
     online ? esitoOnline ?? 'persa' : vinta ? 'vinta' : 'persa';
   const haVinto = esitoFin === 'vinta';
-
+ 
   // Quando aprire il pop-up: single → appena finisco; online → all'arrivo dell'esito.
   const prontoPopup = online ? esitoOnline != null : finita;
   const [popup, setPopup] = useState(false);
@@ -173,7 +197,7 @@ export function SchermataGioco({
     const t = setTimeout(() => setPopup(true), 780);
     return () => clearTimeout(t);
   }, [prontoPopup]);
-
+ 
   const anim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (popup) {
@@ -181,7 +205,7 @@ export function SchermataGioco({
       Animated.spring(anim, { toValue: 1, friction: 7, tension: 70, useNativeDriver: true }).start();
     }
   }, [popup, anim]);
-
+ 
   const avviso =
     online && bloccato && esitoOnline == null
       ? 'Hai finito · in attesa dell\'avversario…'
@@ -190,52 +214,56 @@ export function SchermataGioco({
         : problema === 'non_valida'
           ? 'Parola non valida'
           : null;
-
+ 
   const cardScale = anim.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1] });
-
+ 
   const tentativoCorrente = finita
     ? stato.righe.length
     : Math.min(stato.righe.length + 1, stato.maxTentativi);
-
+ 
+  const modalitaLabel = modalita.charAt(0).toUpperCase() + modalita.slice(1);
+ 
   return (
     <LinearGradient colors={tema.gradienti.sfondo} style={stili.sfondo}>
       <SafeAreaView style={stili.safe}>
         <View style={stili.contenuto}>
           <View style={stili.header}>
-            <View style={stili.barraTop}>
-              <Pressable
-                onPress={onIndietro}
-                disabled={!onIndietro}
-                hitSlop={8}
-                style={({ pressed }) => [
-                  stili.tondo,
-                  ombra(0.25, 6, 3, 3),
-                  { opacity: onIndietro ? 1 : 0, transform: [{ scale: pressed ? 0.92 : 1 }] },
-                ]}
-              >
-                <Text style={stili.tondoIcona}>←</Text>
-              </Pressable>
-
+            <Pressable
+              onPress={onIndietro}
+              disabled={!onIndietro}
+              hitSlop={8}
+              style={({ pressed }) => [
+                stili.tondo,
+                ombra(0.25, 6, 3, 3),
+                { opacity: onIndietro ? 1 : 0, transform: [{ scale: pressed ? 0.92 : 1 }] },
+              ]}
+            >
+              <Text style={stili.tondoIcona}>←</Text>
+            </Pressable>
+ 
+            <View style={stili.titoloGruppo}>
               <Text style={stili.titolo}>Wordilo</Text>
-
-              <Pressable
-                onPress={svuotaRiga}
-                hitSlop={8}
-                style={({ pressed }) => [
-                  stili.tondo,
-                  ombra(0.25, 6, 3, 3),
-                  { transform: [{ scale: pressed ? 0.92 : 1 }] },
-                ]}
-              >
-                <IconaGomma stili={stili} />
-              </Pressable>
+              <View style={stili.sottoRiga}>
+                <View style={stili.puntoStato} />
+                <Text style={stili.sottotitolo} numberOfLines={1}>
+                  {modalitaLabel} · {lunghezza} lettere · {nomeLingua}
+                </Text>
+              </View>
             </View>
-
-            <Text style={stili.sottotitolo}>
-              {modalita} · {lunghezza} lettere · tentativo {tentativoCorrente}/{stato.maxTentativi} · {bandieraLingua}
-            </Text>
+ 
+            <View style={stili.tentativiWrap}>
+              <PalliniTentativi
+                totale={stato.maxTentativi}
+                fatti={stato.righe.length}
+                mostraCorrente={!finita}
+                stili={stili}
+              />
+              <Text style={stili.contatore}>
+                {tentativoCorrente}/{stato.maxTentativi}
+              </Text>
+            </View>
           </View>
-
+ 
           {/* LAYOUT: griglia e tastiera insieme, centrate e ravvicinate */}
           <View style={stili.gioco}>
             <View style={stili.zonaAvviso}>
@@ -245,7 +273,7 @@ export function SchermataGioco({
                 </View>
               )}
             </View>
-
+ 
             <Griglia
               stato={stato}
               lato={lato}
@@ -253,7 +281,7 @@ export function SchermataGioco({
               secondiRimasti={secondiRimasti}
               righeAvversario={righeAvversario}
             />
-
+ 
             <Tastiera
               colori={tastiera}
               onLettera={digita}
@@ -264,7 +292,7 @@ export function SchermataGioco({
             />
           </View>
         </View>
-
+ 
         <Modal
           visible={popup}
           transparent
@@ -297,7 +325,7 @@ export function SchermataGioco({
                     ? `In ${stato.righe.length} ${stato.righe.length === 1 ? 'tentativo' : 'tentativi'}`
                     : `La parola era ${stato.target}`}
               </Text>
-
+ 
               {/* Online: rivincita (richiedi / accetta / rifiuta). Single: rigioca. */}
               {online ? (
                 <>
@@ -316,15 +344,15 @@ export function SchermataGioco({
                       </LinearGradient>
                     </Pressable>
                   )}
-
+ 
                   {statoRivincita === 'inviata' && (
                     <Text style={stili.esitoSub}>In attesa della risposta dell’avversario…</Text>
                   )}
-
+ 
                   {statoRivincita === 'in-avvio' && (
                     <Text style={stili.esitoSub}>Avvio della rivincita…</Text>
                   )}
-
+ 
                   {statoRivincita === 'ricevuta' && (
                     <>
                       <Text style={stili.esitoSub}>L’avversario chiede la rivincita</Text>
@@ -346,7 +374,7 @@ export function SchermataGioco({
                       </Pressable>
                     </>
                   )}
-
+ 
                   {statoRivincita === 'rifiutata' && (
                     <Text style={stili.esitoSub}>Rivincita rifiutata.</Text>
                   )}
@@ -366,7 +394,7 @@ export function SchermataGioco({
                   </LinearGradient>
                 </Pressable>
               )}
-
+ 
               {onIndietro && (
                 <Pressable onPress={onIndietro} hitSlop={8} style={stili.linkIndietro}>
                   <Text style={stili.linkIndietroTesto}>← Torna al menu</Text>
@@ -379,3 +407,4 @@ export function SchermataGioco({
     </LinearGradient>
   );
 }
+ 

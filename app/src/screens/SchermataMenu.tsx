@@ -12,7 +12,7 @@ import { useStatistiche } from '../stats/statistiche';
 import { useAuth } from '../auth/AuthContext';
 import { Avatar } from '../components/Avatar';
 import { useProfilo } from '../profilo/ProfiloContext';
-
+ 
 // -----------------------------------------------------------------------------
 // Prima "finestra": titolo serif con bagliore, card con anteprima tessere +
 // selezione lunghezza/modalità, pulsante Gioca, contatori (giocate/vinte/perse),
@@ -21,7 +21,7 @@ import { useProfilo } from '../profilo/ProfiloContext';
 // Lotto 2: migrata al sistema temi (useTema + creaStili) e aggiunto il pulsante
 // ⚙️ Impostazioni (accanto a Esci) che apre la scelta del tema.
 // -----------------------------------------------------------------------------
-
+ 
 type Props = {
   onGioca: (modalita: Modalita, lunghezza: LunghezzaParola) => void;
   onGiocaOnline?: (modalita: Modalita, lunghezza: LunghezzaParola) => void; // 🎲 coda casuale (trova avversario)
@@ -31,15 +31,15 @@ type Props = {
   lunghezzaIniziale?: LunghezzaParola;
   modalitaIniziale?: Modalita;
 };
-
+ 
 const LUNGHEZZE: LunghezzaParola[] = [5, 6];
-
+ 
 const LEGENDA: { colore: Colore; label: string }[] = [
   { colore: 'green', label: 'giusta' },
   { colore: 'orange', label: 'spostata' },
   { colore: 'grey', label: 'assente' },
 ];
-
+ 
 // Pillola selezionabile: attiva = gradiente accento, inerte = superficie.
 function Pillola({
   label,
@@ -79,18 +79,9 @@ function Pillola({
     </Pressable>
   );
 }
-
-// Anteprima decorativa: N tessere (N = lunghezza scelta), prima "accesa".
-function AnteprimaTessere({ lunghezza, stili }: { lunghezza: LunghezzaParola; stili: StiliMenu }) {
-  return (
-    <View style={stili.tessere}>
-      {Array.from({ length: lunghezza }).map((_, i) => (
-        <View key={i} style={[stili.tessera, i === 0 && stili.tesseraAccesa]} />
-      ))}
-    </View>
-  );
-}
-
+ 
+ 
+ 
 // Contatore singolo in stile "badge".
 function CartaStat({
   numero,
@@ -113,7 +104,7 @@ function CartaStat({
     </View>
   );
 }
-
+ 
 export function SchermataMenu({
   onGioca,
   onGiocaOnline,
@@ -125,7 +116,7 @@ export function SchermataMenu({
 }: Props) {
   const tema = useTema();
   const stili = useMemo(() => creaStili(tema), [tema]);
-
+ 
   const [lunghezza, setLunghezza] = useState<LunghezzaParola>(lunghezzaIniziale);
   const [modalita, setModalita] = useState<Modalita>(modalitaIniziale);
   const { giocate, vinte, perse } = useStatistiche();
@@ -134,11 +125,11 @@ export function SchermataMenu({
   // Il nick viene dal profilo (c'è per tutti, anche per gli utenti Google).
   const nickMeta = sessione?.user?.user_metadata?.nick as string | undefined;
   const nick = nickProfilo ?? nickMeta ?? 'Giocatore';
-
+ 
   // Colore dello stato (legenda/pallini) dal tema attivo, non più statico.
   const coloreStato = (c: Colore): string =>
     c === 'green' ? tema.palette.verde : c === 'orange' ? tema.palette.arancione : tema.palette.grigio;
-
+ 
   return (
     <LinearGradient colors={tema.gradienti.sfondo} style={stili.sfondo}>
       <SafeAreaView style={stili.safe}>
@@ -156,7 +147,7 @@ export function SchermataMenu({
               Ciao, <Text style={stili.salutoNick}>{nick}</Text>
             </Text>
           </View>
-
+ 
           <View style={stili.destra}>
             {onApriImpostazioni && (
               <Pressable
@@ -176,7 +167,7 @@ export function SchermataMenu({
             </Pressable>
           </View>
         </View>
-
+ 
         <ScrollView
           style={stili.contenuto}
           contentContainerStyle={stili.contenutoInner}
@@ -192,12 +183,11 @@ export function SchermataMenu({
               <View style={stili.divLinea} />
             </View>
           </View>
-
+ 
           {/* Card */}
           <View style={[stili.card, ombra(0.45, 26, 14, 12)]}>
-            <Text style={stili.eyebrow}>IMPOSTA LA PARTITA</Text>
-            <AnteprimaTessere lunghezza={lunghezza} stili={stili} />
-
+            <Text style={[stili.eyebrow, { textAlign: 'center' }]}>IMPOSTA LA PARTITA</Text>
+ 
             <Text style={stili.etichetta}>Lunghezza parola</Text>
             <View style={stili.riga}>
               {LUNGHEZZE.map((n) => (
@@ -211,7 +201,7 @@ export function SchermataMenu({
                 />
               ))}
             </View>
-
+ 
             <Text style={[stili.etichetta, stili.etichettaSpazio]}>Modalità</Text>
             <View style={stili.riga}>
               <Pillola
@@ -229,7 +219,7 @@ export function SchermataMenu({
                 gradiente={tema.gradienti.accento}
               />
             </View>
-
+ 
             <Pressable
               onPress={() => onGioca(modalita, lunghezza)}
               style={({ pressed }) => [stili.giocaWrap, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}
@@ -244,14 +234,14 @@ export function SchermataMenu({
               </LinearGradient>
             </Pressable>
           </View>
-
+ 
           {/* Contatori */}
           <View style={stili.stats}>
             <CartaStat numero={giocate} label="Giocate" colore={tema.palette.accentoSoft} stili={stili} />
             <CartaStat numero={vinte} label="Vinte" colore={tema.palette.verde} stili={stili} />
             <CartaStat numero={perse} label="Perse" colore={tema.palette.arancione} stili={stili} />
           </View>
-
+ 
           {/* Azioni online (🎲 Gioca online = coda casuale · ⚔️ Sfida amico = col
               codice) su una riga; 🏆 Classifica sulla sua. La modalità/lunghezza
               scelte sopra valgono anche per l'online. */}
@@ -289,7 +279,7 @@ export function SchermataMenu({
               )}
             </View>
           )}
-
+ 
           {/* Legenda */}
           <View style={stili.legenda}>
             {LEGENDA.map((v) => (
@@ -304,3 +294,4 @@ export function SchermataMenu({
     </LinearGradient>
   );
 }
+ 
