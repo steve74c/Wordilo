@@ -16,7 +16,7 @@ import { useProfilo } from '../profilo/ProfiloContext';
 // -----------------------------------------------------------------------------
 // Prima "finestra": titolo serif con bagliore, card con anteprima tessere +
 // selezione lunghezza/modalità, pulsante Gioca, contatori (giocate/vinte/perse),
-// azioni online (Sfida online + Classifica) e legenda. Nessuna logica di gioco.
+// azioni online (Sfida amico + Classifica) e legenda. Nessuna logica di gioco.
 //
 // Lotto 2: migrata al sistema temi (useTema + creaStili) e aggiunto il pulsante
 // ⚙️ Impostazioni (accanto a Esci) che apre la scelta del tema.
@@ -24,8 +24,8 @@ import { useProfilo } from '../profilo/ProfiloContext';
 
 type Props = {
   onGioca: (modalita: Modalita, lunghezza: LunghezzaParola) => void;
-  onGiocaVeloce?: (modalita: Modalita, lunghezza: LunghezzaParola) => void; // 🎲 coda casuale (trova avversario)
-  onSfidaOnline?: (modalita: Modalita, lunghezza: LunghezzaParola) => void; // (1b): apre la lobby (col codice)
+  onGiocaOnline?: (modalita: Modalita, lunghezza: LunghezzaParola) => void; // 🎲 coda casuale (trova avversario)
+  onSfidaAmico?: (modalita: Modalita, lunghezza: LunghezzaParola) => void; // (1b): apre la lobby (col codice)
   onClassifiche?: () => void;         // (C6): apre la schermata classifiche
   onApriImpostazioni?: () => void;    // NEW (Lotto 2): apre le Impostazioni (tema)
   lunghezzaIniziale?: LunghezzaParola;
@@ -116,8 +116,8 @@ function CartaStat({
 
 export function SchermataMenu({
   onGioca,
-  onGiocaVeloce,
-  onSfidaOnline,
+  onGiocaOnline,
+  onSfidaAmico,
   onClassifiche,
   onApriImpostazioni,
   lunghezzaIniziale = 5,
@@ -252,27 +252,27 @@ export function SchermataMenu({
             <CartaStat numero={perse} label="Perse" colore={tema.palette.arancione} stili={stili} />
           </View>
 
-          {/* Azioni online (🎲 Gioca veloce = coda casuale · ⚔️ Sfida online = col
+          {/* Azioni online (🎲 Gioca online = coda casuale · ⚔️ Sfida amico = col
               codice) su una riga; 🏆 Classifica sulla sua. La modalità/lunghezza
               scelte sopra valgono anche per l'online. */}
-          {(onGiocaVeloce || onSfidaOnline || onClassifiche) && (
+          {(onGiocaOnline || onSfidaAmico || onClassifiche) && (
             <View style={stili.azioniGruppo}>
-              {(onGiocaVeloce || onSfidaOnline) && (
+              {(onGiocaOnline || onSfidaAmico) && (
                 <View style={stili.azioni}>
-                  {onGiocaVeloce && (
+                  {onGiocaOnline && (
                     <Pressable
-                      onPress={() => onGiocaVeloce(modalita, lunghezza)}
+                      onPress={() => onGiocaOnline(modalita, lunghezza)}
                       style={({ pressed }) => [stili.azioneBtn, { opacity: pressed ? 0.8 : 1 }]}
                     >
-                      <Text style={stili.azioneTesto}>🎲  Gioca veloce</Text>
+                      <Text style={stili.azioneTesto}>🎲  Gioca online</Text>
                     </Pressable>
                   )}
-                  {onSfidaOnline && (
+                  {onSfidaAmico && (
                     <Pressable
-                      onPress={() => onSfidaOnline(modalita, lunghezza)}
+                      onPress={() => onSfidaAmico(modalita, lunghezza)}
                       style={({ pressed }) => [stili.azioneBtn, { opacity: pressed ? 0.8 : 1 }]}
                     >
-                      <Text style={stili.azioneTesto}>⚔️  Sfida online</Text>
+                      <Text style={stili.azioneTesto}>⚔️  Sfida amico</Text>
                     </Pressable>
                   )}
                 </View>

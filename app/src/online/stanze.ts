@@ -320,7 +320,7 @@ export async function creaRivincita(precedente: Sfida): Promise<RisultatoStanza>
 
 
 // -----------------------------------------------------------------------------
-// CODA CASUALE (🎲 Gioca veloce) — accoppiamento senza codice.
+// CODA CASUALE (🎲 Gioca online) — accoppiamento senza codice.
 // Aggiunta additiva: NON tocca creaStanza/entraInStanza (la modalità col codice
 // resta identica). Le stanze della coda sono marcate `is_public = true`, così un
 // giocatore casuale non finisce mai in una stanza privata creata per un amico.
@@ -339,7 +339,7 @@ export type RisultatoCoda =
  *
  * Regola anti-corsa: PRIMA prova a ENTRARE in una stanza pubblica compatibile già
  * in attesa; solo se non ne trova nessuna libera CREA la propria e aspetta. Così,
- * se due giocatori premono "Gioca veloce" nello stesso istante, al più uno crea e
+ * se due giocatori premono "Gioca online" nello stesso istante, al più uno crea e
  * l'altro entra — e se provano a entrare nella stessa stanza, la guardia
  * `guest_id IS NULL` sull'update fa vincere uno solo; l'altro ricade sul candidato
  * successivo o crea la sua.

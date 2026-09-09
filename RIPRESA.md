@@ -29,7 +29,7 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
   `TemaProvider`/`useTema`, scelto dal menu (**⚙️ → Impostazioni**). Due temi: **Vetro**
   (glass scuro, default) e **Giallo** (chiaro flat). A tema: menu, gioco, login,
   impostazioni, loading. *Ancora statiche*: schermate **online** e `Avatar`.
-- **NUOVO in quest'ultima sessione — Coda casuale (🎲 Gioca veloce):** seconda modalità
+- **NUOVO in quest'ultima sessione — Coda casuale (🎲 Gioca online):** seconda modalità
   online che **convive** con quella col codice. Un giocatore preme 🎲 e l'app lo accoppia
   automaticamente con un altro in attesa che abbia le **stesse impostazioni** (modalità +
   lunghezza + lingua); niente codice da scambiare. **Provato in app con due browser.**
@@ -43,10 +43,10 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
     *poi crea* la propria se non c'è (ruolo `host`, attende). Il "prima cerca poi crea" +
     la guardia `guest_id IS NULL` disinnesca la corsa dei due-che-premono-insieme. Ritorna
     anche il **ruolo**. `creaStanza`/`entraInStanza`/`creaRivincita` **non toccate**.
-  - **UI:** nuovo pulsante **🎲 Gioca veloce** nel menu (accanto a ⚔️ Sfida online) via
-    prop opzionale `onGiocaVeloce`; nuova **`SchermataCodaVeloce.tsx`** che riusa la
+  - **UI:** nuovo pulsante **🎲 Gioca online** nel menu (accanto a ⚔️ Sfida amico) via
+    prop opzionale `onGiocaOnline`; nuova **`SchermataCodaCasuale.tsx`** che riusa la
     **stessa stretta di mano e gli stessi stili** della lobby (mostra "cerco/attendo/
-    trovato"); collegamento nel router `Wordilo.tsx` (stato `codaVeloce`). L'Indietro
+    trovato"); collegamento nel router `Wordilo.tsx` (stato `codaCasuale`). L'Indietro
     dell'host chiude la stanza pubblica (`annullaStanza`).
   - **Header di gioco:** la riga in alto ora mostra anche la **lingua effettiva** con la
     bandierina (`linguaForzata ?? linguaApp`) — in single la lingua dell'app, online quella
@@ -121,8 +121,8 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
 3. **Persistenza di lingua e tema** (AsyncStorage): oggi entrambi ripartono dal default
    a ogni avvio. Stesso meccanismo per i due contesti (`LinguaContext` e `TemaContext`).
 4. **Temi — completare**: tematizzare le schermate **online** (Classifiche, Lobby,
-   partita online, **coda veloce**) e il componente **Avatar** (oggi ancora a colori
-   statici). *Nota: `SchermataCodaVeloce` riusa già gli stili della lobby, quindi si
+   partita online, **coda casuale**) e il componente **Avatar** (oggi ancora a colori
+   statici). *Nota: `SchermataCodaCasuale` riusa già gli stili della lobby, quindi si
    tematizza "in automatico" quando si tematizza la lobby.* Quando si toccano
    `SchermataGioco.tsx`/`Griglia.tsx`, usare le versioni **con le props online**
    (`parolaForzata`, `righeAvversario`, pallini), non quelle single-player.

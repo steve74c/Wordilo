@@ -35,7 +35,7 @@ partita e ripartire subito (nuovo `matches`, parola nuova, stesso canale). **Mul
 completo anche online**: la lingua è una proprietà della sfida (colonna `matches.lang`,
 `linguaForzata` fino a `useGioco`), scelta dall'host (chip 🇮🇹/🇬🇧 in lobby) o ereditata
 dalla coda; l'header di gioco mostra la bandierina della lingua effettiva. **NUOVA
-modalità online — coda casuale (🎲 Gioca veloce):** oltre alla sfida col codice, un
+modalità online — coda casuale (🎲 Gioca online):** oltre alla sfida col codice, un
 giocatore può mettersi in coda e l'app lo accoppia automaticamente con un altro giocatore
 in attesa con le stesse impostazioni (modalità+lunghezza+lingua); stanze marcate
 `is_public`, stessa stretta di mano/pulizia della modalità col codice. Ancora da
@@ -120,10 +120,10 @@ over-the-air del codice JS senza ripassare dagli store.
   src/components/Coriandoli.tsx  particelle leggere per la vittoria
   src/screens/Wordilo.tsx      router minimale menu ↔ partita ↔ classifiche ↔ lobby ↔ sfida online (senza librerie di navigazione)
   src/screens/SchermataAuth.tsx  accesso/registrazione (email/password)
-  src/screens/SchermataMenu.tsx  saluto+logout, scelta lunghezza/modalità, contatori, legenda, pulsanti 🎲 Gioca veloce (coda casuale) + ⚔️ Sfida online (col codice) affiancati e 🏆 Classifica, + ⚙️ Impostazioni (tema) accanto a Esci (la modalità/lunghezza scelte valgono anche per l'online)
+  src/screens/SchermataMenu.tsx  saluto+logout, scelta lunghezza/modalità, contatori, legenda, pulsanti 🎲 Gioca online (coda casuale) + ⚔️ Sfida amico (col codice) affiancati e 🏆 Classifica, + ⚙️ Impostazioni (tema) accanto a Esci (la modalità/lunghezza scelte valgono anche per l'online)
   src/screens/SchermataClassifiche.tsx  schermata Classifiche (C6): legge leaderboard_points, lista con medaglie/avatar/punti, evidenzia la propria riga [FILONE C]
   src/screens/SchermataLobby.tsx  lobby online (1b): crea/entra stanza col codice + attesa avversario in Realtime + INGRESSO AUTOMATICO in partita; Indietro dell'host → annullaStanza; all'apertura chiama pulisciStanzeVecchie (2c) [FILONE C]
-  src/screens/SchermataCodaVeloce.tsx  coda casuale (🎲 Gioca veloce): all'apertura chiama trovaOCreaStanzaPubblica → host in attesa o guest che entra; RIUSA la stessa stretta di mano/stili della lobby; lingua = quella dell'app; Indietro dell'host → annullaStanza [CODA]
+  src/screens/SchermataCodaCasuale.tsx  coda casuale (🎲 Gioca online): all'apertura chiama trovaOCreaStanzaPubblica → host in attesa o guest che entra; RIUSA la stessa stretta di mano/stili della lobby; lingua = quella dell'app; Indietro dell'host → annullaStanza [CODA]
   src/screens/SchermataGioco.tsx  props ONLINE opzionali (parolaForzata, online, onRigaConfermata, righeAvversario, onPartitaFinita, esitoOnline) + RIVINCITA (statoRivincita, onRichiediRivincita, onAccettaRivincita, onRifiutaRivincita → bottoni 🔁/✓/Rifiuta nel pop-up); senza, è il single player di sempre
   src/online/stanze.ts         creaStanza/entraInStanza (parola dal DB via parola_casuale, codice-stanza, scrittura in matches) + annullaStanza (chiude la stanza a 'finished') + pulisciStanzeVecchie (2c: rimuove i residui propri non finiti >10 min) + creaRivincita (nuovo match per la rivincita: parola nuova, status='playing', guest già noto — solo host per RLS) + trovaOCreaStanzaPubblica (CODA casuale: cerca una stanza pubblica compatibile ed entra come guest, altrimenti crea una stanza is_public='waiting' e attende come host; ritorna anche il ruolo) [FILONE C / CODA]
   src/online/canaleStanza.ts   canale Realtime broadcast: inviaRiga (riepiloghi) + ingresso guest (guest-entrato/host-ok) + fine partita (finito/esito) + abbandono/Presence (C7) + RIVINCITA (rivincita-richiesta/risposta/via) [FILONE C]
@@ -230,9 +230,9 @@ I valori numerici qui sotto sono **default parametrizzabili lato server**.
 - Si sceglie se giocare in modalità **principiante o esperto** (ne eredita le
   regole: tentativi e/o timer).
 - **Accoppiamento: due modalità che convivono.**
-  1. **Con un amico — codice-stanza** (⚔️ Sfida online): un giocatore crea la stanza
+  1. **Con un amico — codice-stanza** (⚔️ Sfida amico): un giocatore crea la stanza
      e riceve un codice breve da condividere; l'altro entra digitandolo.
-  2. **Con uno sconosciuto — coda casuale** (🎲 Gioca veloce): il giocatore non digita
+  2. **Con uno sconosciuto — coda casuale** (🎲 Gioca online): il giocatore non digita
      codici; l'app **cerca** una stanza pubblica in attesa con le **stesse impostazioni**
      (modalità + lunghezza + lingua) e vi **entra**; se non ce n'è, ne **crea** una
      pubblica e **aspetta** che arrivi il prossimo. Regola anti-corsa: *prima cerca, poi
@@ -597,7 +597,7 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
 - Tutti i valori numerici chiave sono **parametrici lato server**.
 - Single player: **nessun punteggio**, solo vinta/persa, niente pareggio.
 - Online: **due accoppiamenti** — codice-stanza (con un amico) e **coda casuale**
-  (🎲 Gioca veloce, con uno sconosciuto: stesse impostazioni, stanze `is_public`).
+  (🎲 Gioca online, con uno sconosciuto: stesse impostazioni, stanze `is_public`).
 - Punti online: **10 / 0 / 5**.
 - **Due classifiche** distinte (punti + bravura), bravura con **soglia minima**
   (default 10 partite).
@@ -740,7 +740,7 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
   noto: la Presence vede la caduta solo dopo la scadenza dei "battiti" (~10-20s con la
   grazia); l'uscita esplicita è invece immediata. Le due strade si coprono a vicenda.
 - **Lobby vera dal menu (1b) — chiude il filone C v1:** nuova `SchermataLobby` aperta
-  dal pulsante **⚔️ Sfida online** del menu, che eredita **modalità e lunghezza** già
+  dal pulsante **⚔️ Sfida amico** del menu, che eredita **modalità e lunghezza** già
   scelte con le pillole (nessun selettore duplicato). L'host crea, vede il **codice** e
   attende; il guest entra col codice. L'**ingresso in partita è automatico**: riuso la
   stretta di mano collaudata (`guest-entrato`/`host-ok`), sostituendo i vecchi bottoni
@@ -935,7 +935,7 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
     - ✅ **Rifiniture mobile**: (a) i **pallini avversario** (online) uscivano dallo
       schermo a sinistra → `SchermataGioco` riserva ora spazio anche per l'online (non
       solo per il countdown esperto), con `Math.max` fra le due riserve. (b) Il **menu**
-      su schermi bassi tagliava i pulsanti in fondo (Sfida online/Classifica/legenda) →
+      su schermi bassi tagliava i pulsanti in fondo (Sfida amico/Classifica/legenda) →
       `SchermataMenu` ora è una **`ScrollView`** (`flexGrow:1`+`center`). (c) **Countdown**
       nel tema Giallo: numero+anello passati a `accentoSoft` (ambra scuro leggibile su
       fondo chiaro); l'**allarme** ora scatta negli **ultimi 5 secondi** con cerchietto
@@ -1060,7 +1060,7 @@ Vetro); persistenza (AsyncStorage) rimandata.
   bug per cui su telefono il pallino **verde** usciva dal bordo sinistro.
 - **Menu scrollabile**: `SchermataMenu` è una `ScrollView` (`flexGrow:1` +
   `justifyContent:'center'`): resta centrata quando c'è spazio, **scorre** quando non
-  ce n'è, così su schermi bassi non si perdono i pulsanti in fondo (Sfida online,
+  ce n'è, così su schermi bassi non si perdono i pulsanti in fondo (Sfida amico,
   Classifica, legenda) — bug corretto.
 - Contenuto **centrato e limitato in larghezza** su tablet/desktop; **target touch
   generosi** (tasti più alti su telefono).
