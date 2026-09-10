@@ -359,6 +359,7 @@ export async function trovaOCreaStanzaPubblica(
   modalita: ModalitaOnline,
   lunghezza: LunghezzaParola,
   lingua: LinguaSfida,
+  escludiIds: string[] = [],
 ): Promise<RisultatoCoda> {
   // 1) Chi sono io?
   const { data: auth } = await supabase.auth.getUser();
@@ -386,6 +387,7 @@ export async function trovaOCreaStanzaPubblica(
   //    L'update passa solo se guest_id è ANCORA vuoto: se qualcuno l'ha occupata
   //    nel frattempo, l'update non aggiorna nulla e passo al candidato successivo.
   for (const stanza of candidate ?? []) {
+    if (escludiIds.includes(stanza.id)) continue; // [FANTASMA] salto le stanze già scartate
     const { data: aggiornata, error: errEntra } = await supabase
       .from('matches')
       .update({ guest_id: utente.id, status: 'playing' })

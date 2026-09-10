@@ -23,19 +23,29 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
   fine, con **lobby vera dal menu** e **pulizia/scadenza delle stanze** (testata su web
   con due browser, account diversi): tabella `matches` + RLS, crea/entra con codice,
   Realtime (riepiloghi verdi/arancioni + pallini avversario), esito arbitrato dall'host
-  e **scritto** in `games`/`matches`, classifiche (per ora solo a punti), casi limite
+  e **scritto** in `games`/`matches`, classifiche (punti **e bravura**, due tab), casi limite
   (abbandono/disconnessione = "chi lascia perde"). Dettagli completi in `SPECIFICA.md`.
 - **Temi e interfaccia**: sistema di temi (`app/src/temi/`), tema attivo via
   `TemaProvider`/`useTema`, scelto dal menu (**⚙️ → Impostazioni**). Due temi: **Vetro**
   (glass scuro) e **Giallo** (chiaro flat, default del provider). A tema: menu, gioco,
-  login, impostazioni, loading. *Ancora statiche*: schermate **online** e `Avatar`.
-  **Persistenza FATTA** (vedi sotto).
+  login, impostazioni, loading, **e ora anche le schermate online** (Lobby, Coda
+  casuale, Classifiche; la partita online si tinge per delega a `SchermataGioco`)
+  **e il componente `Avatar`**. In pratica **tutte le schermate sono a tema**.
+  `Avatar` è stato migrato "leggero": font e bordino dal tema (`tema.font.bold`,
+  `tema.palette.hair`), tavolozza colori-persona **fissa** (colore "identità"
+  stabile per nick) e iniziali bianche (stanno su una tinta satura, non su una
+  superficie del tema). **Persistenza FATTA** (vedi sotto).
 - **Coda casuale (🎲 Gioca online):** seconda modalità online che **convive** con quella
   col codice. Pulsanti rinominati: **🎲 Gioca online** (coda casuale) e **⚔️ Sfida amico**
   (col codice). Un giocatore preme 🎲 e l'app lo accoppia automaticamente con un altro in
   attesa che abbia le **stesse impostazioni** (modalità + lunghezza + lingua). **Provato
   in app con due browser.** DB: colonna `is_public` in `matches`; Logica: `stanze.ts`
   con `trovaOCreaStanzaPubblica`; UI: `SchermataCodaCasuale.tsx`.
+  **Anti-stanze-fantasma (Passo 1) FATTO:** se entro in una stanza il cui host è
+  sparito, allo scadere del timeout la **scarto** (lista locale passata come
+  `escludiIds` a `trovaOCreaStanzaPubblica`) e **riprovo** il matchmaking invece di
+  finire in errore (cap `MAX_RETRY`). Cura l'esperienza della vittima; la *nascita*
+  dei fantasmi non è ancora ridotta (vedi prossimi passi).
 - **Lingua della sfida ONLINE (multilingua ONLINE completo):**
   la lingua è una **proprietà della sfida**, uguale per host e guest. Colonna `lang` in
   `matches`; `linguaForzata` propagata fino a `useGioco`; chip 🇮🇹/🇬🇧 nella lobby;
@@ -120,17 +130,29 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
 
 ## Cosa manca / prossimi passi (in ordine consigliato)
 
-1. **Temi — completare**: tematizzare le schermate **online** (Classifiche, Lobby,
-   partita online, coda casuale) e il componente **Avatar** (oggi ancora a colori
-   statici). *Nota: `SchermataCodaCasuale` riusa già gli stili della lobby, quindi
-   si tematizza "in automatico" quando si tematizza la lobby.*
-2. **Rifiniture della coda casuale** — stanze fantasma: chi resta in attesa e chiude
-   la scheda lascia una stanza pubblica che un altro può agganciare a vuoto (~8s di
-   timeout). Idee: usare la Presence per accoppiarsi solo con host davvero online,
-   oppure far riprovare il guest in automatico.
-3. **Rifinitura classifiche (opzionale)**: tab Punti/Bravura in `SchermataClassifiche`
-   (la vista `leaderboard_skill` è già pronta lato DB).
-4. **Scelta del font** in Impostazioni (accanto a lingua e tema).
+1. **Scelta del font** in Impostazioni (accanto a lingua e tema).
+2. **Coda casuale — ridurre la nascita dei fantasmi (opzionale, Passo 2)**: il retry
+   del Passo 1 cura la vittima ma i fantasmi nascono ancora. Idee: chiudere la stanza
+   dell'host su chiusura scheda web (`beforeunload` → `annullaStanza`, best-effort)
+   e/o accorciare il timeout della **sola** coda (~5s) per rendere il retry più rapido.
+
+> ✅ **Fatto in questa sessione:** *Temi sulle schermate online + `Avatar`.* Alla
+> verifica, Lobby/Coda casuale/Classifiche/GiocoOnline erano **già a tema** (la
+> specifica era rimasta indietro): restava solo `Avatar`, ora migrato. Con questo
+> il sistema temi copre **tutte** le schermate.
+>
+> ✅ **Fatto in questa sessione (2):** *Coda casuale — retry anti-stanze-fantasma
+> (Passo 1).* Se il guest entra in una stanza con host sparito, non va più in errore:
+> scarta la stanza e riprova (`escludiIds` + `MAX_RETRY`). File toccati: `stanze.ts`
+> (nuovo param `escludiIds`) e `SchermataCodaCasuale.tsx`. Resta opzionale il Passo 2
+> (ridurre la nascita dei fantasmi).
+>
+> ✅ **Fatto in questa sessione (3):** *Classifica bravura in UI.* `SchermataClassifiche`
+> ora ha **due tab Punti/Bravura**. Nuova `leggiClassificaBravura` (vista
+> `leaderboard_skill`: `win_rate` + soglia minima partite); riga bravura con **% di
+> vittorie** (win_rate normalizzato: se ≤1 ×100); cache per tab. File toccati:
+> `classifiche.ts`, `SchermataClassifiche.tsx`, `SchermataClassifiche.stili.ts` (+ chiavi
+> i18n `tabPunti`/`tabBravura`/`percVittorie` in `it.ts`/`en.ts`).
 
 ## Punti dove si può migliorare (debito tecnico / idee)
 
@@ -183,8 +205,8 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
 ## Come iniziare
 
 Leggi la specifica, poi **riassumimi in poche righe dove siamo** (per confermare che
-il contesto è chiaro). Il prossimo punto naturale è **completare i temi sulle
-schermate online** (Classifiche, Lobby, partita online, coda casuale) e su `Avatar`,
-oppure una delle altre voci in "Cosa manca / prossimi passi". Dimmi tu da dove
+il contesto è chiaro). I temi sono ora completi su **tutte** le schermate, quindi il
+prossimo punto naturale è la **scelta del font** in Impostazioni (oppure il Passo 2
+opzionale sulla coda casuale — ridurre la nascita dei fantasmi). Dimmi tu da dove
 ripartire, con lo stesso metodo: un sotto-passo alla volta, chiedendomi i file prima
 di modificarli.

@@ -4,7 +4,7 @@
 > vuole costruire, con quali scelte tecniche e con quale modello dati. Va tenuto
 > aggiornato a ogni decisione presa.
 
-**Stato:** in sviluppo attivo. Single player completo, online v1 completo e chiuso, sistema temi (Vetro/Giallo) **con persistenza sul profilo**, multilingua it/en completo (gioco + interfaccia, incluso l'header di gioco e i bottoni auth, nessuna stringa cablata nota residua). Pulsanti online rinominati (**🎲 Gioca online** = coda casuale, **⚔️ Sfida amico** = col codice). Header di gioco ridisegnato con pallini-tentativi. Preferenze lingua **e tema** salvate sul profilo Supabase. Sistema i18n (`app/src/i18n/`) con `useT()` attivo in tutte le schermate principali **e nei messaggi d'errore di `stanze.ts`** (che ritorna chiavi `ChiaveTesto`, non testo cablato). Registrazione: selettori lingua gioco/app **e tema**. Lingua predefinita **prima del login: inglese** (UI e gioco); dopo il login prevale sempre la preferenza salvata sul profilo. Bug `LEGENDA` in `SchermataMenu` **risolto**. Rivincita online: creazione **con retry automatico** in caso di errore transitorio; `console.log` di debug della parola **rimosso**. **Ultimo aggiornamento:** 2026-09-10
+**Stato:** in sviluppo attivo. Single player completo, online v1 completo e chiuso, sistema temi (Vetro/Giallo) **con persistenza sul profilo** e **applicato a tutte le schermate** (incluse online + `Avatar`), multilingua it/en completo (gioco + interfaccia, incluso l'header di gioco e i bottoni auth, nessuna stringa cablata nota residua). Pulsanti online rinominati (**🎲 Gioca online** = coda casuale, **⚔️ Sfida amico** = col codice). Header di gioco ridisegnato con pallini-tentativi. Preferenze lingua **e tema** salvate sul profilo Supabase. Sistema i18n (`app/src/i18n/`) con `useT()` attivo in tutte le schermate principali **e nei messaggi d'errore di `stanze.ts`** (che ritorna chiavi `ChiaveTesto`, non testo cablato). Registrazione: selettori lingua gioco/app **e tema**. Lingua predefinita **prima del login: inglese** (UI e gioco); dopo il login prevale sempre la preferenza salvata sul profilo. Bug `LEGENDA` in `SchermataMenu` **risolto**. Rivincita online: creazione **con retry automatico** in caso di errore transitorio; `console.log` di debug della parola **rimosso**. Coda casuale: **retry automatico anti-stanze-fantasma** (se l'host è sparito, il guest scarta la stanza morta e riprova invece di andare in errore). Classifiche: **due tab Punti/Bravura** in UI. **Ultimo aggiornamento:** 2026-09-10
 
 ---
 
@@ -84,13 +84,13 @@ over-the-air del codice JS senza ripassare dagli store.
   src/screens/Wordilo.tsx      router minimale menu ↔ partita ↔ classifiche ↔ lobby ↔ sfida online (senza librerie di navigazione)
   src/screens/SchermataAuth.tsx  accesso/registrazione (email/password)
   src/screens/SchermataMenu.tsx  saluto+logout, scelta lunghezza/modalità, contatori, legenda (senza tessere decorative), pulsanti 🎲 Gioca online (coda casuale, prop onGiocaOnline) + ⚔️ Sfida amico (col codice, prop onSfidaAmico) affiancati e 🏆 Classifica, + ⚙️ Impostazioni (tema+lingua) accanto a Esci; testi via useT()
-  src/screens/SchermataClassifiche.tsx  schermata Classifiche (C6): legge leaderboard_points, lista con medaglie/avatar/punti, evidenzia la propria riga [FILONE C]
+  src/screens/SchermataClassifiche.tsx  schermata Classifiche (C6): DUE TAB (Punti/Bravura) — legge leaderboard_points e leaderboard_skill, lista con medaglie/avatar, evidenzia la propria riga, cache per tab; il tab Bravura mostra il win_rate come % (normalizzato: se ≤1 ×100) [FILONE C]
   src/screens/SchermataLobby.tsx  lobby online (1b): crea/entra stanza col codice + attesa avversario in Realtime + INGRESSO AUTOMATICO in partita; Indietro dell'host → annullaStanza; all'apertura chiama pulisciStanzeVecchie (2c) [FILONE C]
-  src/screens/SchermataCodaCasuale.tsx  coda casuale (🎲 Gioca online, ex SchermataCodaVeloce): all'apertura chiama trovaOCreaStanzaPubblica → host in attesa o guest che entra; RIUSA stessa stretta di mano/stili della lobby; lingua = quella dell'app; Indietro host → annullaStanza; testi via useT() [CODA]
+  src/screens/SchermataCodaCasuale.tsx  coda casuale (🎲 Gioca online, ex SchermataCodaVeloce): all'apertura chiama trovaOCreaStanzaPubblica → host in attesa o guest che entra; RIUSA stessa stretta di mano/stili della lobby; lingua = quella dell'app; Indietro host → annullaStanza; su timeout guest fa RETRY anti-fantasma (scarta la stanza morta e richiama avvia() con escludiIds, cap MAX_RETRY); testi via useT() [CODA]
   src/screens/SchermataGioco.tsx  props ONLINE opzionali (parolaForzata, online, onRigaConfermata, righeAvversario, onPartitaFinita, esitoOnline) + RIVINCITA (statoRivincita, onRichiediRivincita, onAccettaRivincita, onRifiutaRivincita → bottoni 🔁/✓/Rifiuta nel pop-up); senza, è il single player di sempre
-  src/online/stanze.ts         creaStanza/entraInStanza (parola dal DB via parola_casuale, codice-stanza, scrittura in matches) + annullaStanza (chiude la stanza a 'finished') + pulisciStanzeVecchie (2c: rimuove i residui propri non finiti >10 min) + creaRivincita (nuovo match per la rivincita: parola nuova, status='playing', guest già noto — solo host per RLS) + trovaOCreaStanzaPubblica (CODA casuale: cerca una stanza pubblica compatibile ed entra come guest, altrimenti crea una stanza is_public='waiting' e attende come host; ritorna anche il ruolo) [FILONE C / CODA]
+  src/online/stanze.ts         creaStanza/entraInStanza (parola dal DB via parola_casuale, codice-stanza, scrittura in matches) + annullaStanza (chiude la stanza a 'finished') + pulisciStanzeVecchie (2c: rimuove i residui propri non finiti >10 min) + creaRivincita (nuovo match per la rivincita: parola nuova, status='playing', guest già noto — solo host per RLS) + trovaOCreaStanzaPubblica (CODA casuale: cerca una stanza pubblica compatibile ed entra come guest, altrimenti crea una stanza is_public='waiting' e attende come host; ritorna anche il ruolo; param opzionale `escludiIds` per saltare stanze "morte" nel retry anti-fantasma) [FILONE C / CODA]
   src/online/canaleStanza.ts   canale Realtime broadcast: inviaRiga (riepiloghi) + ingresso guest (guest-entrato/host-ok) + fine partita (finito/esito) + abbandono/Presence (C7) + RIVINCITA (rivincita-richiesta/risposta/via) [FILONE C]
-  src/online/classifiche.ts    leggiClassificaPunti: legge la vista leaderboard_points → voci pronte per la UI [FILONE C]
+  src/online/classifiche.ts    leggiClassificaPunti (vista leaderboard_points) + leggiClassificaBravura (vista leaderboard_skill: win_rate, soglia minima partite) → voci pronte per la UI [FILONE C]
   src/online/SchermataGiocoOnline.tsx  contenitore sfida online: apre il canale, monta SchermataGioco sulla parola condivisa, passa righeAvversario (pallini), fa da ARBITRO dell'esito (host) → esitoOnline condiviso, SCRIVE l'esito (C5b: games + matches finished) e gestisce abbandono/disconnessione (C7) + RIVINCITA (negoziato richiesta/accetta/rifiuta, riavvio del round con reset guardie + key; canale aperto una sola volta via handlersRef) [FILONE C]
   src/LoadingScreen.tsx        schermata di caricamento brandizzata
   src/theme.ts                 palette del tema VETRO + token del sistema temi + funzioni pure (ombra/bagliore/coloreDiSfondo)
@@ -207,6 +207,13 @@ I valori numerici qui sotto sono **default parametrizzabili lato server**.
      `is_public = true` (le stanze col codice restano `false`), così un giocatore casuale
      non entra mai in una partita creata per un amico. Riusa la **stessa stretta di mano**
      Realtime e la stessa pulizia/scadenza stanze della modalità col codice.
+     **Anti-stanze-fantasma:** se l'host di una stanza pubblica è sparito (ha chiuso
+     la scheda senza premere Indietro), il guest che vi entra non riceve mai
+     `host-ok`; allo scadere del timeout **scarta** quella stanza (lista locale di id
+     "morti", passata a `trovaOCreaStanzaPubblica` come `escludiIds`) e **riprova** il
+     matchmaking — trova un altro avversario o diventa host, senza vicolo cieco. Cap
+     a `MAX_RETRY` tentativi; poi messaggio. Un fantasma "morde" comunque al più un
+     guest: entrandovi lo porta a `playing`, togliendolo dalla pool `waiting`.
 - **Indicatore avversario:** a lato di ogni riga giocata dall'avversario
   compaiono due pallini che riassumono il suo tentativo su quella riga —
   **un pallino verde con il numero di lettere corrette** e **un pallino arancione
@@ -696,8 +703,9 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
   sensibili (nick/avatar già pubblici + conteggi). **UI:** modulo dati
   `online/classifiche.ts` (`leggiClassificaPunti`) + `SchermataClassifiche` (stile card
   vetro, medaglie 🥇🥈🥉, riga propria evidenziata), aperta dal menu con 🏆; il router
-  `Wordilo.tsx` gestisce la vista classifiche e passa il proprio `userId`. Per iniziare
-  si mostra **solo la classifica a punti** (bravura pronta lato DB, non ancora in UI).
+  `Wordilo.tsx` gestisce la vista classifiche e passa il proprio `userId`. In UI ci
+  sono **entrambe le classifiche**, come due tab **Punti/Bravura** (il tab bravura mostra
+  il win_rate in percentuale, con soglia minima di partite lato vista).
 - **Casi limite — abbandono/disconnessione (C7):** regola scelta: **chi lascia perde,
   l'altro vince**. Due segnali confluiscono in un'unica callback
   `onAvversarioAssente(motivo)`: (a) **uscita esplicita** — chi preme "Indietro" a
@@ -787,6 +795,11 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
   perde, l'altro vince; via broadcast `abbandono` + Presence con grazia). **Scadenza
   stanze e pulizia residui**: ✅ **risolti in 2c** (`pulisciStanzeVecchie` all'apertura
   della lobby + policy DELETE con finestra 10 min; residui dei test già ripuliti).
+- **Stanze fantasma nella coda casuale**: ✅ **mitigato (Passo 1)** — retry automatico
+  lato guest (scarta la stanza morta e riprova, cap `MAX_RETRY`), così non si finisce
+  più nel vicolo cieco degli ~8s. *Resta aperto (opzionale):* ridurre la **nascita**
+  dei fantasmi — chiudere la stanza dell'host su chiusura scheda web (`beforeunload` →
+  `annullaStanza`, best-effort) e/o accorciare il timeout della sola coda (~5s).
 - **Ordine di sviluppo**: si parte dal **single player**.
   - ✅ Fatto: modulo `core` (logica colori + motore di gioco + test).
   - ✅ Fatto: app Expo + schermata **principiante** (griglia + tastiera) su web e
@@ -823,7 +836,7 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
     riepiloghi/pallini, esito arbitrato **scritto** su DB, classifiche e casi limite,
     **lobby dal menu** e **pulizia/scadenza stanze**. Provato **su web** con due browser
     (account diversi). **Filone C v1 CHIUSO**, con in più la **rivincita online**
-    (resta solo la rifinitura opzionale della classifica bravura in UI). Dettaglio:
+    (la classifica bravura in UI è ora FATTA — vedi sotto). Dettaglio:
     - ✅ **C1** — tabella `matches` + RLS (vincoli e policy verificati).
     - ✅ **C2** — crea/entra stanza col **codice** (`stanze.ts`: `creaStanza`/
       `entraInStanza`, parola dal DB uguale per i due). Lungo la strada risolto un
@@ -866,7 +879,7 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
       win_rate, punti_totali) senza rompere il menu; create le viste **pubbliche**
       `leaderboard_points` e `leaderboard_skill` (soglia da `app_config`). **UI:** modulo
       `online/classifiche.ts` + `SchermataClassifiche` (medaglie/avatar/punti, riga
-      propria evidenziata) aperta dal menu con 🏆; per ora **solo classifica a punti**.
+      propria evidenziata) aperta dal menu con 🏆; **due tab Punti/Bravura** (bravura in UI FATTA, vedi sotto).
       **Testato su web**.
     - ✅ **C7** — **casi limite**: **chi lascia perde, l'altro vince**. In
       `canaleStanza.ts` aggiunti messaggio `abbandono` + **Presence** (join/leave con
@@ -896,12 +909,23 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
       Rifiuta**. Richieste incrociate → accordo automatico; se l'avversario esce durante
       l'attesa, la **Presence** la tratta come rifiuto. **Testato su web** (accetta,
       rifiuta, richieste incrociate).
-    - ⏭️ **Rifinitura opzionale** — mostrare in UI anche la **classifica bravura**
-      (`leaderboard_skill` già pronta lato DB): tab Punti/Bravura in `SchermataClassifiche`.
+    - ✅ **Classifica bravura in UI — FATTO** — `SchermataClassifiche` ora ha **due tab
+      Punti/Bravura**. Nuova `leggiClassificaBravura` in `classifiche.ts` (vista
+      `leaderboard_skill`: `win_rate`, con soglia minima partite); riga bravura che
+      mostra la **% di vittorie** (win_rate normalizzato: se ≤1 ×100, così va bene sia
+      frazione che percentuale); cache per tab (si legge dal DB solo alla prima apertura
+      di ciascun tab). Nuove chiavi i18n: `tabPunti`, `tabBravura`, `percVittorie`.
   - 🎨 **Temi e interfaccia (dopo il filone C)** — sistema di temi (`app/src/temi/`);
     due temi: **Vetro** (glassmorphism scuro) e **Giallo** (chiaro flat). A tema:
     menu, gioco (griglia/tastiera/coriandoli), login, impostazioni, loading.
-    *Non ancora a tema*: schermate online (Classifiche/Lobby/GiocoOnline) e `Avatar`.
+    ✅ **Schermate online + `Avatar` ora a tema — FATTO**: `SchermataLobby`,
+    `SchermataCodaCasuale` (riusa gli stili della lobby), `SchermataClassifiche`
+    (schermata + `.stili.ts`) usano tutte `useTema()` + `creaStili(tema)`;
+    `SchermataGiocoOnline` non ha stili propri (delega a `SchermataGioco`, già a
+    tema). `Avatar` migrato (opzione "leggera"): font e bordino dal tema
+    (`tema.font.bold`, `tema.palette.hair`); la tavolozza colori-persona resta
+    FISSA di proposito (colore "identità" stabile per nick) e le iniziali restano
+    bianche (stanno su una tinta satura, non su una superficie del tema).
     *Persistenza — FATTA*: colonna `tema` su `profiles`, componente ponte `InizialiTema`
     in `App.tsx` (stesso meccanismo della lingua); il tema scelto resta al riavvio.
   - 🌍 **Multilingua (it/en) + rifiniture mobile (dopo i temi)** — l'app ora supporta
@@ -1008,9 +1032,13 @@ componenti, ora centralizzati). Ogni schermata ha un file `*.stili.ts` con
 `creaStili(tema)` (memoizzato su `tema`).
 
 **Coperto dal tema**: menu, gioco (griglia/tastiera/coriandoli), login, impostazioni,
-loading. **NON ancora a tema** (leggono ancora i colori statici): le schermate
-**online** (`SchermataClassifiche`, `SchermataLobby`, `SchermataGiocoOnline`) e il
-componente `Avatar`.
+loading, **e le schermate online** (`SchermataLobby`, `SchermataCodaCasuale`,
+`SchermataClassifiche`; `SchermataGiocoOnline` si tinge per delega a `SchermataGioco`)
+**e il componente `Avatar`**. In pratica **tutte le schermate sono a tema**.
+`Avatar` usa font e bordino dal tema (`tema.font.bold`, `tema.palette.hair`) ma
+mantiene una **tavolozza colori-persona fissa** (colore "identità" stabile per nick,
+leggibile su entrambi i temi) con **iniziali bianche** (stanno su una tinta satura,
+non su una superficie del tema).
 
 **Persistenza — FATTA**: il tema scelto è salvato su `profiles.tema` e viene
 ripristinato al login (componente ponte `InizialiTema` in `App.tsx`); prima del login

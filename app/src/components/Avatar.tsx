@@ -6,11 +6,24 @@
 // scelto in modo stabile per quella persona. Se la foto non si carica, ricade
 // sulle iniziali da solo. `onPress` è opzionale (il menu, per esempio, gestisce
 // il tocco nel contenitore esterno, quindi qui non serve).
+//
+// TEMA (opzione A — migrazione leggera, tutto in questo file):
+//   • Il FONT delle iniziali viene dal tema attivo (useTema → tema.font.bold),
+//     così l'avatar segue il font del tema (e in futuro la scelta font).
+//   • Un BORDINO sottile (tema.palette.hair) stacca il cerchio dallo sfondo su
+//     entrambi i temi (chiaro/scuro).
+//   • Il COLORE DI SFONDO del cerchio resta una tavolozza FISSA e stabile per
+//     persona: è un colore "identità" (dallo stesso nick esce sempre lo stesso
+//     colore) e sono tinte piene sature che restano leggibili su entrambi i temi.
+//   • Le INIZIALI sono bianche DI PROPOSITO: stanno su una tinta satura, non su
+//     una superficie del tema, quindi il bianco è la scelta giusta a prescindere
+//     dal tema (agganciarle a un token tipo testoSuAccento le renderebbe
+//     illeggibili su vari cerchi nel tema scuro).
 // -----------------------------------------------------------------------------
 import React, { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, Text, View } from 'react-native';
 import type { ViewStyle } from 'react-native';
-import { FONT } from '../theme';
+import { useTema } from '../temi/TemaContext';
 
 type Props = {
   avatarUrl?: string | null;
@@ -23,6 +36,7 @@ type Props = {
 };
 
 // Colori di sfondo per le iniziali (usati solo quando manca la foto).
+// Tavolozza FISSA e indipendente dal tema: è il colore "identità" della persona.
 const PALETTE = ['#2A9D8F', '#457B9D', '#E9C46A', '#F4A261', '#E76F51', '#8AB17D', '#6D6875', '#4895EF'];
 
 function calcolaIniziali(nome?: string | null, cognome?: string | null, nick?: string | null): string {
@@ -43,6 +57,7 @@ function coloreDa(seme: string): string {
 }
 
 export function Avatar({ avatarUrl, nome, cognome, nick, dimensione = 40, onPress, style }: Props) {
+  const tema = useTema();
   const [erroreImg, setErroreImg] = useState(false);
   const mostraFoto = !!avatarUrl && !erroreImg;
 
@@ -57,6 +72,8 @@ export function Avatar({ avatarUrl, nome, cognome, nick, dimensione = 40, onPres
     justifyContent: 'center',
     overflow: 'hidden',
     backgroundColor: mostraFoto ? 'transparent' : sfondo,
+    borderWidth: 1,
+    borderColor: tema.palette.hair, // bordino sottile dal tema: stacca l'avatar dal fondo
   };
 
   const contenuto = mostraFoto ? (
@@ -66,7 +83,17 @@ export function Avatar({ avatarUrl, nome, cognome, nick, dimensione = 40, onPres
       onError={() => setErroreImg(true)}
     />
   ) : (
-    <Text style={[styles.iniziali, { fontSize: dimensione * 0.4 }]}>{iniziali}</Text>
+    <Text
+      style={{
+        color: '#ffffff', // bianco intenzionale: sta sulla tinta satura del cerchio, non su una superficie del tema
+        fontFamily: tema.font.bold,
+        fontWeight: '800',
+        includeFontPadding: false,
+        fontSize: dimensione * 0.4,
+      }}
+    >
+      {iniziali}
+    </Text>
   );
 
   if (onPress) {
@@ -78,7 +105,3 @@ export function Avatar({ avatarUrl, nome, cognome, nick, dimensione = 40, onPres
   }
   return <View style={[base, style]}>{contenuto}</View>;
 }
-
-const styles = StyleSheet.create({
-  iniziali: { color: '#ffffff', fontFamily: FONT.bold, fontWeight: '800', includeFontPadding: false },
-});

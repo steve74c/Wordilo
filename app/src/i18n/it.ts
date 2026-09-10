@@ -128,7 +128,12 @@ export const it = {
   errRicercaAvversario: 'Errore nella ricerca di un avversario.', 
 
   creaAccountBtn: 'Crea account',
-  entraBtn: 'Entra',  
+  entraBtn: 'Entra',
+
+  tabPunti: 'Punti',
+  tabBravura: 'Bravura',
+  percVittorie: 'di vittorie',
+  
 } as const;
 
 export type ChiaveTesto = keyof typeof it;

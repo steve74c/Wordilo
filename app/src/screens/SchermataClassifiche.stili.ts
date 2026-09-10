@@ -56,6 +56,39 @@ export function creaStili(tema: Tema) {
       marginBottom: 14,
     },
 
+    // --- Barra a due tab (Punti / Bravura). Stile coerente con le chip lingua:
+    //     bordo + sfondo d'accento quando il tab è attivo.
+    tabBar: {
+      flexDirection: 'row',
+      gap: 8,
+      marginBottom: 14,
+    },
+    tab: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 9,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: P.hair,
+      backgroundColor: P.superficie,
+    },
+    tabAttivo: {
+      borderColor: P.accento,
+      backgroundColor: P.accentoSfondo,
+    },
+    tabTesto: {
+      color: P.testoTenue,
+      fontSize: 14,
+      fontFamily: F.medium,
+      fontWeight: '700',
+    },
+    tabTestoAttivo: {
+      color: P.accento,
+      fontFamily: F.bold,
+      fontWeight: '800',
+    },
+
     centro: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingBottom: 60 },
     msg: { color: P.testo, fontSize: 16, fontFamily: F.medium, fontWeight: '600', textAlign: 'center' },
     msgTenue: { color: P.testoTenue, fontSize: 13, fontFamily: F.regular, textAlign: 'center' },

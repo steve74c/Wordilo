@@ -129,5 +129,10 @@ export const en: Partial<Record<ChiaveTesto, string>> = {
   errRicercaAvversario: 'Error searching for an opponent.',  
   
   creaAccountBtn: 'Create account',
-  entraBtn: 'Log in',  
+  entraBtn: 'Log in',
+
+  tabPunti: 'Points',
+  tabBravura: 'Skill',
+  percVittorie: 'win rate',  
+  
 };

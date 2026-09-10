@@ -13,8 +13,15 @@
 //
 // Riusa gli stili della lobby (SchermataLobby.stili) per restare identica d'aspetto.
 // Indietro mentre attendo (host) → annullaStanza chiude la mia stanza pubblica.
+//
+// [FANTASMA] Anti-stanze-morte: se entro in una stanza pubblica il cui host se n'è
+// andato (ha chiuso la scheda senza premere Indietro), la stretta di mano va in
+// timeout perché non arriva mai 'host-ok'. Invece di mostrare un errore (vicolo
+// cieco di ~8s), SCARTO quella stanza e RIPROVO il matchmaking escludendola: così
+// trovo un altro avversario o divento host io. All'utente resta solo un
+// "cerco avversario…" continuo. Cap di sicurezza a MAX_RETRY per non ciclare.
 // -----------------------------------------------------------------------------
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -44,7 +51,12 @@ type Props = {
 // Stessi tempi della lobby (stretta di mano collaudata).
 const HOST_DELAY_MS = 1200;   // host: attende che 'host-ok' raggiunga il guest
 const GUEST_DELAY_MS = 400;   // guest: attende che il canale si sottoscriva
-const GUEST_TIMEOUT_MS = 8000; // guest: se non arriva conferma, avviso
+const GUEST_TIMEOUT_MS = 8000; // guest: se non arriva conferma, la stanza è "morta"
+
+// [FANTASMA] Quante stanze morte tollero prima di arrendermi con un messaggio.
+// In pratica non se ne incontrano quasi mai più di una: appena un guest entra in
+// una stanza fantasma la porta a 'playing', togliendola dalla pool 'waiting'.
+const MAX_RETRY = 3;
 
 type Ruolo = 'host' | 'guest';
 
@@ -66,11 +78,31 @@ export function SchermataCodaCasuale({ modalita, lunghezza, onEntraInPartita, on
   const entratoRef = useRef(false);   // entro in partita una sola volta
   const scheduledRef = useRef(false); // host: ho già programmato l'ingresso
   const avviatoRef = useRef(false);   // il matchmaking parte una sola volta
+  const morteRef = useRef<Set<string>>(new Set()); // [FANTASMA] id stanze scartate
+  const retryRef = useRef(0);         // [FANTASMA] quante volte ho già riprovato
 
   // Chi sono io (serve al canale per la presenza e per filtrare i messaggi).
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setMioId(data?.user?.id ?? null));
   }, []);
+
+  // Matchmaking: cerca-o-crea una stanza pubblica, escludendo quelle già morte.
+  // La usano sia l'avvio iniziale sia il retry [FANTASMA], così la logica è una sola.
+  const avvia = useCallback(async () => {
+    const r = await trovaOCreaStanzaPubblica(
+      modalita as ModalitaOnline,
+      lunghezza,
+      linguaApp,
+      Array.from(morteRef.current), // [FANTASMA] non ripescare stanze già scartate
+    );
+    if (!r.ok) {
+      setMessaggio(t(r.errore));
+      return;
+    }
+    setRuolo(r.ruolo);  // 'host' (attendo) oppure 'guest' (ho trovato, entro)
+    setSfida(r.sfida);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modalita, lunghezza, linguaApp]);
 
   // All'apertura, appena so chi sono: pulizia residui + matchmaking (una volta sola).
   useEffect(() => {
@@ -78,16 +110,7 @@ export function SchermataCodaCasuale({ modalita, lunghezza, onEntraInPartita, on
     avviatoRef.current = true;
 
     pulisciStanzeVecchie(); // best-effort: rimuove mie vecchie stanze non finite
-
-    (async () => {
-      const r = await trovaOCreaStanzaPubblica(modalita as ModalitaOnline, lunghezza, linguaApp);
-      if (!r.ok) {
-        setMessaggio(t(r.errore));
-        return;
-      }
-      setRuolo(r.ruolo);  // 'host' (attendo) oppure 'guest' (ho trovato, entro)
-      setSfida(r.sfida);
-    })();
+    avvia();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mioId]);
 
@@ -132,10 +155,23 @@ export function SchermataCodaCasuale({ modalita, lunghezza, onEntraInPartita, on
       annuncioTimer = setTimeout(() => {
         conn.annunciaIngresso(mioId, onConfermato);
       }, GUEST_DELAY_MS);
+
+      // [FANTASMA] Se scade il tempo e non sono entrato, l'host di questa stanza
+      // non risponde: la segno come morta e RIPROVO (o mi arrendo dopo MAX_RETRY).
       timeoutTimer = setTimeout(() => {
-        if (!entratoRef.current) {
+        if (entratoRef.current) return;
+        if (sfida) morteRef.current.add(sfida.id);
+        retryRef.current += 1;
+        if (retryRef.current > MAX_RETRY) {
           setMessaggio(t('avversarioNonRisponde'));
+          return;
         }
+        // Torno allo stato "cerco" e rilancio il matchmaking escludendo le morte.
+        // Azzerare la sfida chiude subito il canale morto (cleanup di questo effetto).
+        setTrovato(false);
+        setRuolo(null);
+        setSfida(null);
+        avvia();
       }, GUEST_TIMEOUT_MS);
     }
 
