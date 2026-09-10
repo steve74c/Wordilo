@@ -27,6 +27,9 @@ type ValoreAuth = {
     nick: string,
     email: string,
     password: string,
+    linguaGioco?: string,
+    linguaUI?: string,
+    tema?: string,
   ) => Promise<RisultatoAuth>;
   accedi: (email: string, password: string) => Promise<RisultatoAuth>;
   accediConGoogle: () => Promise<RisultatoAuth>;
@@ -91,14 +94,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     nick: string,
     email: string,
     password: string,
+    linguaGioco: string = 'it',
+    linguaUI: string = 'it',
+    tema: string = 'giallo',
   ): Promise<RisultatoAuth> => {
     const { error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
         // Questi dati vengono letti dal trigger per creare la riga profiles.
+        // (lingua_gioco / lingua_ui / tema: il trigger li copia nelle colonne
+        //  del profilo — vedi migrazione SQL su handle_new_user.)
         data: {
           nick: nick.trim(),
+          lingua_gioco: linguaGioco,
+          lingua_ui: linguaUI,
+          tema,
         },
       },
     });

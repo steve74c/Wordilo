@@ -33,10 +33,12 @@ export function creaStili(tema: Tema) {
       padding: 4,
       marginBottom: 4,
     },
-    toggleBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
-    toggleAttivo: { backgroundColor: tema.palette.superficieAlta },
+	toggleBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
+    toggleAttivo: { backgroundColor: tema.palette.superficieAlta, borderColor: tema.palette.accento },  
     toggleTesto: { color: tema.palette.testoTenue, fontSize: 15, fontFamily: tema.font.medium, fontWeight: '600' },
     toggleTestoAttivo: { color: tema.palette.testo },
+    campo: { gap: 6 },
+    campoLabel: { color: tema.palette.testoTenue, fontSize: 13, fontFamily: tema.font.medium, fontWeight: '600' },
     input: {
       backgroundColor: tema.palette.superficieAlta,
       borderColor: tema.palette.hair,
@@ -52,6 +54,8 @@ export function creaStili(tema: Tema) {
     bottone: { width: '100%', paddingVertical: 15, borderRadius: 16, alignItems: 'center', marginTop: 4 },
     bottoneTesto: { color: tema.palette.testoSuAccento, fontSize: 16, fontFamily: tema.font.bold, fontWeight: '800' }, // era '#052722'
   });
+  
+    
 }
 
 export type StiliAuth = ReturnType<typeof creaStili>;

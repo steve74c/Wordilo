@@ -18,6 +18,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useT } from '../i18n/LinguaUIContext';
 import type { LunghezzaParola, Modalita } from '@wordilo/core';
 import { ombra } from '../theme';
 import { useTema } from '../temi/TemaContext';
@@ -49,6 +50,7 @@ type Ruolo = 'host' | 'guest';
 
 export function SchermataCodaCasuale({ modalita, lunghezza, onEntraInPartita, onIndietro }: Props) {
   const tema = useTema();
+  const t = useT();
   const styles = useMemo(() => creaStili(tema), [tema]);
 
   // La lingua della coda = quella che sto usando ora nell'app (non un selettore).
@@ -80,7 +82,7 @@ export function SchermataCodaCasuale({ modalita, lunghezza, onEntraInPartita, on
     (async () => {
       const r = await trovaOCreaStanzaPubblica(modalita as ModalitaOnline, lunghezza, linguaApp);
       if (!r.ok) {
-        setMessaggio(r.errore);
+        setMessaggio(t(r.errore));
         return;
       }
       setRuolo(r.ruolo);  // 'host' (attendo) oppure 'guest' (ho trovato, entro)
@@ -132,7 +134,7 @@ export function SchermataCodaCasuale({ modalita, lunghezza, onEntraInPartita, on
       }, GUEST_DELAY_MS);
       timeoutTimer = setTimeout(() => {
         if (!entratoRef.current) {
-          setMessaggio('L’avversario non risponde. Torna indietro e riprova.');
+          setMessaggio(t('avversarioNonRisponde'));
         }
       }, GUEST_TIMEOUT_MS);
     }
@@ -169,15 +171,15 @@ export function SchermataCodaCasuale({ modalita, lunghezza, onEntraInPartita, on
             hitSlop={8}
             style={({ pressed }) => [styles.indietro, { opacity: pressed ? 0.7 : 1 }]}
           >
-            <Text style={styles.indietroTesto}>‹ Indietro</Text>
+            <Text style={styles.indietroTesto}>{t('indietro')}</Text>
           </Pressable>
-          <Text style={styles.titolo}>Gioca online</Text>
+          <Text style={styles.titolo}>{t('giocaOnlineTitolo')}</Text>
           <View style={styles.spazioDestra} />
         </View>
 
         <View style={styles.contenuto}>
           <Text style={styles.sottotitolo}>
-            {modalita === 'esperto' ? 'Esperto' : 'Principiante'} · {lunghezza} lettere
+            {modalita === 'esperto' ? t('labelEsperto') : t('labelPrincipiante')} · {lunghezza} {t('nLettere', { n: lunghezza }).replace(String(lunghezza) + ' ', '')}
           </Text>
 
           {messaggio ? (
@@ -185,7 +187,7 @@ export function SchermataCodaCasuale({ modalita, lunghezza, onEntraInPartita, on
             <View style={[styles.card, ombra(0.45, 26, 14, 12), styles.cardCentro]}>
               <Text style={styles.msg}>{messaggio}</Text>
               <Pressable onPress={annullaEEsci} style={styles.entraBtn}>
-                <Text style={styles.entraTesto}>Torna al menu</Text>
+                <Text style={styles.entraTesto}>{t('tornaAlMenuBtn')}</Text>
               </Pressable>
             </View>
           ) : trovato ? (
@@ -193,7 +195,7 @@ export function SchermataCodaCasuale({ modalita, lunghezza, onEntraInPartita, on
             <View style={[styles.card, ombra(0.45, 26, 14, 12), styles.cardCentro]}>
               <View style={styles.attesaRiga}>
                 <ActivityIndicator color={tema.palette.accento} />
-                <Text style={styles.attesaTesto}>Avversario trovato! Avvio…</Text>
+                <Text style={styles.attesaTesto}>{t('avversarioTrovato')}</Text>
               </View>
             </View>
           ) : (
@@ -202,7 +204,7 @@ export function SchermataCodaCasuale({ modalita, lunghezza, onEntraInPartita, on
               <View style={styles.attesaRiga}>
                 <ActivityIndicator color={tema.palette.accento} />
                 <Text style={styles.attesaTesto}>
-                  {ruolo === 'host' ? 'In attesa di un avversario…' : 'Cerco un avversario…'}
+                  {ruolo === 'host' ? t('inAttesaAvversarioCoda') : t('cercandoAvversario')}
                 </Text>
               </View>
             </View>

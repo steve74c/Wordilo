@@ -4,44 +4,7 @@
 > vuole costruire, con quali scelte tecniche e con quale modello dati. Va tenuto
 > aggiornato a ogni decisione presa.
 
-**Stato:** in sviluppo — modulo `core` (colori, motore di gioco, normalizzazione)
-implementato e testato, e **app Expo** single player **completa e collegata a
-Supabase**, giocabile su web e mobile con **grafica a tema (Vetro/Giallo)** (vedi §16):
-schermata di scelta (lunghezza 5/6 + modalità), **principiante** ed **esperto**
-(countdown per tentativo) funzionanti; **login obbligatorio** email/password con
-**profilo** creato in automatico; **parametri di gioco letti dal database**
-(`game_settings`) e **statistiche personali reali** (partite salvate in `games`,
-conteggi dalla vista `user_stats`); **dizionario italiano reale** con **validazione**
-attiva, **offline-first** (il single player gira anche senza rete); **login Google**
-funzionante **sul web** e **avatar** (foto Google o iniziali) con nick corretto per
-tutti. **Online — filone C v1 quasi completo:** la **sfida vera è giocabile dall'inizio
-alla fine** ed è testata su web (tabella `matches` + RLS, creazione/ingresso stanza col
-**codice**, **Realtime** broadcast, host che parte **da solo**; due giocatori sulla
-**stessa parola**, riepiloghi verdi/arancioni come **pallini** a sinistra dell'avversario
-— D3/D4). La sfida ha un **finale condiviso** (C5a: l'host arbitra "vince chi indovina
-per primo") che ora viene **scritto su DB** (C5b: due righe in `games` + `matches` a
-`finished`); ci sono le **classifiche** (C6: `user_stats` estesa + viste
-`leaderboard_points`/`leaderboard_skill` + schermata Classifiche dal menu, per ora solo
-a punti) e la gestione dei **casi limite** (C7: chi lascia perde — via `abbandono` +
-Presence). **Online — filone C v1 COMPLETO e CHIUSO:** aggiunta la **lobby vera dal
-menu** (`SchermataLobby`: crea/entra + attesa avversario in Realtime + **ingresso
-automatico** in partita), **rimosso il banco di prova** e implementata la
-**pulizia/scadenza delle stanze** (policy DELETE allargata + `pulisciStanzeVecchie`
-all'apertura della lobby + `annullaStanza` che **chiude** la stanza invece di
-cancellarla). Manca solo, come rifinitura **opzionale**, mostrare in UI anche la
-**classifica bravura** (`leaderboard_skill`, già pronta lato DB). Aggiunta inoltre la
-**rivincita online**: a fine sfida si può chiedere/accettare/rifiutare una nuova
-partita e ripartire subito (nuovo `matches`, parola nuova, stesso canale). **Multilingua
-completo anche online**: la lingua è una proprietà della sfida (colonna `matches.lang`,
-`linguaForzata` fino a `useGioco`), scelta dall'host (chip 🇮🇹/🇬🇧 in lobby) o ereditata
-dalla coda; l'header di gioco mostra la bandierina della lingua effettiva. **NUOVA
-modalità online — coda casuale (🎲 Gioca online):** oltre alla sfida col codice, un
-giocatore può mettersi in coda e l'app lo accoppia automaticamente con un altro giocatore
-in attesa con le stesse impostazioni (modalità+lunghezza+lingua); stanze marcate
-`is_public`, stessa stretta di mano/pulizia della modalità col codice. Ancora da
-fare fuori dall'online: **test del login Google su Android/iOS** (serve un *development
-build*) e **login Facebook**. L'anti-cheat server-side resta rimandato alla **v2**.
-**Ultimo aggiornamento:** 2026-09-09
+**Stato:** in sviluppo attivo. Single player completo, online v1 completo e chiuso, sistema temi (Vetro/Giallo) **con persistenza sul profilo**, multilingua it/en completo (gioco + interfaccia). Pulsanti online rinominati (**🎲 Gioca online** = coda casuale, **⚔️ Sfida amico** = col codice). Header di gioco ridisegnato con pallini-tentativi. Preferenze lingua **e tema** salvate sul profilo Supabase. Sistema i18n (`app/src/i18n/`) con `useT()` attivo in tutte le schermate principali **e nei messaggi d'errore di `stanze.ts`** (che ritorna chiavi `ChiaveTesto`, non testo cablato). Registrazione: selettori lingua gioco/app **e tema**. Lingua predefinita **prima del login: inglese** (UI e gioco); dopo il login prevale sempre la preferenza salvata sul profilo. Bug `LEGENDA` in `SchermataMenu` **risolto**. **Ultimo aggiornamento:** 2026-09-10
 
 ---
 
@@ -102,15 +65,15 @@ over-the-air del codice JS senza ripassare dagli store.
   src/paroleDev.ts      pescaParolaCasuale(lingua, lunghezza) = pesca un bersaglio nella lingua scelta
   dev/gioca.ts CLI di prova (banco di prova della logica, non fa parte del gioco)
 /app         → app Expo (web + iOS + Android)
-  App.tsx                      carica i font, monta i provider (TEMA + LINGUA in cima, poi config/auth/profilo/stat) e il gioco
+  App.tsx                      carica i font, monta i provider (TEMA + LINGUAUI + LINGUA → config → auth → profilo → stat) e il gioco; componenti ponte InizialiLingue + InizialiTema (leggono lingue/tema dal profilo e li spingono nei provider, SOLO se c'è una sessione attiva — altrimenti resta il default pre-login)
   .env                         chiavi Supabase locali (EXPO_PUBLIC_*), NON in Git
   .env.example                 template committabile delle variabili d'ambiente
   src/lib/supabase.ts          client Supabase unico (URL + chiave anon dal .env)
   src/config/configService.ts  legge game_settings dal DB → ConfigGioco (fallback ai default)
   src/config/ConfigContext.tsx provider della config + hook useConfig()
-  src/auth/AuthContext.tsx     provider auth (sessione + registrati(nick,email,password)/accedi/accediConGoogle/esci)
+  src/auth/AuthContext.tsx     provider auth (sessione + registrati(nick,email,password,linguaGioco,linguaUI)/accedi/accediConGoogle/esci)
   src/auth/PortaAuth.tsx       "cancello": login se non loggato, gioco se loggato
-  src/profilo/ProfiloContext.tsx provider profilo (nick/nome/cognome/avatarUrl + cambiaAvatar)
+  src/profilo/ProfiloContext.tsx provider profilo (nick/nome/cognome/avatarUrl/linguaUI/linguaGioco + cambiaAvatar + aggiornaLingue)
   src/profilo/avatarStorage.ts scegliEcaricaAvatar: selettore foto + upload su Storage
   src/components/Avatar.tsx    avatar tondo: foto (avatarUrl) o iniziali su sfondo colorato
   src/hooks/useGioco.ts        ponte React ↔ motore core (+ timer esperto)
@@ -120,10 +83,10 @@ over-the-air del codice JS senza ripassare dagli store.
   src/components/Coriandoli.tsx  particelle leggere per la vittoria
   src/screens/Wordilo.tsx      router minimale menu ↔ partita ↔ classifiche ↔ lobby ↔ sfida online (senza librerie di navigazione)
   src/screens/SchermataAuth.tsx  accesso/registrazione (email/password)
-  src/screens/SchermataMenu.tsx  saluto+logout, scelta lunghezza/modalità, contatori, legenda, pulsanti 🎲 Gioca online (coda casuale) + ⚔️ Sfida amico (col codice) affiancati e 🏆 Classifica, + ⚙️ Impostazioni (tema) accanto a Esci (la modalità/lunghezza scelte valgono anche per l'online)
+  src/screens/SchermataMenu.tsx  saluto+logout, scelta lunghezza/modalità, contatori, legenda (senza tessere decorative), pulsanti 🎲 Gioca online (coda casuale, prop onGiocaOnline) + ⚔️ Sfida amico (col codice, prop onSfidaAmico) affiancati e 🏆 Classifica, + ⚙️ Impostazioni (tema+lingua) accanto a Esci; testi via useT()
   src/screens/SchermataClassifiche.tsx  schermata Classifiche (C6): legge leaderboard_points, lista con medaglie/avatar/punti, evidenzia la propria riga [FILONE C]
   src/screens/SchermataLobby.tsx  lobby online (1b): crea/entra stanza col codice + attesa avversario in Realtime + INGRESSO AUTOMATICO in partita; Indietro dell'host → annullaStanza; all'apertura chiama pulisciStanzeVecchie (2c) [FILONE C]
-  src/screens/SchermataCodaCasuale.tsx  coda casuale (🎲 Gioca online): all'apertura chiama trovaOCreaStanzaPubblica → host in attesa o guest che entra; RIUSA la stessa stretta di mano/stili della lobby; lingua = quella dell'app; Indietro dell'host → annullaStanza [CODA]
+  src/screens/SchermataCodaCasuale.tsx  coda casuale (🎲 Gioca online, ex SchermataCodaVeloce): all'apertura chiama trovaOCreaStanzaPubblica → host in attesa o guest che entra; RIUSA stessa stretta di mano/stili della lobby; lingua = quella dell'app; Indietro host → annullaStanza; testi via useT() [CODA]
   src/screens/SchermataGioco.tsx  props ONLINE opzionali (parolaForzata, online, onRigaConfermata, righeAvversario, onPartitaFinita, esitoOnline) + RIVINCITA (statoRivincita, onRichiediRivincita, onAccettaRivincita, onRifiutaRivincita → bottoni 🔁/✓/Rifiuta nel pop-up); senza, è il single player di sempre
   src/online/stanze.ts         creaStanza/entraInStanza (parola dal DB via parola_casuale, codice-stanza, scrittura in matches) + annullaStanza (chiude la stanza a 'finished') + pulisciStanzeVecchie (2c: rimuove i residui propri non finiti >10 min) + creaRivincita (nuovo match per la rivincita: parola nuova, status='playing', guest già noto — solo host per RLS) + trovaOCreaStanzaPubblica (CODA casuale: cerca una stanza pubblica compatibile ed entra come guest, altrimenti crea una stanza is_public='waiting' e attende come host; ritorna anche il ruolo) [FILONE C / CODA]
   src/online/canaleStanza.ts   canale Realtime broadcast: inviaRiga (riepiloghi) + ingresso guest (guest-entrato/host-ok) + fine partita (finito/esito) + abbandono/Presence (C7) + RIVINCITA (rivincita-richiesta/risposta/via) [FILONE C]
@@ -135,8 +98,11 @@ over-the-air del codice JS senza ripassare dagli store.
   src/temi/Temavetro.ts        tema "vetro" = valori di theme.ts impacchettati
   src/temi/TemaGiallo.ts       tema "giallo" (chiaro flat/pieno); tutti i suoi colori si affinano da qui
   src/temi/TemaContext.tsx     TemaProvider (montato in cima ad App.tsx) + useTema()/useControlliTema() (cambio tema a runtime)
-  src/lingua/LinguaContext.tsx  LinguaProvider (montato in cima ad App.tsx) + useLingua()/useControlliLingua(): lingua attiva (it/en), elenco, cambiaLingua (estendibile con UNA riga)
-  src/screens/SchermataImpostazioni.tsx  scelta del TEMA (Vetro/Giallo) e della LINGUA (🇮🇹 Italiano / 🇬🇧 English), aperta dal menu col pulsante ⚙️
+  src/lingua/LinguaContext.tsx  LinguaProvider + useLingua()/useControlliLingua(): lingua del GIOCO (parole/dizionario)
+  src/i18n/it.ts               catalogo testi in ITALIANO (~100 chiavi, fonte di verità delle chiavi, incl. blocco err* per gli errori online); tipo ChiaveTesto
+  src/i18n/en.ts               catalogo testi in INGLESE (completo, incl. blocco err*); Partial<Record<ChiaveTesto,string>>
+  src/i18n/LinguaUIContext.tsx  LinguaUIProvider + useT()/useControlliLinguaUI(): lingua dell'INTERFACCIA (testi UI); default PRIMA del login = 'en'; fallback all'italiano se una chiave manca; interpola {segnaposto}
+  src/screens/SchermataImpostazioni.tsx  scelta del TEMA (Vetro/Giallo), della LINGUA DEL GIOCO (🇮🇹/🇬🇧) e della LINGUA DELL'APP (🇮🇹/🇬🇧); al cambio chiama aggiornaLingue → salva su profiles; testi via useT()
   src/**/*.stili.ts            stili per-schermata via creaStili(tema): Menu/Gioco/Auth/Griglia/Tastiera/Coriandoli/Loading (le schermate online e Avatar sono ancora statiche)
   assets/fonts/                font Poppins incorporati (.ttf)
   metro.config.js              wiring monorepo (Metro vede /core)
@@ -369,6 +335,9 @@ profiles
   nome         text
   cognome      text
   avatar_url   text
+  lingua_ui    text not null default 'it'    -- lingua dell'interfaccia preferita
+  lingua_gioco text not null default 'it'    -- lingua del gioco preferita
+  tema         text not null default 'giallo' check (tema in ('giallo','vetro')) -- tema preferito
   created_at   timestamptz default now()
   -- email e provider (google/facebook/email) stanno già in auth.users
 
@@ -480,10 +449,13 @@ leaderboard_skill (view)
   campi obbligatori (`room_code`/`mode`/`word_length`/`host_id`), **check** su
   `mode` e `status`, **RLS** con tre policy (host crea; lettura delle proprie sfide o
   di quelle `waiting`; update per giocare o per entrare in una stanza libera).
-  **Nota trigger:** il trigger `handle_new_user` è sano per i **nuovi** iscritti; due
-  account creati **prima** dell'ultima versione erano rimasti **senza profilo** e sono
-  stati **rigenerati a mano** con un `insert … select` (nick dai metadati o
-  dall'email, anti-collisione).
+  **Nota trigger:** il trigger `handle_new_user` è aggiornato per scrivere anche
+  `lingua_ui`/`lingua_gioco`/`tema` dai metadati di registrazione (default `'it'`/
+  `'it'`/`'giallo'` via `coalesce`, sia nell'insert sia nell'`on conflict do update`).
+  Migrazioni SQL: `migrazione_lingue_profilo.sql` (lingue) e `migrazione_tema_profilo.sql`
+  (colonna `tema` + check + aggiornamento trigger).
+  Due account creati prima dell'ultima versione erano rimasti senza profilo e sono
+  stati rigenerati a mano.
   **Aggiornamento C5b/C6:** verificato che la RLS di `matches` copre già l'**update di
   chiusura** dell'host (policy `aggiorna match (entra o gioca)`: `host_id = auth.uid()`
   vale sia in USING sia in WITH CHECK) e che `games_insert_own` consente a ciascuno di
@@ -768,19 +740,40 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
   **lotti**, un gruppo di file alla volta, tenendo il **tema Vetro identico a prima**
   come verifica. `TemaProvider` va **in cima** ad `App.tsx`: senza, `cambiaTema` cade sul
   no-op del context di default e il cambio tema non ha effetto. *Ancora statiche*
-  (da migrare): schermate online e `Avatar`. *Rimandata*: la **persistenza** del tema.
+  (da migrare): schermate online e `Avatar`. **Persistenza del tema — FATTA**: colonna
+  `profiles.tema` (default `'giallo'`, check su `'giallo'|'vetro'`), `ProfiloContext`
+  espone `tema`/`aggiornaTema`, componente ponte `InizialiTema` in `App.tsx` (gemello
+  di `InizialiLingue`, attivo solo con sessione presente) spinge il tema salvato in
+  `TemaProvider` al login, `SchermataImpostazioni` salva al cambio tramite
+  `onCambiaTema` (wrapper che chiama sia `cambiaTema` sia `aggiornaTema`).
 
-- **Multilingua (it/en), architettura.** La lingua è un contesto a sé
-  (`LinguaProvider`/`useLingua`), **gemello del tema** e altrettanto **estendibile**
-  (aggiungere una lingua = una riga in `LINGUE` + i suoi elenchi di parole). Il
-  dizionario è stato **splittato per lingua** in file separati (`dizionarioDati.it.ts` /
-  `.en.ts`) uniti da un **indice** (`dizionarioDati.ts`), così ogni file resta gestibile
-  e si aggiunge una lingua senza toccare gli altri. Le funzioni del core prendono la
-  **lingua come parametro** (non la leggono da React: il core resta puro). I bersagli
-  inglesi sono scelti per **frequenza d'uso** (`wordfreq`, Zipf ≥ 3.5): approccio
-  ripetibile e non arbitrario, valido anche per rivedere l'italiano in futuro. *Scelte
-  rimandate*: la **lingua della sfida online** (oggi si usa la locale — va resa proprietà
-  della sfida, §15), la **scelta del font**, e la **persistenza** di lingua+tema.
+- **Multilingua (it/en), architettura.** Due lingue indipendenti:
+  1. **Lingua del gioco** (`LinguaProvider`/`useLingua`): decide le parole e il dizionario.
+     Dizionario splittato per lingua (`dizionarioDati.it.ts` / `.en.ts`) con indice
+     (`dizionarioDati.ts`). Funzioni del core parametrizzate per lingua (core puro).
+     Bersagli inglesi per frequenza d'uso (Zipf ≥ 3.5).
+  2. **Lingua dell'interfaccia** (`LinguaUIProvider`/`useT()`): decide i testi UI.
+     Cataloghi in `app/src/i18n/it.ts` (completo, fonte di verità) e `en.ts` (completo);
+     fallback all'italiano se una chiave manca. Tutte le schermate principali usano
+     `useT()` — niente stringhe cablate nel JSX. L'interfaccia cambia lingua in
+     tempo reale. `useT()` va chiamato **solo dentro i componenti React** (è un hook).
+  Entrambe le preferenze salvate su `profiles.lingua_gioco` / `profiles.lingua_ui`,
+  lette all'avvio da `ProfiloContext` e inizializzate da `InizialiLingue` in `App.tsx`
+  — che ora scatta **solo se c'è una sessione attiva** (`sessione &&` in entrambi gli
+  `useEffect`), altrimenti sovrascriveva il default pre-login con `'it'` letto da un
+  `ProfiloContext` senza utente. **Default prima del login: inglese** (sia
+  `LINGUA_UI_DEFAULT` in `LinguaUIContext.tsx` sia il default equivalente in
+  `LinguaContext.tsx`), così chi apre l'app per la prima volta vede "Log in / Sign up"
+  e "Game language" in inglese; dopo il login prevale sempre la preferenza salvata sul
+  profilo. La lingua della sfida online è proprietà di `matches.lang` (§5.3). La
+  registrazione (`SchermataAuth`) raccoglie ora **tre** preferenze (lingua gioco,
+  lingua app, tema), tutte passate a `registrati()` e salvate dal trigger. Gli errori
+  di `app/src/online/stanze.ts` (creazione/ingresso stanza, rivincita, coda casuale)
+  sono stati convertiti da testo italiano cablato a **chiavi `ChiaveTesto`**
+  (`RisultatoStanza.errore` / `RisultatoCoda.errore` sono `ChiaveTesto`, non
+  `string`): `stanze.ts` resta un file puro (nessun `useT()`), la traduzione avviene
+  nelle schermate chiamanti (`SchermataLobby`, `SchermataCodaCasuale`) con
+  `t(risultato.errore)`. La scelta del font resta da fare.
 
 ---
 
@@ -905,18 +898,12 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
       rifiuta, richieste incrociate).
     - ⏭️ **Rifinitura opzionale** — mostrare in UI anche la **classifica bravura**
       (`leaderboard_skill` già pronta lato DB): tab Punti/Bravura in `SchermataClassifiche`.
-  - 🎨 **Temi e interfaccia (dopo il filone C)** — introdotto un **sistema di temi**
-    (`app/src/temi/`): tema attivo via `TemaProvider`/`useTema`, scelto dal menu
-    (⚙️ → `SchermataImpostazioni`). Due temi: **Vetro** (glassmorphism scuro, default) e
-    **Giallo** (chiaro flat/pieno). Migrate a leggere dal tema: **menu, gioco
-    (griglia/tastiera/coriandoli), login, impostazioni, loading** (ogni schermata ha un
-    `*.stili.ts` con `creaStili(tema)`; i colori prima cablati sono diventati **token**
-    in `theme.ts`, con parità di chiavi garantita da `keyof typeof C`; sistemato anche il
-    colore-lettera: bianco su cella piena, testo del tema — scuro sul chiaro — su cella
-    non valutata). **Layout gioco** rifatto: griglia e tastiera in **un unico blocco
-    centrato** (basta il vuoto in mezzo). *Non ancora a tema*: schermate **online**
-    (Classifiche/Lobby/GiocoOnline) e `Avatar`. *Limite*: il tema **non è ricordato** al
-    riavvio (persistenza AsyncStorage rimandata).
+  - 🎨 **Temi e interfaccia (dopo il filone C)** — sistema di temi (`app/src/temi/`);
+    due temi: **Vetro** (glassmorphism scuro) e **Giallo** (chiaro flat). A tema:
+    menu, gioco (griglia/tastiera/coriandoli), login, impostazioni, loading.
+    *Non ancora a tema*: schermate online (Classifiche/Lobby/GiocoOnline) e `Avatar`.
+    *Persistenza — FATTA*: colonna `tema` su `profiles`, componente ponte `InizialiTema`
+    in `App.tsx` (stesso meccanismo della lingua); il tema scelto resta al riavvio.
   - 🌍 **Multilingua (it/en) + rifiniture mobile (dopo i temi)** — l'app ora supporta
     **più lingue** e la lingua scelta decide le parole del single player. Fatto:
     - ✅ **Parole inglesi nel DB**: importate in `words` (`lang='en'`) 12.041 parole da
@@ -940,15 +927,37 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
       nel tema Giallo: numero+anello passati a `accentoSoft` (ambra scuro leggibile su
       fondo chiaro); l'**allarme** ora scatta negli **ultimi 5 secondi** con cerchietto
       **rosso pieno + numero bianco**.
-    - 🟡 **Da completare (importante):** **lingua della sfida online** — oggi la
-      validazione online usa la lingua **locale**, non quella della sfida (se i due
-      hanno lingue diverse la sfida si rompe). Da fare: salvare la lingua in `matches`,
-      aggiungerla al tipo `Sfida`, sceglierla alla creazione (automatica = lingua
-      dell'host, oppure selettore in lobby), e passarla a `useGioco` come `linguaForzata`.
-    - 🟡 **Da fare: scelta del font** in Impostazioni — richiede di caricare i `.ttf` dei
-      font alternativi in `App.tsx` (`useFonts`) + un override di `tema.font`.
-    - 🟡 **Da fare: persistenza** di **lingua e tema** (AsyncStorage), così non ripartono
-      dal default a ogni avvio (stesso meccanismo per entrambi i contesti).
+    - ✅ **Lingua della sfida online — FATTO** (colonna `matches.lang`, chip in lobby,
+      `linguaForzata` propagata a `useGioco`, rivincita mantiene la lingua).
+    - ✅ **Preferenze lingua persistite sul profilo Supabase — FATTO** (colonne
+      `lingua_ui`/`lingua_gioco` su `profiles`; trigger aggiornato; `ProfiloContext`
+      legge e aggiorna; `InizialiLingue` in `App.tsx` inizializza i provider all'avvio;
+      `SchermataImpostazioni` salva al cambio; `SchermataAuth` raccoglie le preferenze
+      alla registrazione).
+    - ✅ **Sistema i18n per l'interfaccia — FATTO** (`app/src/i18n/`: cataloghi `it.ts`
+      ed `en.ts` completi, `LinguaUIContext` con `useT()`; tutte le schermate principali
+      convertite; l'interfaccia cambia lingua in tempo reale).
+    - ✅ **Bug `LEGENDA` — RISOLTO** (era `t()` a livello di modulo in `SchermataMenu.tsx`).
+    - ✅ **Persistenza del tema — FATTO**: colonna `profiles.tema` (default `'giallo'`),
+      `ProfiloContext.aggiornaTema`, componente ponte `InizialiTema` in `App.tsx`,
+      `SchermataImpostazioni` salva al cambio. Il tema scelto ora resta al riavvio.
+    - ✅ **Errori online tradotti — FATTO**: `stanze.ts` ritorna chiavi `ChiaveTesto`
+      invece di testo italiano cablato; `SchermataLobby`/`SchermataCodaCasuale`
+      traducono con `t(risultato.errore)`. ~17 nuove chiavi `err*` in `it.ts`/`en.ts`.
+    - ✅ **Selettore tema in registrazione — FATTO**: `SchermataAuth` ha un terzo
+      selettore (Vetro/Giallo) accanto a lingua gioco/app; `registrati()` accetta
+      `tema` e lo passa nei metadati Auth; trigger `handle_new_user` lo copia su
+      `profiles.tema`. Bordo visibile sui pulsanti attivi (`SchermataAuth.stili.ts`),
+      prima erano poco distinguibili dal testo semplice sul tema chiaro.
+    - ✅ **Lingua predefinita pre-login: inglese — FATTO**: `LINGUA_UI_DEFAULT` in
+      `LinguaUIContext.tsx` e il default equivalente in `LinguaContext.tsx` sono `'en'`;
+      `InizialiLingue`/`InizialiTema` in `App.tsx` spingono le preferenze del profilo
+      **solo con sessione attiva**, così non sovrascrivono più il default pre-login.
+    - 🟡 **Da fare: scelta del font** in Impostazioni — caricare i `.ttf` alternativi
+      in `App.tsx` + override di `tema.font`.
+    - 🟡 **`modalitaLabel` nell'header gioco** ancora non tradotto (mostra sempre
+      "Principiante"/"Esperto" in italiano). Fix: mappare `modalita` a `t('labelPrincipiante')`
+      / `t('labelEsperto')` in `SchermataGioco.tsx`.
   - 🔮 Futuro: **online v2 (anti-cheat)** — spostare scelta parola + valutazione in
     un'**Edge Function** (parola solo lato server) per rendere le classifiche
     pubbliche non falsificabili. Struttura invariata rispetto alla v1. *In v2 la scelta
@@ -993,14 +1002,17 @@ loading. **NON ancora a tema** (leggono ancora i colori statici): le schermate
 **online** (`SchermataClassifiche`, `SchermataLobby`, `SchermataGiocoOnline`) e il
 componente `Avatar`.
 
-**Limite noto**: il tema scelto **non è ancora ricordato** al riavvio (riparte da
-Vetro); persistenza (AsyncStorage) rimandata.
+**Persistenza — FATTA**: il tema scelto è salvato su `profiles.tema` e viene
+ripristinato al login (componente ponte `InizialiTema` in `App.tsx`); prima del login
+resta il default del provider (`'giallo'`).
 
 ### Schermata di gioco
 
-- **Header**: 🎯 + **Wordilo**; sotto, il contatore **"Tentativi: X/max · N
-  lettere"** (aggiornato in tempo reale) e il sottotitolo in corsivo **"Indovina la
-  parola in {max} tentativi."**
+- **Header** (ridisegnato): riga singola — indietro ← a sinistra; **Wordilo** con sotto
+  `● Principiante · 5 lettere · Italiano` (pallino di stato verde + nome lingua come testo);
+  a destra **pallini tentativi** (pieni = fatti, anello = corrente, vuoti = rimanenti) +
+  contatore **`X/max`** (es. `2/7`). La gomma ↻ è stata rimossa dall'header.
+  Componente `PalliniTentativi` in `SchermataGioco.tsx`.
 - **Griglia**: righe = `maxTentativi` (parametrico), celle a **tinta piena** con
   angoli arrotondati; cella vuota con bordo; la **riga attiva** ha un bordo più
   chiaro come indicatore.

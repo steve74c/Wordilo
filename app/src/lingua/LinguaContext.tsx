@@ -21,7 +21,7 @@ const LINGUE: Record<CodiceLingua, InfoLingua> = {
   en: { codice: 'en', nome: 'English', bandiera: '🇬🇧' },
 };
 
-const LINGUA_DEFAULT: CodiceLingua = 'it';
+const LINGUA_DEFAULT: CodiceLingua = 'en';
 
 type ControlliLingua = {
   lingua: CodiceLingua;                 // codice attivo (es. 'it')

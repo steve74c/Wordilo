@@ -23,6 +23,7 @@ import { useTema } from '../temi/TemaContext';
 import { creaStili } from './SchermataGioco.stili';
 import type { StiliGioco } from './SchermataGioco.stili';
 import { useControlliLingua } from '../lingua/LinguaContext';
+import { useT } from '../i18n/LinguaUIContext';
  
 type Props = {
   modalita?: Modalita;
@@ -104,6 +105,7 @@ export function SchermataGioco({
   // perché le bandierine non vengono disegnate su tutte le piattaforme (es. Windows/web).
   const { lingua: linguaApp, lingueDisponibili } = useControlliLingua();
   const linguaMostrata: CodiceLingua = linguaForzata ?? linguaApp;
+  const t = useT();
   const nomeLingua =
     lingueDisponibili.find((l) => l.codice === linguaMostrata)?.nome ?? linguaMostrata.toUpperCase();
 	
@@ -208,11 +210,11 @@ export function SchermataGioco({
  
   const avviso =
     online && bloccato && esitoOnline == null
-      ? 'Hai finito · in attesa dell\'avversario…'
+      ? t('attesaAvversario')
       : problema === 'incompleta'
-        ? 'Parola incompleta'
+        ? t('parolaIncompleta')
         : problema === 'non_valida'
-          ? 'Parola non valida'
+          ? t('parolaNonValida')
           : null;
  
   const cardScale = anim.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1] });
@@ -306,24 +308,24 @@ export function SchermataGioco({
               <Text style={stili.esitoTitolo}>
                 {online
                   ? haVinto
-                    ? 'Hai vinto!'
+                    ? t('esitoHaiVinto')
                     : esitoFin === 'pareggio'
-                      ? 'Pareggio!'
-                      : 'Hai perso!'
+                      ? t('esitoPareggioTitolo')
+                      : t('esitoHaiPerso')
                   : haVinto
-                    ? 'Indovinata!'
-                    : 'Peccato!'}
+                    ? t('esitoIndovinata')
+                    : t('esitoPeccato')}
               </Text>
               <Text style={stili.esitoSub}>
                 {online
                   ? haVinto
-                    ? `In ${stato.righe.length} ${stato.righe.length === 1 ? 'tentativo' : 'tentativi'}`
+                    ? t(stato.righe.length === 1 ? 'inNTentativo' : 'inNTentativi', { n: stato.righe.length })
                     : esitoFin === 'pareggio'
-                      ? `Nessuno ha indovinato. La parola era ${stato.target}`
-                      : `La parola era ${stato.target}`
+                      ? t('nessunoIndovinato', { parola: stato.target })
+                      : t('laParolaEra', { parola: stato.target })
                   : haVinto
-                    ? `In ${stato.righe.length} ${stato.righe.length === 1 ? 'tentativo' : 'tentativi'}`
-                    : `La parola era ${stato.target}`}
+                    ? t(stato.righe.length === 1 ? 'inNTentativo' : 'inNTentativi', { n: stato.righe.length })
+                    : t('laParolaEra', { parola: stato.target })}
               </Text>
  
               {/* Online: rivincita (richiedi / accetta / rifiuta). Single: rigioca. */}
@@ -370,7 +372,7 @@ export function SchermataGioco({
                         </LinearGradient>
                       </Pressable>
                       <Pressable onPress={onRifiutaRivincita} hitSlop={8} style={stili.linkIndietro}>
-                        <Text style={stili.linkIndietroTesto}>Rifiuta</Text>
+                        <Text style={stili.linkIndietroTesto}>{t('rifiuta')}</Text>
                       </Pressable>
                     </>
                   )}

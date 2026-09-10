@@ -18,8 +18,13 @@ type ValoreProfilo = {
   avatarUrl: string | null;
   nome: string | null;
   cognome: string | null;
-  caricando: boolean; // true mentre si sceglie/carica la foto
+  linguaUI: string;       // lingua dell'interfaccia salvata sul profilo (default 'it')
+  linguaGioco: string;    // lingua del gioco salvata sul profilo (default 'it')
+  tema: string;           // tema salvato sul profilo (default 'giallo')
+  caricando: boolean;
   cambiaAvatar: () => Promise<void>;
+  aggiornaLingue: (linguaUI: string, linguaGioco: string) => Promise<void>;
+  aggiornaTema: (tema: string) => Promise<void>;
 };
 
 const ProfiloContext = createContext<ValoreProfilo | null>(null);
@@ -32,6 +37,9 @@ export function ProfiloProvider({ children }: { children: React.ReactNode }) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [nome, setNome] = useState<string | null>(null);
   const [cognome, setCognome] = useState<string | null>(null);
+  const [linguaUI, setLinguaUI] = useState<string>('it');
+  const [linguaGioco, setLinguaGioco] = useState<string>('it');
+  const [tema, setTema] = useState<string>('giallo');
   const [caricando, setCaricando] = useState(false);
 
   // Quando cambia l'utente loggato, leggiamo il suo profilo.
@@ -42,11 +50,14 @@ export function ProfiloProvider({ children }: { children: React.ReactNode }) {
       setAvatarUrl(null);
       setNome(null);
       setCognome(null);
+      setLinguaUI('it');
+      setLinguaGioco('it');
+      setTema('giallo');
       return;
     }
     supabase
       .from('profiles')
-      .select('nick, avatar_url, nome, cognome')
+      .select('nick, avatar_url, nome, cognome, lingua_ui, lingua_gioco, tema')
       .eq('id', userId)
       .single()
       .then(({ data, error }) => {
@@ -57,11 +68,17 @@ export function ProfiloProvider({ children }: { children: React.ReactNode }) {
           setAvatarUrl(null);
           setNome(null);
           setCognome(null);
+          setLinguaUI('it');
+          setLinguaGioco('it');
+          setTema('giallo');
         } else {
           setNick((data?.nick as string | null) ?? null);
           setAvatarUrl((data?.avatar_url as string | null) ?? null);
           setNome((data?.nome as string | null) ?? null);
           setCognome((data?.cognome as string | null) ?? null);
+          setLinguaUI((data?.lingua_ui as string | null) ?? 'it');
+          setLinguaGioco((data?.lingua_gioco as string | null) ?? 'it');
+          setTema((data?.tema as string | null) ?? 'giallo');
         }
       });
     return () => {
@@ -83,8 +100,44 @@ export function ProfiloProvider({ children }: { children: React.ReactNode }) {
     }
   }, [userId, caricando]);
 
+  // Salva le preferenze di lingua sul profilo (chiamato da SchermataImpostazioni).
+  const aggiornaLingue = useCallback(async (nuovaLinguaUI: string, nuovaLinguaGioco: string) => {
+    if (!userId) return;
+    const { error } = await supabase
+      .from('profiles')
+      .update({ lingua_ui: nuovaLinguaUI, lingua_gioco: nuovaLinguaGioco })
+      .eq('id', userId);
+    if (error) {
+      console.warn('Profilo: aggiornamento lingue fallito —', error.message);
+      return;
+    }
+    setLinguaUI(nuovaLinguaUI);
+    setLinguaGioco(nuovaLinguaGioco);
+  }, [userId]);
+
+  // Salva la preferenza di tema sul profilo (chiamato da SchermataImpostazioni).
+  const aggiornaTema = useCallback(async (nuovoTema: string) => {
+    if (!userId) return;
+    const { error } = await supabase
+      .from('profiles')
+      .update({ tema: nuovoTema })
+      .eq('id', userId);
+    if (error) {
+      console.warn('Profilo: aggiornamento tema fallito —', error.message);
+      return;
+    }
+    setTema(nuovoTema);
+  }, [userId]);
+
   return (
-    <ProfiloContext.Provider value={{ nick, avatarUrl, nome, cognome, caricando, cambiaAvatar }}>
+    <ProfiloContext.Provider value={{
+      nick, avatarUrl, nome, cognome,
+      linguaUI, linguaGioco, tema,
+      caricando,
+      cambiaAvatar,
+      aggiornaLingue,
+      aggiornaTema,
+    }}>
       {children}
     </ProfiloContext.Provider>
   );

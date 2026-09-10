@@ -12,6 +12,7 @@ import { useStatistiche } from '../stats/statistiche';
 import { useAuth } from '../auth/AuthContext';
 import { Avatar } from '../components/Avatar';
 import { useProfilo } from '../profilo/ProfiloContext';
+import { useT } from '../i18n/LinguaUIContext';
  
 // -----------------------------------------------------------------------------
 // Prima "finestra": titolo serif con bagliore, card con anteprima tessere +
@@ -34,11 +35,7 @@ type Props = {
  
 const LUNGHEZZE: LunghezzaParola[] = [5, 6];
  
-const LEGENDA: { colore: Colore; label: string }[] = [
-  { colore: 'green', label: 'giusta' },
-  { colore: 'orange', label: 'spostata' },
-  { colore: 'grey', label: 'assente' },
-];
+
  
 // Pillola selezionabile: attiva = gradiente accento, inerte = superficie.
 function Pillola({
@@ -115,6 +112,12 @@ export function SchermataMenu({
   modalitaIniziale = 'principiante',
 }: Props) {
   const tema = useTema();
+  const t = useT();
+  const LEGENDA: { colore: Colore; label: string }[] = [
+  { colore: 'green', label: t('legendaGiusta') },
+  { colore: 'orange', label: t('legendaSpostata') },
+  { colore: 'grey', label: t('legendaAssente') },
+	];
   const stili = useMemo(() => creaStili(tema), [tema]);
  
   const [lunghezza, setLunghezza] = useState<LunghezzaParola>(lunghezzaIniziale);
@@ -124,7 +127,7 @@ export function SchermataMenu({
   const { nick: nickProfilo, avatarUrl, nome, cognome, caricando, cambiaAvatar } = useProfilo();
   // Il nick viene dal profilo (c'è per tutti, anche per gli utenti Google).
   const nickMeta = sessione?.user?.user_metadata?.nick as string | undefined;
-  const nick = nickProfilo ?? nickMeta ?? 'Giocatore';
+  const nick = nickProfilo ?? nickMeta ?? t('giocatore');
  
   // Colore dello stato (legenda/pallini) dal tema attivo, non più statico.
   const coloreStato = (c: Colore): string =>
@@ -144,7 +147,7 @@ export function SchermataMenu({
               )}
             </Pressable>
             <Text style={stili.saluto} numberOfLines={1}>
-              Ciao, <Text style={stili.salutoNick}>{nick}</Text>
+              <Text style={stili.salutoNick}>{nick}</Text>
             </Text>
           </View>
  
@@ -163,7 +166,7 @@ export function SchermataMenu({
               hitSlop={8}
               style={({ pressed }) => [stili.esci, { opacity: pressed ? 0.7 : 1 }]}
             >
-              <Text style={stili.esciTesto}>Esci</Text>
+              <Text style={stili.esciTesto}>{t('esci')}</Text>
             </Pressable>
           </View>
         </View>
@@ -176,7 +179,7 @@ export function SchermataMenu({
           {/* Titolo serif con bagliore */}
           <View style={stili.intestazione}>
             <Text style={stili.logo}>Wordilo</Text>
-            <Text style={stili.tagline}>Indovina la parola. Allena la mente.</Text>
+            <Text style={stili.tagline}>{t('headerMenu')}</Text>
             <View style={stili.divisore}>
               <View style={stili.divLinea} />
               <View style={stili.divRombo} />
@@ -186,14 +189,14 @@ export function SchermataMenu({
  
           {/* Card */}
           <View style={[stili.card, ombra(0.45, 26, 14, 12)]}>
-            <Text style={[stili.eyebrow, { textAlign: 'center' }]}>IMPOSTA LA PARTITA</Text>
+            <Text style={[stili.eyebrow, { textAlign: 'center' }]}>{t('impostaPartita')}</Text>
  
-            <Text style={stili.etichetta}>Lunghezza parola</Text>
+            <Text style={stili.etichetta}>{t('lunghezzaParola')}</Text>
             <View style={stili.riga}>
               {LUNGHEZZE.map((n) => (
                 <Pillola
                   key={n}
-                  label={`${n} lettere`}
+                  label={t('nLettere', { n })}
                   attivo={lunghezza === n}
                   onPress={() => setLunghezza(n)}
                   stili={stili}
@@ -202,17 +205,17 @@ export function SchermataMenu({
               ))}
             </View>
  
-            <Text style={[stili.etichetta, stili.etichettaSpazio]}>Modalità</Text>
+            <Text style={[stili.etichetta, stili.etichettaSpazio]}>{t('modalita')}</Text>
             <View style={stili.riga}>
               <Pillola
-                label="Principiante"
+                label={t('labelPrincipiante')}
                 attivo={modalita === 'principiante'}
                 onPress={() => setModalita('principiante')}
                 stili={stili}
                 gradiente={tema.gradienti.accento}
               />
               <Pillola
-                label="Esperto"
+                label={t('labelEsperto')}
                 attivo={modalita === 'esperto'}
                 onPress={() => setModalita('esperto')}
                 stili={stili}
@@ -230,16 +233,16 @@ export function SchermataMenu({
                 end={{ x: 1, y: 1 }}
                 style={[stili.gioca, ombra(0.4, 14, 7, 8)]}
               >
-                <Text style={stili.giocaTesto}>▶  Gioca</Text>
+                <Text style={stili.giocaTesto}>{t('gioca')}</Text>
               </LinearGradient>
             </Pressable>
           </View>
  
           {/* Contatori */}
           <View style={stili.stats}>
-            <CartaStat numero={giocate} label="Giocate" colore={tema.palette.accentoSoft} stili={stili} />
-            <CartaStat numero={vinte} label="Vinte" colore={tema.palette.verde} stili={stili} />
-            <CartaStat numero={perse} label="Perse" colore={tema.palette.arancione} stili={stili} />
+            <CartaStat numero={giocate} label={t('giocate')} colore={tema.palette.accentoSoft} stili={stili} />
+            <CartaStat numero={vinte} label={t('vinte')} colore={tema.palette.verde} stili={stili} />
+            <CartaStat numero={perse} label={t('perse')} colore={tema.palette.arancione} stili={stili} />
           </View>
  
           {/* Azioni online (🎲 Gioca online = coda casuale · ⚔️ Sfida amico = col
@@ -254,7 +257,7 @@ export function SchermataMenu({
                       onPress={() => onGiocaOnline(modalita, lunghezza)}
                       style={({ pressed }) => [stili.azioneBtn, { opacity: pressed ? 0.8 : 1 }]}
                     >
-                      <Text style={stili.azioneTesto}>🎲  Gioca online</Text>
+                      <Text style={stili.azioneTesto}>{t('giocaOnline')}</Text>
                     </Pressable>
                   )}
                   {onSfidaAmico && (
@@ -262,7 +265,7 @@ export function SchermataMenu({
                       onPress={() => onSfidaAmico(modalita, lunghezza)}
                       style={({ pressed }) => [stili.azioneBtn, { opacity: pressed ? 0.8 : 1 }]}
                     >
-                      <Text style={stili.azioneTesto}>⚔️  Sfida amico</Text>
+                      <Text style={stili.azioneTesto}>{t('sfidaAmico')}</Text>
                     </Pressable>
                   )}
                 </View>
@@ -273,7 +276,7 @@ export function SchermataMenu({
                     onPress={onClassifiche}
                     style={({ pressed }) => [stili.azioneBtn, { opacity: pressed ? 0.8 : 1 }]}
                   >
-                    <Text style={stili.azioneTesto}>🏆  Classifica</Text>
+                    <Text style={stili.azioneTesto}>{t('classifica')}</Text>
                   </Pressable>
                 </View>
               )}

@@ -1,0 +1,130 @@
+// -----------------------------------------------------------------------------
+// Catalogo dei testi in INGLESE.
+// Va salvato in:  app/src/i18n/en.ts
+// -----------------------------------------------------------------------------
+import type { ChiaveTesto } from './it';
+
+export const en: Partial<Record<ChiaveTesto, string>> = {
+  // — Comune —
+  wordilo: 'Wordilo',
+  indietro: 'Back',
+  tornaAlMenu: '← Back to menu',
+  parolaIncompleta: 'Incomplete word',
+  parolaNonValida: 'Invalid word',
+
+  headerMenu: 'Guess the word. Train your mind.',
+  esci: 'Exit',
+  partite: 'matches',
+  codiceEsempio: 'Example Code:',
+  // — Menu —
+  saluto: 'Hi, {nick}',
+  giocatore: 'Player',
+  impostaPartita: 'SET UP THE GAME',
+  lunghezzaParola: 'Word length',
+  modalita:'Game modes',
+  nLettere: '{n} letters',
+  labelPrincipiante: 'Beginner',
+  labelEsperto: 'Expert',
+  gioca: '▶  Play',
+  giocate: 'Played',
+  vinte: 'Won',
+  perse: 'Lost',
+  giocaOnline: '🎲  Play online',
+  sfidaAmico: '⚔️  Challenge friend',
+  classifica: '🏆  Leaderboard',
+  legendaGiusta: 'correct',
+  legendaSpostata: 'misplaced',
+  legendaAssente: 'absent',
+
+  // — Gioco —
+  attesaAvversario: "You're done · waiting for opponent…",
+  esitoHaiVinto: 'You won!',
+  esitoPareggioTitolo: 'Draw!',
+  esitoHaiPerso: 'You lost!',
+  esitoIndovinata: 'Correct!',
+  esitoPeccato: 'Too bad!',
+  inNTentativo: 'In {n} try',
+  inNTentativi: 'In {n} tries',
+  laParolaEra: 'The word was {parola}',
+  nessunoIndovinato: 'Nobody guessed. The word was {parola}',
+  rivincita: '🔁  Rematch',
+  rivincitaAttesa: "Waiting for opponent's response…",
+  rivincitaAvvio: 'Starting rematch…',
+  rivincitaRichiesta: 'Opponent wants a rematch',
+  accetta: '✓  Accept',
+  rifiuta: 'Decline',
+  rivincitaRifiutata: 'Rematch declined.',
+  nuovaPartita: '↻  New game',
+
+  // — Auth —
+  accedi: 'Log in',
+  registrati: 'Sign up',
+  nickname: 'Nickname',
+  emailPlaceholder: 'Email',
+  passwordPlaceholder: 'Password',
+  errNickCorto: 'Nickname must be at least 3 characters.',
+  errEmailPassword: 'Please enter email and password.',
+  errPasswordCorta: 'Password must be at least 6 characters.',
+  labelLinguaGioco: 'Game language',
+  labelLinguaApp: 'App language',
+
+  // — Classifica —
+  classificaTitolo: 'Leaderboard',
+  classificaSotto: 'Points · online',
+  classificaErrore: 'Could not load the leaderboard.',
+  classificaRiprova: 'Retry',
+  classificaVuota: 'No online games yet.',
+  classificaVuotaSub: 'Play a challenge to appear on the leaderboard!',
+  punti: 'pts',
+  tu: '(you)',
+
+  // — Lobby —
+  sfidaOnlineTitolo: 'Challenge friend',
+  creaStanza: 'CREATE A ROOM',
+  creaStanzaSpiega: 'Open a room and share the code with your opponent.',
+  linguaSfida: 'GAME LANGUAGE',
+  creaStanzaBtn: '+  Create room',
+  oppure: 'or',
+  entraColCodice: 'JOIN WITH CODE',
+  entraStanzaBtn: 'Join room',
+  ilTuoCodice: 'YOUR CODE',
+  dettaAlAvversario: 'Share it with your opponent.',
+  inAttesaAvversario: 'Waiting for opponent…',
+  collegandoStanza: 'Connecting to room…',
+  avversarioTrovato: 'Opponent found! Starting…',
+  avversarioNonRisponde: 'Opponent is not responding. Go back and try again.',
+  codiceNonValido: 'Please enter a valid code.',
+  tornaAlMenuBtn: 'Back to menu',
+
+  // — Coda casuale —
+  giocaOnlineTitolo: 'Play online',
+  cercandoAvversario: 'Looking for an opponent…',
+  inAttesaAvversarioCoda: 'Waiting for an opponent…',
+
+  // — Impostazioni —
+  impostazioni: '⚙️ Settings',
+  sezioneTema: '🎨 Theme',
+  temaVetro: '🪟 Glass',
+  temaGiallo: '☀️ Yellow',
+  sezioneLinguaGioco: '🎯 Game language',
+  sezioneLinguaApp: '🌐 App language',
+  
+  // — Errori stanze online (stanze.ts) —
+  errLoggatoCrea: 'You must be logged in to create a room.',
+  errLoggatoEntra: 'You must be logged in to join a room.',
+  errLoggatoRivincita: 'You must be logged in for the rematch.',
+  errLoggatoOnline: 'You must be logged in to play online.',
+  errNessunaParola: 'No word available for this length.',
+  errNessunaParolaRivincita: 'No word available for the rematch.',
+  errCreaStanza: 'Could not create the room.',
+  errCreaRivincita: 'Could not create the rematch.',
+  errTroppiTentativiCodice: 'Too many attempts generating a code. Please try again.',
+  errCodiceStanzaNonValido: 'Invalid code.',
+  errRicercaStanza: 'Error searching for the room.',
+  errStanzaInesistente: 'No room waiting with this code.',
+  errStanzaPropria: "You can't join your own room.",
+  errStanzaOccupata: 'The room has already been taken by another player.',
+  errLetturaParola: 'Could not read the challenge word.',
+  errSoloHostRivincita: 'Only the host can start the rematch.',
+  errRicercaAvversario: 'Error searching for an opponent.',  
+};

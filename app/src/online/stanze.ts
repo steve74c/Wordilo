@@ -17,10 +17,16 @@
 // La parola bersaglio si pesca dal DB NELLA LINGUA della sfida: parola_casuale ora
 // prende anche p_lang (default 'it' lato DB), così l'host inglese ottiene una
 // parola inglese.
+//
+// LINGUA DEI MESSAGGI D'ERRORE: questo file è puro (niente React, niente
+// useT()), quindi NON traduce da solo. `errore` non è più una stringa italiana
+// cablata, ma una CHIAVE di ChiaveTesto (lo stesso catalogo delle schermate):
+// chi chiama queste funzioni la traduce con `t(risultato.errore)`.
 // -----------------------------------------------------------------------------
 import { supabase } from '../lib/supabase';
 import { normalizzaParola } from '@wordilo/core';
 import type { LunghezzaParola } from '@wordilo/core';
+import type { ChiaveTesto } from '../i18n/it';
 
 // Le modalità giocabili online (il single player "esperto/principiante" vale anche qui).
 export type ModalitaOnline = 'principiante' | 'esperto';
@@ -44,9 +50,11 @@ export type Sfida = {
   stato: 'waiting' | 'playing' | 'finished';
 };
 
+// `errore` è una CHIAVE (es. 'errLoggatoCrea'), non più un testo pronto: va
+// tradotta a schermo con `t(errore)`.
 export type RisultatoStanza =
   | { ok: true; sfida: Sfida }
-  | { ok: false; errore: string };
+  | { ok: false; errore: ChiaveTesto };
 
 // Codice-stanza breve e leggibile: 5 caratteri, niente lettere/numeri ambigui
 // (via O/0, I/1, ecc.) per dettarlo a voce senza sbagliare.
@@ -94,11 +102,11 @@ export async function creaStanza(
   // 1) Chi sono io? (serve host_id, e conferma che siamo loggati)
   const { data: auth } = await supabase.auth.getUser();
   const utente = auth?.user;
-  if (!utente) return { ok: false, errore: 'Devi essere loggato per creare una stanza.' };
+  if (!utente) return { ok: false, errore: 'errLoggatoCrea' };
 
   // 2) Parola dal database NELLA LINGUA della sfida (stessa per entrambi i giocatori).
   const parola = await pescaParolaDalDb(lunghezza, lingua);
-  if (!parola) return { ok: false, errore: 'Nessuna parola disponibile per questa lunghezza.' };
+  if (!parola) return { ok: false, errore: 'errNessunaParola' };
 
   // 3) Inserimento, con qualche tentativo in caso di collisione del codice.
   for (let tentativo = 0; tentativo < 5; tentativo++) {
@@ -135,10 +143,10 @@ export async function creaStanza(
     }
     // Codice duplicato (violazione unique) → riprova con un altro. Altri errori: esci.
     if (error && error.code !== '23505') {
-      return { ok: false, errore: 'Non è stato possibile creare la stanza.' };
+      return { ok: false, errore: 'errCreaStanza' };
     }
   }
-  return { ok: false, errore: 'Troppi tentativi di generare un codice. Riprova.' };
+  return { ok: false, errore: 'errTroppiTentativiCodice' };
 }
 
 /**
@@ -150,11 +158,11 @@ export async function creaStanza(
  */
 export async function entraInStanza(codiceGrezzo: string): Promise<RisultatoStanza> {
   const codice = codiceGrezzo.trim().toUpperCase();
-  if (codice.length < 4) return { ok: false, errore: 'Codice non valido.' };
+  if (codice.length < 4) return { ok: false, errore: 'errCodiceStanzaNonValido' };
 
   const { data: auth } = await supabase.auth.getUser();
   const utente = auth?.user;
-  if (!utente) return { ok: false, errore: 'Devi essere loggato per entrare in una stanza.' };
+  if (!utente) return { ok: false, errore: 'errLoggatoEntra' };
 
   // 1) Cerca la stanza in attesa con quel codice.
   const { data: stanza, error: errCerca } = await supabase
@@ -164,10 +172,10 @@ export async function entraInStanza(codiceGrezzo: string): Promise<RisultatoStan
     .eq('status', 'waiting')
     .maybeSingle();
 
-  if (errCerca) return { ok: false, errore: 'Errore nella ricerca della stanza.' };
-  if (!stanza) return { ok: false, errore: 'Nessuna stanza in attesa con questo codice.' };
+  if (errCerca) return { ok: false, errore: 'errRicercaStanza' };
+  if (!stanza) return { ok: false, errore: 'errStanzaInesistente' };
   if (stanza.host_id === utente.id)
-    return { ok: false, errore: 'Non puoi entrare nella tua stessa stanza.' };
+    return { ok: false, errore: 'errStanzaPropria' };
 
   // 2) Occupa il posto: scrivi guest_id e passa a 'playing'.
   //    Il controllo guest_id IS NULL evita che due persone entrino insieme.
@@ -180,7 +188,7 @@ export async function entraInStanza(codiceGrezzo: string): Promise<RisultatoStan
     .single();
 
   if (errEntra || !aggiornata)
-    return { ok: false, errore: 'La stanza è già stata occupata da un altro giocatore.' };
+    return { ok: false, errore: 'errStanzaOccupata' };
 
   // 3) Recupera il testo della parola dal word_id salvato nella stanza.
   const { data: parolaRow, error: errParola } = await supabase
@@ -190,7 +198,7 @@ export async function entraInStanza(codiceGrezzo: string): Promise<RisultatoStan
     .single();
 
   if (errParola || !parolaRow)
-    return { ok: false, errore: 'Impossibile leggere la parola della sfida.' };
+    return { ok: false, errore: 'errLetturaParola' };
 
   return {
     ok: true,
@@ -267,14 +275,14 @@ export async function annullaStanza(idSfida: string): Promise<void> {
 export async function creaRivincita(precedente: Sfida): Promise<RisultatoStanza> {
   const { data: auth } = await supabase.auth.getUser();
   const utente = auth?.user;
-  if (!utente) return { ok: false, errore: 'Devi essere loggato per la rivincita.' };
+  if (!utente) return { ok: false, errore: 'errLoggatoRivincita' };
   if (utente.id !== precedente.hostId) {
-    return { ok: false, errore: 'Solo l’host può avviare la rivincita.' };
+    return { ok: false, errore: 'errSoloHostRivincita' };
   }
 
   // Parola nuova, stessa lunghezza e lingua della sfida precedente.
   const parola = await pescaParolaDalDb(precedente.lunghezza, precedente.lingua);
-  if (!parola) return { ok: false, errore: 'Nessuna parola disponibile per la rivincita.' };
+  if (!parola) return { ok: false, errore: 'errNessunaParolaRivincita' };
 
   // Inserimento con qualche tentativo in caso di collisione del codice.
   for (let tentativo = 0; tentativo < 5; tentativo++) {
@@ -312,10 +320,10 @@ export async function creaRivincita(precedente: Sfida): Promise<RisultatoStanza>
     }
     // Codice duplicato (unique) → riprova; altri errori → esci.
     if (error && error.code !== '23505') {
-      return { ok: false, errore: 'Non è stato possibile creare la rivincita.' };
+      return { ok: false, errore: 'errCreaRivincita' };
     }
   }
-  return { ok: false, errore: 'Troppi tentativi di generare un codice. Riprova.' };
+  return { ok: false, errore: 'errTroppiTentativiCodice' };
 }
 
 
@@ -332,7 +340,7 @@ export async function creaRivincita(precedente: Sfida): Promise<RisultatoStanza>
 // La schermata d'attesa usa `ruolo` per sapere cosa mostrare.
 export type RisultatoCoda =
   | { ok: true; ruolo: 'host' | 'guest'; sfida: Sfida }
-  | { ok: false; errore: string };
+  | { ok: false; errore: ChiaveTesto };
 
 /**
  * TROVA-O-CREA una stanza pubblica (coda casuale).
@@ -355,7 +363,7 @@ export async function trovaOCreaStanzaPubblica(
   // 1) Chi sono io?
   const { data: auth } = await supabase.auth.getUser();
   const utente = auth?.user;
-  if (!utente) return { ok: false, errore: 'Devi essere loggato per giocare online.' };
+  if (!utente) return { ok: false, errore: 'errLoggatoOnline' };
 
   // 2) PRIMA CERCA: stanze pubbliche in attesa, compatibili, non mie.
   //    Le ordino dalla più vecchia: chi aspetta da più tempo viene accoppiato prima.
@@ -372,7 +380,7 @@ export async function trovaOCreaStanzaPubblica(
     .order('created_at', { ascending: true })
     .limit(10);
 
-  if (errCerca) return { ok: false, errore: 'Errore nella ricerca di un avversario.' };
+  if (errCerca) return { ok: false, errore: 'errRicercaAvversario' };
 
   // 3) Se ci sono candidate, provo a ENTRARE nella prima ancora libera.
   //    L'update passa solo se guest_id è ANCORA vuoto: se qualcuno l'ha occupata
@@ -396,7 +404,7 @@ export async function trovaOCreaStanzaPubblica(
       .eq('id', aggiornata.word_id)
       .single();
     if (errParola || !parolaRow)
-      return { ok: false, errore: 'Impossibile leggere la parola della sfida.' };
+      return { ok: false, errore: 'errLetturaParola' };
 
     return {
       ok: true,
@@ -418,7 +426,7 @@ export async function trovaOCreaStanzaPubblica(
   // 4) Nessuno con cui accoppiarsi (o me le hanno soffiate tutte): CREO io una
   //    stanza pubblica in attesa. Identica a creaStanza, ma con is_public = true.
   const parola = await pescaParolaDalDb(lunghezza, lingua);
-  if (!parola) return { ok: false, errore: 'Nessuna parola disponibile per questa lunghezza.' };
+  if (!parola) return { ok: false, errore: 'errNessunaParola' };
 
   for (let tentativo = 0; tentativo < 5; tentativo++) {
     const codice = generaCodice();
@@ -455,8 +463,8 @@ export async function trovaOCreaStanzaPubblica(
       };
     }
     if (error && error.code !== '23505') {
-      return { ok: false, errore: 'Non è stato possibile creare la stanza.' };
+      return { ok: false, errore: 'errCreaStanza' };
     }
   }
-  return { ok: false, errore: 'Troppi tentativi di generare un codice. Riprova.' };
+  return { ok: false, errore: 'errTroppiTentativiCodice' };
 }

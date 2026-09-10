@@ -16,6 +16,7 @@ import { creaStili } from './SchermataClassifiche.stili';
 import type { StiliClassifiche } from './SchermataClassifiche.stili';
 import { Avatar } from '../components/Avatar';
 import { leggiClassificaPunti, type VoceClassificaPunti } from '../online/classifiche';
+import { useT } from '../i18n/LinguaUIContext';
 
 type Props = {
   mioUserId?: string | null; // per evidenziare la propria riga
@@ -38,7 +39,8 @@ function Riga({
   pos,
   mia,
   styles,
-}: {
+  t,
+  }: {
   voce: VoceClassificaPunti;
   pos: number;
   mia: boolean;
@@ -57,15 +59,15 @@ function Riga({
       <View style={styles.rigaCentro}>
         <Text style={[styles.nick, mia && styles.nickMio]} numberOfLines={1}>
           {voce.nick}
-          {mia ? '  (tu)' : ''}
+          {mia ? ' ' + t('tu') : ''}
         </Text>
         <Text style={styles.sotto} numberOfLines={1}>
-          {voce.partiteOnline} partite · {voce.vinte}V {voce.perse}P {voce.pareggiate}X
+          {voce.partiteOnline} {t('partite')} · {voce.vinte}V {voce.perse}P {voce.pareggiate}X
         </Text>
       </View>
       <View style={styles.puntiWrap}>
         <Text style={styles.punti}>{voce.puntiTotali}</Text>
-        <Text style={styles.puntiLab}>punti</Text>
+        <Text style={styles.puntiLab}>{t('punti')}</Text>
       </View>
     </View>
   );
@@ -73,6 +75,7 @@ function Riga({
 
 export function SchermataClassifiche({ mioUserId, onIndietro }: Props) {
   const tema = useTema();
+  const t = useT();
   const styles = useMemo(() => creaStili(tema), [tema]);
 
   const [voci, setVoci] = useState<VoceClassificaPunti[] | null>(null);
@@ -106,14 +109,14 @@ export function SchermataClassifiche({ mioUserId, onIndietro }: Props) {
             hitSlop={8}
             style={({ pressed }) => [styles.indietro, { opacity: pressed ? 0.7 : 1 }]}
           >
-            <Text style={styles.indietroTesto}>‹ Indietro</Text>
+            <Text style={styles.indietroTesto}>{`‹ ${t('indietro')}`}</Text>
           </Pressable>
-          <Text style={styles.titolo}>Classifica</Text>
+          <Text style={styles.titolo}>{t('classificaTitolo')}</Text>
           <View style={styles.spazioDestra} />
         </View>
 
         <View style={styles.contenuto}>
-          <Text style={styles.sottotitolo}>A punti · online</Text>
+          <Text style={styles.sottotitolo}>{t('classificaSotto')}</Text>
 
           {caricando && (
             <View style={styles.centro}>
@@ -123,7 +126,7 @@ export function SchermataClassifiche({ mioUserId, onIndietro }: Props) {
 
           {!caricando && errore && (
             <View style={styles.centro}>
-              <Text style={styles.msg}>Impossibile caricare la classifica.</Text>
+              <Text style={styles.msg}>{t('classificaErrore')}</Text>
               <Text style={styles.msgTenue}>{errore}</Text>
               <Pressable onPress={carica} style={styles.riprovaWrap}>
                 <LinearGradient
@@ -132,7 +135,7 @@ export function SchermataClassifiche({ mioUserId, onIndietro }: Props) {
                   end={{ x: 1, y: 1 }}
                   style={[styles.riprova, ombra(0.3, 10, 5, 5)]}
                 >
-                  <Text style={styles.riprovaTesto}>Riprova</Text>
+                  <Text style={styles.riprovaTesto}>{t('classificaRiprova')}</Text>
                 </LinearGradient>
               </Pressable>
             </View>
@@ -140,8 +143,8 @@ export function SchermataClassifiche({ mioUserId, onIndietro }: Props) {
 
           {!caricando && !errore && voci && voci.length === 0 && (
             <View style={styles.centro}>
-              <Text style={styles.msg}>Ancora nessuna partita online.</Text>
-              <Text style={styles.msgTenue}>Gioca una sfida per comparire in classifica!</Text>
+              <Text style={styles.msg}>{t('classificaVuota')}</Text>
+              <Text style={styles.msgTenue}>{t('classificaVuotaSub')}</Text>
             </View>
           )}
 
@@ -152,7 +155,11 @@ export function SchermataClassifiche({ mioUserId, onIndietro }: Props) {
               contentContainerStyle={styles.lista}
               showsVerticalScrollIndicator={false}
               renderItem={({ item, index }) => (
-                <Riga voce={item} pos={index + 1} mia={item.userId === mioUserId} styles={styles} />
+                <Riga voce={item} 
+					  pos={index + 1} 
+					  mia={item.userId === mioUserId} 
+					  styles={styles} 
+					  t={t}/>
               )}
             />
           )}

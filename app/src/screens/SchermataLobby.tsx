@@ -27,6 +27,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useT } from '../i18n/LinguaUIContext';
 import type { LunghezzaParola, Modalita } from '@wordilo/core';
 import { ombra } from '../theme';
 import { useTema } from '../temi/TemaContext';
@@ -62,6 +63,7 @@ type Ruolo = 'host' | 'guest';
 
 export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndietro }: Props) {
   const tema = useTema();
+  const t = useT();
   const styles = useMemo(() => creaStili(tema), [tema]);
 
   // Lingua della SFIDA (stato locale della lobby): parte dalla lingua che il
@@ -134,7 +136,7 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
       }, GUEST_DELAY_MS);
       timeoutTimer = setTimeout(() => {
         if (!entratoRef.current) {
-          setMessaggio('L’avversario non risponde. Torna indietro e riprova.');
+          setMessaggio(t('avversarioNonRisponde'));
         }
       }, GUEST_TIMEOUT_MS);
     }
@@ -155,10 +157,10 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
       // Passiamo la lingua scelta dall'host: diventa la lingua della sfida.
       const r = await creaStanza(modalita as ModalitaOnline, lunghezza, linguaSfida);
       if (r.ok) {
-        setRuolo('host');
-        setSfida(r.sfida);
+        setRuolo('guest');
+        setSfida(r.sfida); // già 'playing', modalità/lunghezza/lingua ereditate dall'host
       } else {
-        setMessaggio(r.errore);
+        setMessaggio(t(r.errore));
       }
     } finally {
       setOccupato(false);
@@ -168,7 +170,7 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
   async function onEntra() {
     const codice = codiceInput.trim();
     if (codice.length < 4) {
-      setMessaggio('Inserisci un codice valido.');
+      setMessaggio(t('codiceNonValido'));
       return;
     }
     setOccupato(true);
@@ -211,27 +213,27 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
             hitSlop={8}
             style={({ pressed }) => [styles.indietro, { opacity: pressed ? 0.7 : 1 }]}
           >
-            <Text style={styles.indietroTesto}>‹ Indietro</Text>
+            <Text style={styles.indietroTesto}>{`‹ ${t('indietro')}`}</Text>
           </Pressable>
-          <Text style={styles.titolo}>Sfida online</Text>
+          <Text style={styles.titolo}>{t('sfidaOnlineTitolo')}</Text>
           <View style={styles.spazioDestra} />
         </View>
 
         <View style={styles.contenuto}>
           <Text style={styles.sottotitolo}>
-            {modalita === 'esperto' ? 'Esperto' : 'Principiante'} · {lunghezza} lettere
+            {modalita === 'esperto' ? t('labelEsperto') : t('labelPrincipiante')} · {lunghezza} {t('nLettere', { n: lunghezza }).replace(String(lunghezza) + ' ', '')}
           </Text>
 
           {/* SCELTA: né sfida attiva né messaggio bloccante */}
           {!sfida && (
             <View style={[styles.card, ombra(0.45, 26, 14, 12)]}>
-              <Text style={styles.eyebrow}>CREA UNA STANZA</Text>
+              <Text style={styles.eyebrow}>{t('creaStanza')}</Text>
               <Text style={styles.spiega}>
-                Apri una stanza e detta il codice al tuo avversario.
+                {t('creaStanzaSpiega')}
               </Text>
 
               {/* Lingua della sfida — solo l'host sceglie; il guest la eredita. */}
-              <Text style={[styles.eyebrow, { marginTop: 8 }]}>LINGUA DELLA SFIDA</Text>
+              <Text style={[styles.eyebrow, { marginTop: 8 }]}>{t('linguaSfida')}</Text>
               <View style={styles.linguaRiga}>
                 {lingueDisponibili.map((l) => {
                   const attiva = linguaSfida === l.codice;
@@ -270,21 +272,21 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
                   end={{ x: 1, y: 1 }}
                   style={[styles.crea, ombra(0.4, 14, 7, 8), occupato && { opacity: 0.6 }]}
                 >
-                  <Text style={styles.creaTesto}>＋  Crea stanza</Text>
+                  <Text style={styles.creaTesto}>{t('creaStanzaBtn')}</Text>
                 </LinearGradient>
               </Pressable>
 
               <View style={styles.oppure}>
                 <View style={styles.oppureLinea} />
-                <Text style={styles.oppureTesto}>oppure</Text>
+                <Text style={styles.oppureTesto}>{t('oppure')}</Text>
                 <View style={styles.oppureLinea} />
               </View>
 
-              <Text style={styles.eyebrow}>ENTRA COL CODICE</Text>
+              <Text style={styles.eyebrow}>{t('entraColCodice')}</Text>
               <TextInput
                 value={codiceInput}
                 onChangeText={(t) => setCodiceInput(t.toUpperCase())}
-                placeholder="es. K7P2Q"
+                placeholder={t('codiceEsempio') || ' K7P2Q'}
                 placeholderTextColor={tema.palette.testoTenue}
                 autoCapitalize="characters"
                 autoCorrect={false}
@@ -296,7 +298,7 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
                 disabled={occupato}
                 style={({ pressed }) => [styles.entraBtn, { opacity: pressed || occupato ? 0.7 : 1 }]}
               >
-                <Text style={styles.entraTesto}>Entra nella stanza</Text>
+                <Text style={styles.entraTesto}>{t('entraStanzaBtn')}</Text>
               </Pressable>
             </View>
           )}
@@ -304,12 +306,12 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
           {/* ATTESA HOST: mostro il codice + spinner */}
           {sfida && ruolo === 'host' && inAttesa && (
             <View style={[styles.card, ombra(0.45, 26, 14, 12), styles.cardCentro]}>
-              <Text style={styles.eyebrow}>IL TUO CODICE</Text>
+              <Text style={styles.eyebrow}>{t('ilTuoCodice')}</Text>
               <Text style={styles.codice}>{sfida.codice}</Text>
-              <Text style={styles.spiega}>Dettalo all'avversario.</Text>
+              <Text style={styles.spiega}>{t('dettaAlAvversario')}</Text>
               <View style={styles.attesaRiga}>
                 <ActivityIndicator color={tema.palette.accento} />
-                <Text style={styles.attesaTesto}>In attesa dell'avversario…</Text>
+                <Text style={styles.attesaTesto}>{t('inAttesaAvversario')}</Text>
               </View>
             </View>
           )}
@@ -319,7 +321,7 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
             <View style={[styles.card, ombra(0.45, 26, 14, 12), styles.cardCentro]}>
               <View style={styles.attesaRiga}>
                 <ActivityIndicator color={tema.palette.accento} />
-                <Text style={styles.attesaTesto}>Mi collego alla stanza…</Text>
+                <Text style={styles.attesaTesto}>{t('collegandoStanza')}</Text>
               </View>
             </View>
           )}
@@ -329,7 +331,7 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
             <View style={[styles.card, ombra(0.45, 26, 14, 12), styles.cardCentro]}>
               <View style={styles.attesaRiga}>
                 <ActivityIndicator color={tema.palette.accento} />
-                <Text style={styles.attesaTesto}>Avversario trovato! Avvio…</Text>
+                <Text style={styles.attesaTesto}>{t('avversarioTrovato')}</Text>
               </View>
             </View>
           )}
@@ -339,7 +341,7 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
             <View style={[styles.card, ombra(0.45, 26, 14, 12), styles.cardCentro]}>
               <Text style={styles.msg}>{messaggio}</Text>
               <Pressable onPress={annullaEEsci} style={styles.entraBtn}>
-                <Text style={styles.entraTesto}>Torna al menu</Text>
+                <Text style={styles.entraTesto}>{t('tornaAlMenuBtn')}</Text>
               </Pressable>
             </View>
           )}
