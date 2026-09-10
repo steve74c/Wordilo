@@ -221,7 +221,7 @@ export function SchermataAuth() {
                 {busy ? (
                   <ActivityIndicator color={tema.palette.testoSuAccento} />
                 ) : (
-                  <Text style={stili.bottoneTesto}>{registra ? 'Crea account' : 'Entra'}</Text>
+                  <Text style={stili.bottoneTesto}>{registra ? t('creaAccountBtn') : t('entraBtn')}</Text>
                 )}
               </LinearGradient>
             </Pressable>

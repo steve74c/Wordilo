@@ -223,7 +223,7 @@ export function SchermataGioco({
     ? stato.righe.length
     : Math.min(stato.righe.length + 1, stato.maxTentativi);
  
-  const modalitaLabel = modalita.charAt(0).toUpperCase() + modalita.slice(1);
+  const modalitaLabel = modalita === 'esperto' ? t('labelEsperto') : t('labelPrincipiante');
  
   return (
     <LinearGradient colors={tema.gradienti.sfondo} style={stili.sfondo}>
@@ -248,7 +248,7 @@ export function SchermataGioco({
               <View style={stili.sottoRiga}>
                 <View style={stili.puntoStato} />
                 <Text style={stili.sottotitolo} numberOfLines={1}>
-                  {modalitaLabel} · {lunghezza} lettere · {nomeLingua}
+                  {modalitaLabel} · {t('nLettere', { n: lunghezza })} · {nomeLingua}
                 </Text>
               </View>
             </View>

@@ -125,7 +125,10 @@ export const it = {
   errStanzaOccupata: 'La stanza è già stata occupata da un altro giocatore.',
   errLetturaParola: 'Impossibile leggere la parola della sfida.',
   errSoloHostRivincita: 'Solo l’host può avviare la rivincita.',
-  errRicercaAvversario: 'Errore nella ricerca di un avversario.',  
+  errRicercaAvversario: 'Errore nella ricerca di un avversario.', 
+
+  creaAccountBtn: 'Crea account',
+  entraBtn: 'Entra',  
 } as const;
 
 export type ChiaveTesto = keyof typeof it;

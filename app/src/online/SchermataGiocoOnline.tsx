@@ -102,10 +102,11 @@ export function SchermataGiocoOnline({ sfida, onIndietro }: Props) {
     statoRivincitaRef.current = statoRivincita;
   }, [statoRivincita]);
 
+  /*
   useEffect(() => {
     console.log('[DEBUG parola] =', sfidaCorrente.parola);
   }, [sfidaCorrente.parola]);
-
+  */
   useEffect(() => {
     esitoRef.current = esito;
   }, [esito]);

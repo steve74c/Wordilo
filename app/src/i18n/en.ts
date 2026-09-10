@@ -127,4 +127,7 @@ export const en: Partial<Record<ChiaveTesto, string>> = {
   errLetturaParola: 'Could not read the challenge word.',
   errSoloHostRivincita: 'Only the host can start the rematch.',
   errRicercaAvversario: 'Error searching for an opponent.',  
+  
+  creaAccountBtn: 'Create account',
+  entraBtn: 'Log in',  
 };

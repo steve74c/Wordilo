@@ -4,7 +4,7 @@
 > vuole costruire, con quali scelte tecniche e con quale modello dati. Va tenuto
 > aggiornato a ogni decisione presa.
 
-**Stato:** in sviluppo attivo. Single player completo, online v1 completo e chiuso, sistema temi (Vetro/Giallo) **con persistenza sul profilo**, multilingua it/en completo (gioco + interfaccia). Pulsanti online rinominati (**🎲 Gioca online** = coda casuale, **⚔️ Sfida amico** = col codice). Header di gioco ridisegnato con pallini-tentativi. Preferenze lingua **e tema** salvate sul profilo Supabase. Sistema i18n (`app/src/i18n/`) con `useT()` attivo in tutte le schermate principali **e nei messaggi d'errore di `stanze.ts`** (che ritorna chiavi `ChiaveTesto`, non testo cablato). Registrazione: selettori lingua gioco/app **e tema**. Lingua predefinita **prima del login: inglese** (UI e gioco); dopo il login prevale sempre la preferenza salvata sul profilo. Bug `LEGENDA` in `SchermataMenu` **risolto**. **Ultimo aggiornamento:** 2026-09-10
+**Stato:** in sviluppo attivo. Single player completo, online v1 completo e chiuso, sistema temi (Vetro/Giallo) **con persistenza sul profilo**, multilingua it/en completo (gioco + interfaccia, incluso l'header di gioco e i bottoni auth, nessuna stringa cablata nota residua). Pulsanti online rinominati (**🎲 Gioca online** = coda casuale, **⚔️ Sfida amico** = col codice). Header di gioco ridisegnato con pallini-tentativi. Preferenze lingua **e tema** salvate sul profilo Supabase. Sistema i18n (`app/src/i18n/`) con `useT()` attivo in tutte le schermate principali **e nei messaggi d'errore di `stanze.ts`** (che ritorna chiavi `ChiaveTesto`, non testo cablato). Registrazione: selettori lingua gioco/app **e tema**. Lingua predefinita **prima del login: inglese** (UI e gioco); dopo il login prevale sempre la preferenza salvata sul profilo. Bug `LEGENDA` in `SchermataMenu` **risolto**. Rivincita online: creazione **con retry automatico** in caso di errore transitorio; `console.log` di debug della parola **rimosso**. **Ultimo aggiornamento:** 2026-09-10
 
 ---
 
@@ -953,11 +953,21 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
       `LinguaUIContext.tsx` e il default equivalente in `LinguaContext.tsx` sono `'en'`;
       `InizialiLingue`/`InizialiTema` in `App.tsx` spingono le preferenze del profilo
       **solo con sessione attiva**, così non sovrascrivono più il default pre-login.
+    - ✅ **`modalitaLabel` nell'header gioco — FATTO**: ora usa
+      `t('labelPrincipiante')`/`t('labelEsperto')` invece di derivare la stringa dalla
+      modalità interna; anche "lettere" nella stessa riga passa ora da
+      `t('nLettere', { n: lunghezza })`.
+    - ✅ **Bottoni "Crea account"/"Entra" tradotti — FATTO**: ultime stringhe cablate
+      residue in `SchermataAuth.tsx`; nuove chiavi `creaAccountBtn`/`entraBtn`.
+    - ✅ **Rivincita — retry automatico FATTO**: `creaEAvviaRivincita` (lato host)
+      riprova fino a 3 volte (pausa 0,7s/1,4s) prima di arrendersi, ma solo per errori
+      potenzialmente transitori — non per `errLoggatoRivincita`/`errSoloHostRivincita`
+      (permessi, un retry non li risolve). Solo dopo aver esaurito i tentativi scatta
+      il rifiuto automatico verso l'avversario, come prima.
+    - ✅ **`console.log` di debug rimosso** — `SchermataGiocoOnline.tsx` non stampa
+      più la parola in chiaro.
     - 🟡 **Da fare: scelta del font** in Impostazioni — caricare i `.ttf` alternativi
       in `App.tsx` + override di `tema.font`.
-    - 🟡 **`modalitaLabel` nell'header gioco** ancora non tradotto (mostra sempre
-      "Principiante"/"Esperto" in italiano). Fix: mappare `modalita` a `t('labelPrincipiante')`
-      / `t('labelEsperto')` in `SchermataGioco.tsx`.
   - 🔮 Futuro: **online v2 (anti-cheat)** — spostare scelta parola + valutazione in
     un'**Edge Function** (parola solo lato server) per rendere le classifiche
     pubbliche non falsificabili. Struttura invariata rispetto alla v1. *In v2 la scelta

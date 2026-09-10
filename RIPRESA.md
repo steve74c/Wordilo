@@ -42,6 +42,10 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
   la **rivincita mantiene la lingua**. **Provato in app.**
 - **Rivincita online:** a fine sfida pop-up con **🔁 Rivincita / ✓ Accetta / Rifiuta**.
   Nuovo `matches` per ogni round; canale Realtime aperto una sola volta. **Provato su web.**
+  `creaEAvviaRivincita` (lato host) ora **riprova fino a 3 volte** prima di arrendersi
+  in caso di errore potenzialmente transitorio (dettagli sotto, sezione debito tecnico).
+  Il `console.log('[DEBUG parola]', …)` che stampava la parola in chiaro è stato
+  **commentato** in `SchermataGiocoOnline.tsx`.
 - **Rinomina pulsanti e nomi interni:**
   - "Gioca veloce" → **"Gioca online"** (`onGiocaOnline`, `codaCasuale`, `SchermataCodaCasuale`)
   - "Sfida online" → **"Sfida amico"** (`onSfidaAmico`)
@@ -52,6 +56,10 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
   - La **gomma** (↻ svuota riga) rimossa dall'header
   - La **lingua** mostrata come testo (non emoji-bandiera, che su Windows appare come "it")
   - Nuovo componente `PalliniTentativi` in `SchermataGioco.tsx`; stili in `SchermataGioco.stili.ts`
+  - `modalitaLabel` **tradotto**: ora usa `t('labelPrincipiante')`/`t('labelEsperto')`
+    invece di derivare la stringa a mano (`charAt(0).toUpperCase()...`), che in
+    inglese mostrava ancora "Principiante"/"Esperto". Anche "lettere" nella riga
+    sotto il titolo ora passa da `t('nLettere', { n: lunghezza })`.
 - **Tessere decorative rimosse dal menu** ("IMPOSTA LA PARTITA" rimane, ora **centrata**;
   componente `AnteprimaTessere` rimosso da `SchermataMenu.tsx`)
 - **Preferenze lingua E TEMA sul profilo Supabase (architettura completa):**
@@ -86,8 +94,10 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
   - `LinguaUIProvider` montato in `App.tsx` tra `TemaProvider` e `LinguaProvider`.
   - **Tutte le schermate convertite a `t()`:** `SchermataImpostazioni`, `SchermataMenu`,
     `SchermataGioco`, `SchermataAuth`, `SchermataClassifiche`, `SchermataLobby`,
-    `SchermataCodaCasuale`. Nessuna stringa UI cablata residua in quelle schermate
-    (a parte "Crea account"/"Entra" in `SchermataAuth`, vedi debito tecnico sotto).
+    `SchermataCodaCasuale`. Nessuna stringa UI cablata residua in quelle schermate —
+    inclusi i bottoni "Crea account"/"Entra" in `SchermataAuth` (nuove chiavi
+    `creaAccountBtn`/`entraBtn`) e "lettere" nell'header di gioco (`SchermataGioco`
+    ora usa `t('nLettere', { n: lunghezza })` invece di concatenare a mano).
   - **`SchermataGiocoOnline.tsx`** non ha testi UI propri (delega a `SchermataGioco`),
     non è stata toccata.
   - **`app/src/online/stanze.ts` ora localizzato**: `RisultatoStanza.errore` /
@@ -124,21 +134,15 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
 
 ## Punti dove si può migliorare (debito tecnico / idee)
 
-- **Pulizia debug:** in `SchermataGiocoOnline.tsx` (~righe 106-107) c'è un
-  `console.log('[DEBUG parola]', …)` che stampa la parola in chiaro. Da rimuovere
-  prima di considerare l'online rifinito.
-- **`modalitaLabel` nell'header gioco**: costruito con `charAt(0).toUpperCase()` sulla
-  stringa interna (`'principiante'`/`'esperto'`), quindi in inglese mostra ancora
-  "Principiante" invece di "Beginner". Fix: mappare `modalita` a `t('labelPrincipiante')`
-  / `t('labelEsperto')` in `SchermataGioco.tsx`.
-- **`SchermataAuth.tsx`**: "Crea account" ed "Entra" (testo del bottone principale)
-  sono ancora italiano cablato, sfuggiti alla conversione a `t()`. Servono 2 chiavi
-  nuove in `it.ts`/`en.ts` (es. `creaAccountBtn`, `entraBtn` — attenzione a non
-  confondere con `entraStanzaBtn` già esistente per la lobby).
-- **Rivincita — limiti:** se `creaRivincita` (lato host) fallisce per rete,
-  l'avversario viene sbloccato (rifiuto automatico) e si può riprovare.
+- **Rivincita — retry automatico FATTO**: `creaEAvviaRivincita` in
+  `SchermataGiocoOnline.tsx` ora riprova fino a **3 volte** (pausa crescente
+  0,7s/1,4s) prima di arrendersi, ma **solo** per errori potenzialmente transitori
+  (rete/parola/insert) — non per `errLoggatoRivincita`/`errSoloHostRivincita`
+  (errori di permessi, un retry non li risolverebbe). Solo dopo aver esaurito i
+  tentativi scatta il rifiuto automatico verso l'avversario, come prima.
 - **Affinamento bersagli del dizionario**: riallineare l'italiano con `wordfreq`
-  (stesso metodo usato per l'inglese); ripulire nomi propri/forestierismi.
+  (stesso metodo usato per l'inglese); ripulire nomi propri/forestierismi. *Non
+  ancora affrontato.*
 - **Online v2 (anti-cheat)**: spostare scelta parola + valutazione in un'Edge Function.
 
 ## Stack e convenzioni da rispettare
@@ -181,7 +185,6 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
 Leggi la specifica, poi **riassumimi in poche righe dove siamo** (per confermare che
 il contesto è chiaro). Il prossimo punto naturale è **completare i temi sulle
 schermate online** (Classifiche, Lobby, partita online, coda casuale) e su `Avatar`,
-oppure una delle rifiniture minori in lista (`console.log` di debug, `modalitaLabel`
-non tradotto, bottoni "Crea account"/"Entra" ancora in italiano). Dimmi tu da dove
+oppure una delle altre voci in "Cosa manca / prossimi passi". Dimmi tu da dove
 ripartire, con lo stesso metodo: un sotto-passo alla volta, chiedendomi i file prima
 di modificarli.
