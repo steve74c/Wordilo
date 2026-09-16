@@ -12,14 +12,17 @@ echo [1] npm install
 echo [2] npm run web
 echo [3] npx expo start -c
 echo [4] npx expo start --tunnel
+echo [5] npx eas-cli build --platform android --profile preview
 echo [0] Esci
 echo.
-echo Hai 5 secondi per scegliere...
+echo Hai 7 secondi per scegliere...
 echo.
 
-choice /c 12340 /n /t 5 /d 2
+choice /c 12340 /n /t 7 /d 2
 
-if errorlevel 5 goto exit
+
+if errorlevel 6 goto exit
+if errorlevel 5 goto build_preview
 if errorlevel 4 goto tunnel
 if errorlevel 3 goto expo_clear
 if errorlevel 2 goto web
@@ -56,6 +59,17 @@ echo.
 npx expo start --tunnel
 pause
 goto menu
+
+
+:build_preview
+cls
+echo Eseguo: npx eas-cli build --platform android --profile preview
+echo.
+npx eas-cli build --platform android --profile preview
+pause
+goto menu
+
+
 
 :exit
 exit
