@@ -128,9 +128,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   //
   //  • iOS/ANDROID: NON esiste una "pagina", quindi apriamo un browser interno
   //    (openAuthSessionAsync) e, al ritorno, rientriamo nell'app tramite un deep
-  //    link (redirectTo = wordilo://auth-callback nel dev build). Poi ricaviamo
+  //    link (redirectTo = SpotLex://auth-callback nel dev build). Poi ricaviamo
   //    la sessione dall'URL. ATTENZIONE: sul telefono funziona solo con un
-  //    DEVELOPMENT BUILD (Expo Go non può registrare lo scheme "wordilo").
+  //    DEVELOPMENT BUILD (Expo Go non può registrare lo scheme "SpotLex").
   const accediConGoogle = async (): Promise<RisultatoAuth> => {
     if (Platform.OS === 'web') {
       const redirectTo =

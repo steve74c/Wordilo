@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import type { Colore } from '@wordilo/core';
+import type { Colore } from '@SpotLex/core';
 import type { Tema } from '../temi/tipi';
 
 export function creaStili(tema: Tema) {

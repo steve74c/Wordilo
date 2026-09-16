@@ -6,7 +6,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import type { LunghezzaParola, Modalita } from '@wordilo/core';
+import type { LunghezzaParola, Modalita } from '@SpotLex/core';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../auth/AuthContext';
 

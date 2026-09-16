@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import type { Colore } from '@wordilo/core';
+import type { Colore } from '@SpotLex/core';
 import { C, FONT, ombra, RAGGIO } from '../theme';
 
 // Layout QWERTY. "OK" = invio (teal), "⌫" = cancella.

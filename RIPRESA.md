@@ -1,4 +1,4 @@
-# Prompt per riprendere lo sviluppo di Wordilo
+# Prompt per riprendere lo sviluppo di SpotLex
 
 > Incolla questo testo come **primo messaggio** in una nuova chat, e **allega il file
 > `SPECIFICA.md`**. È scritto per mettere l'assistente nelle stesse condizioni in cui
@@ -6,7 +6,7 @@
 
 ---
 
-Ciao. Sto sviluppando **Wordilo**, un gioco "indovina la parola" (stile Wordle),
+Ciao. Sto sviluppando **SpotLex**, un gioco "indovina la parola" (stile Wordle),
 ora **multilingua (italiano + inglese)**, come **app unica** per web + iOS + Android.
 Ti allego **`SPECIFICA.md`**: è la fonte di verità del progetto, aggiornata all'ultimo
 stato. **Leggila per intero prima di rispondere.** Non sono un esperto di backend/
@@ -61,7 +61,7 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
   - "Sfida online" → **"Sfida amico"** (`onSfidaAmico`)
   - File rinominato: `SchermataCodaVeloce.tsx` → **`SchermataCodaCasuale.tsx`**
 - **Header della schermata di gioco ridisegnato** (come da figura di riferimento):
-  - Riga singola: indietro ← · **Wordilo** + `● Principiante · 5 lettere · Italiano` · pallini tentativi + contatore `2/7`
+  - Riga singola: indietro ← · **SpotLex** + `● Principiante · 5 lettere · Italiano` · pallini tentativi + contatore `2/7`
   - **Pallini** colorati man mano che si fanno i tentativi (pieni = confermati, anello = corrente, vuoti = rimanenti)
   - La **gomma** (↻ svuota riga) rimossa dall'header
   - La **lingua** mostrata come testo (non emoji-bandiera, che su Windows appare come "it")

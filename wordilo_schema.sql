@@ -1,5 +1,5 @@
 -- =============================================================================
--- Wordilo · Schema del database (Supabase / Postgres) · Passo 2
+-- SpotLex · Schema del database (Supabase / Postgres) · Passo 2
 --
 -- Crea le tabelle della §10 della specifica, attiva le regole di sicurezza
 -- (RLS) e inserisce i dati iniziali (parametri di gioco + dizionario di prova).

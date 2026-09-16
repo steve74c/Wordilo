@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Wordilo } from './src/screens/Wordilo';
+import { SpotLex } from './src/screens/SpotLex';
 import { LoadingScreen } from './src/LoadingScreen';
 import { StatisticheProvider } from './src/stats/statistiche';
 
@@ -73,7 +73,7 @@ export default function App() {
   //            └─ LinguaProvider ← lingua gioco (idem)
   //               └─ InizialiLingue  ← bridge: spinge le lingue del profilo nei due contesti
   //               └─ InizialiTema    ← bridge: spinge il tema del profilo in TemaProvider
-  //                  └─ PortaAuth → Wordilo
+  //                  └─ PortaAuth → SpotLex
   return (
     <TemaProvider>
       <ConfigProvider>
@@ -88,7 +88,7 @@ export default function App() {
                   <InizialiTema />
                   {caricati ? (
                     <PortaAuth>
-                      <Wordilo />
+                      <SpotLex />
                     </PortaAuth>
                   ) : (
                     <LoadingScreen />

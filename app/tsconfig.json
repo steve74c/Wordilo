@@ -3,7 +3,7 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@wordilo/core": ["../core/src/index.ts"]
+      "@SpotLex/core": ["../core/src/index.ts"]
     }
   }
 }

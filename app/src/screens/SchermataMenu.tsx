@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import type { Colore, LunghezzaParola, Modalita } from '@wordilo/core';
+import type { Colore, LunghezzaParola, Modalita } from '@SpotLex/core';
 import { ombra } from '../theme';
 import { useTema } from '../temi/TemaContext';
 import type { Gradiente } from '../temi/tipi';
@@ -178,7 +178,7 @@ export function SchermataMenu({
         >
           {/* Titolo serif con bagliore */}
           <View style={stili.intestazione}>
-            <Text style={stili.logo}>Wordilo</Text>
+            <Text style={stili.logo}>SpotLex</Text>
             <Text style={stili.tagline}>{t('headerMenu')}</Text>
             <View style={stili.divisore}>
               <View style={stili.divLinea} />

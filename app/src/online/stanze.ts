@@ -24,8 +24,8 @@
 // chi chiama queste funzioni la traduce con `t(risultato.errore)`.
 // -----------------------------------------------------------------------------
 import { supabase } from '../lib/supabase';
-import { normalizzaParola } from '@wordilo/core';
-import type { LunghezzaParola } from '@wordilo/core';
+import { normalizzaParola } from '@SpotLex/core';
+import type { LunghezzaParola } from '@SpotLex/core';
 import type { ChiaveTesto } from '../i18n/it';
 
 // Le modalità giocabili online (il single player "esperto/principiante" vale anche qui).

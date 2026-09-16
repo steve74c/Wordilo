@@ -3,7 +3,7 @@
 //
 // Login obbligatorio: se non c'è sessione mostra la schermata di accesso;
 // appena l'utente entra, `onAuthStateChange` aggiorna la sessione e qui
-// compare il gioco (i `children`, cioè <Wordilo />). Nessuna navigazione
+// compare il gioco (i `children`, cioè <SpotLex />). Nessuna navigazione
 // manuale: la UI reagisce da sola al cambio di sessione.
 // -----------------------------------------------------------------------------
 import React from 'react';

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, Text, View } from 'react-native';
-import type { Colore, StatoGioco } from '@wordilo/core';
+import type { Colore, StatoGioco } from '@SpotLex/core';
 import { useTema } from '../temi/TemaContext';
 import { creaStili } from './Griglia.stili';
 import type { StiliGriglia, ColoriGriglia } from './Griglia.stili';

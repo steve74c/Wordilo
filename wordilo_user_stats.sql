@@ -1,5 +1,5 @@
 -- =============================================================================
--- Wordilo · Vista delle statistiche per utente · Passo 6
+-- SpotLex · Vista delle statistiche per utente · Passo 6
 --
 -- Conta le partite di ciascun utente a partire dalla tabella `games`.
 -- Grazie a "security_invoker = true", la vista rispetta la RLS di `games`:

@@ -6,8 +6,8 @@
 // Se la rete non risponde o la tabella è vuota, torna i CONFIG_DEFAULT: così
 // l'app resta SEMPRE giocabile anche offline.
 // -----------------------------------------------------------------------------
-import { CONFIG_DEFAULT } from '@wordilo/core';
-import type { ConfigGioco } from '@wordilo/core';
+import { CONFIG_DEFAULT } from '@SpotLex/core';
+import type { ConfigGioco } from '@SpotLex/core';
 import { supabase } from '../lib/supabase';
 
 type RigaSettings = {

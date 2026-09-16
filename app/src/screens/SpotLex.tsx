@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { LunghezzaParola, Modalita } from '@wordilo/core';
+import type { LunghezzaParola, Modalita } from '@SpotLex/core';
 import { supabase } from '../lib/supabase';
 import { SchermataMenu } from './SchermataMenu';
 import { SchermataGioco } from './SchermataGioco';
@@ -12,7 +12,7 @@ import type { Sfida } from '../online/stanze';
 
 type Config = { modalita: Modalita; lunghezza: LunghezzaParola };
 
-export function Wordilo() {
+export function SpotLex() {
   const [config, setConfig] = useState<Config | null>(null);
   const [lobby, setLobby] = useState<Config | null>(null);            // (1b): lobby online (col codice)
   const [codaCasuale, setCodaCasuale] = useState<Config | null>(null);  // 🎲 coda casuale (Gioca online)

@@ -1,4 +1,4 @@
-# Wordilo — Specifica del progetto
+# SpotLex — Specifica del progetto
 
 > Documento di riferimento del gioco. È la "fonte di verità": descrive cosa si
 > vuole costruire, con quali scelte tecniche e con quale modello dati. Va tenuto
@@ -10,7 +10,7 @@
 
 ## 1. Cos'è
 
-Wordilo è un gioco "indovina la parola" (stile Wordle) in italiano, disponibile
+SpotLex è un gioco "indovina la parola" (stile Wordle) in italiano, disponibile
 come **app web** e come **app mobile (iOS e Android)** con **un unico codebase**.
 
 L'utente sceglie all'inizio se giocare con parole da **5 o 6 lettere**, poi gioca
@@ -81,7 +81,7 @@ over-the-air del codice JS senza ripassare dagli store.
   src/components/Griglia.tsx   griglia di celle colorate (+ countdown esperto, + pallini avversario online a sinistra riga)
   src/components/Tastiera.tsx  tastiera a schermo (neutri bianchi, OK teal)
   src/components/Coriandoli.tsx  particelle leggere per la vittoria
-  src/screens/Wordilo.tsx      router minimale menu ↔ partita ↔ classifiche ↔ lobby ↔ sfida online (senza librerie di navigazione)
+  src/screens/SpotLex.tsx      router minimale menu ↔ partita ↔ classifiche ↔ lobby ↔ sfida online (senza librerie di navigazione)
   src/screens/SchermataAuth.tsx  accesso/registrazione (email/password)
   src/screens/SchermataMenu.tsx  saluto+logout, scelta lunghezza/modalità, contatori, legenda (senza tessere decorative), pulsanti 🎲 Gioca online (coda casuale, prop onGiocaOnline) + ⚔️ Sfida amico (col codice, prop onSfidaAmico) affiancati e 🏆 Classifica, + ⚙️ Impostazioni (tema+lingua) accanto a Esci; testi via useT()
   src/screens/SchermataClassifiche.tsx  schermata Classifiche (C6): DUE TAB (Punti/Bravura) — legge leaderboard_points e leaderboard_skill, lista con medaglie/avatar, evidenzia la propria riga, cache per tab; il tab Bravura mostra il win_rate come % (normalizzato: se ≤1 ×100) [FILONE C]
@@ -109,7 +109,7 @@ over-the-air del codice JS senza ripassare dagli store.
 /backend     → Edge Functions / logica server per l'online (non ancora creata; serve solo alla v2 anti-cheat)
 ```
 
-L'app importa il core come `@wordilo/core`: l'alias è risolto sia da TypeScript
+L'app importa il core come `@SpotLex/core`: l'alias è risolto sia da TypeScript
 (`paths` in `tsconfig`) sia da Metro (`extraNodeModules` + `watchFolders` verso la
 radice), così lo **stesso identico** modulo `core` gira su web, iOS e Android.
 
@@ -139,7 +139,7 @@ nell'app). Sul **web** il login funziona end-to-end (`accediConGoogle` in
 se il nick **manca** (login social) ne **genera uno univoco** dalla parte prima
 della `@` dell'email, e importa **nome/cognome/foto** da Google
 (`given_name`/`family_name`/`picture`). Sul **telefono** il codice è pronto (deep
-link con scheme `wordilo`, via `expo-web-browser`/`expo-auth-session`), ma il test
+link con scheme `SpotLex`, via `expo-web-browser`/`expo-auth-session`), ma il test
 richiede un **development build** (Expo Go non registra lo scheme). **Facebook**
 ancora da collegare.
 
@@ -603,7 +603,7 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
   (`game_settings`), con `CONFIG_DEFAULT` come **fallback** offline. ✅ collegato.
 - Righe della griglia = `maxTentativi` (parametrico): la griglia si allinea sempre
   al parametro.
-- Navigazione: **router minimale** senza librerie (`Wordilo.tsx`) che alterna
+- Navigazione: **router minimale** senza librerie (`SpotLex.tsx`) che alterna
   `SchermataMenu` ↔ `SchermataGioco`; la scelta lunghezza/modalità sta nel menu.
 - Statistiche: **reali dal DB** — a fine partita si scrive in `games`, i conteggi
   vengono dalla vista `user_stats`. ✅ collegato (era un modulo provvisorio locale).
@@ -617,7 +617,7 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
   Supabase con client OAuth *Web application*; il *client secret* resta **solo** su
   Supabase. `accediConGoogle` è **universale**: su web fa il redirect di pagina, su
   iOS/Android apre un browser interno e rientra via **deep link** (`scheme:
-  "wordilo"`, redirect `wordilo://auth-callback` tra i *Redirect URLs* di Supabase),
+  "SpotLex"`, redirect `SpotLex://auth-callback` tra i *Redirect URLs* di Supabase),
   usando `expo-web-browser` + `expo-auth-session`. **Test su telefono rimandato**:
   richiede un **development build** (Expo Go non registra lo scheme). Facebook non
   ancora fatto (richiederà la revisione dell'app lato Meta).
@@ -642,7 +642,7 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
   sul client **non** protegge (il client dovrebbe avere anche la chiave, quindi è
   leggibile) → l'unico anti-cheat vero è tenerla sul server.
 - App su **Expo SDK 57** (React Native 0.86); l'app importa il core come
-  `@wordilo/core` via alias Metro (`extraNodeModules`) + `paths` di TypeScript.
+  `@SpotLex/core` via alias Metro (`extraNodeModules`) + `paths` di TypeScript.
 - Grafica e interfaccia: stile **flat** allineato al riferimento condiviso — celle
   e tasti a tinta piena, tasti neutri **bianchi**, tasto invio **"OK" in teal**,
   micro-animazioni, **pop-up** di fine partita, font **Poppins** incorporato. Tutti
@@ -664,7 +664,7 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
 - **Contenitore online `SchermataGiocoOnline`:** apre il canale Realtime della stanza
   e monta `SchermataGioco` sulla parola condivisa; raccoglie i riepiloghi
   dell'avversario (→ pallini D4) e **arbitra l'esito** (C5a). Il router
-  `Wordilo.tsx` mostra la sfida online a tutto schermo quando è attiva.
+  `SpotLex.tsx` mostra la sfida online a tutto schermo quando è attiva.
 - **Esito online arbitrato dall'host (C5a):** "vince chi indovina **per primo**; se
   l'altro indovina dopo, perde comunque". Poiché i due dispositivi **non hanno un
   orologio comune**, non ci si fida di un timestamp: chi finisce **annuncia** sul
@@ -703,7 +703,7 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
   sensibili (nick/avatar già pubblici + conteggi). **UI:** modulo dati
   `online/classifiche.ts` (`leggiClassificaPunti`) + `SchermataClassifiche` (stile card
   vetro, medaglie 🥇🥈🥉, riga propria evidenziata), aperta dal menu con 🏆; il router
-  `Wordilo.tsx` gestisce la vista classifiche e passa il proprio `userId`. In UI ci
+  `SpotLex.tsx` gestisce la vista classifiche e passa il proprio `userId`. In UI ci
   sono **entrambe le classifiche**, come due tab **Punti/Bravura** (il tab bravura mostra
   il win_rate in percentuale, con soglia minima di partite lato vista).
 - **Casi limite — abbandono/disconnessione (C7):** regola scelta: **chi lascia perde,
@@ -728,7 +728,7 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
   stretta di mano sia completa (l'host attende `guest-entrato` e resta un attimo per far
   arrivare `host-ok`; il guest attende `host-ok`, con `annunciaIngresso` che ora accetta
   una callback `onConfermato`). Il **banco di prova è stato rimosso**
-  (`BancoProvaStanze.tsx` + innesti in `SchermataMenu`/`Wordilo`).
+  (`BancoProvaStanze.tsx` + innesti in `SchermataMenu`/`SpotLex`).
 - **Pulizia/scadenza stanze (2c):** scelta la **Strada 1** (pulizia dall'app, niente
   `pg_cron`): all'apertura della lobby `pulisciStanzeVecchie` rimuove le **proprie**
   stanze non finite più vecchie di **10 minuti** (una partita dura pochi minuti → oltre
@@ -805,7 +805,7 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
   - ✅ Fatto: app Expo + schermata **principiante** (griglia + tastiera) su web e
     mobile, wiring monorepo verificato con export web.
   - ✅ Fatto: **schermata di scelta** (lunghezza 5/6 + modalità) con router minimale
-    menu ↔ partita (`SchermataMenu` + `Wordilo`).
+    menu ↔ partita (`SchermataMenu` + `SpotLex`).
   - ✅ Fatto: **statistiche** (giocate/vinte/perse) mostrate nel menu e aggiornate a
     fine partita.
   - ✅ Fatto: **modalità esperto** completa — timer/countdown per tentativo
@@ -848,7 +848,7 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
     - ✅ **D2a** — `SchermataGioco` accetta `parolaForzata`/`online` (opzionali).
     - ✅ **D2b** — a ogni riga confermata `SchermataGioco` chiama `onRigaConfermata`
       (usa `contaColori` del core); `contaColori` aggiunta al core.
-    - ✅ **D3** — contenitore `SchermataGiocoOnline` + routing in `Wordilo.tsx` +
+    - ✅ **D3** — contenitore `SchermataGiocoOnline` + routing in `SpotLex.tsx` +
       pulsante "Entra in partita" nel banco: **testato su web** (host che parte da
       solo; riepiloghi che viaggiano in partita). Il log temporaneo `[D3]` è stato
       rimosso in D4.
@@ -891,7 +891,7 @@ e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
     - ✅ **Lobby vera dal menu (1b)** — `SchermataLobby` (crea/entra col codice +
       attesa avversario in Realtime + **ingresso automatico** in partita) al posto del
       **banco di prova**, poi **banco rimosso** (`BancoProvaStanze` + innesti in
-      `SchermataMenu`/`Wordilo`). Ritocco additivo a `canaleStanza.annunciaIngresso`
+      `SchermataMenu`/`SpotLex`). Ritocco additivo a `canaleStanza.annunciaIngresso`
       (callback `onConfermato`). **Testato su web** (crea→entra→gioco automatico).
     - ✅ **Pulizia/scadenza stanze (2c)** — residui dei test ripuliti; policy **DELETE**
       allargata (`status<>'finished'` + 10 min); `pulisciStanzeVecchie` all'apertura
@@ -1046,7 +1046,7 @@ resta il default del provider (`'giallo'`).
 
 ### Schermata di gioco
 
-- **Header** (ridisegnato): riga singola — indietro ← a sinistra; **Wordilo** con sotto
+- **Header** (ridisegnato): riga singola — indietro ← a sinistra; **SpotLex** con sotto
   `● Principiante · 5 lettere · Italiano` (pallino di stato verde + nome lingua come testo);
   a destra **pallini tentativi** (pieni = fatti, anello = corrente, vuoti = rimanenti) +
   contatore **`X/max`** (es. `2/7`). La gomma ↻ è stata rimossa dall'header.

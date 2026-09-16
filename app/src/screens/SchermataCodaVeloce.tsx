@@ -18,7 +18,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import type { LunghezzaParola, Modalita } from '@wordilo/core';
+import type { LunghezzaParola, Modalita } from '@SpotLex/core';
 import { ombra } from '../theme';
 import { useTema } from '../temi/TemaContext';
 import { useControlliLingua } from '../lingua/LinguaContext';

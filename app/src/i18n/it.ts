@@ -4,7 +4,8 @@
 // -----------------------------------------------------------------------------
 export const it = {
   // — Comune —
-  wordilo: 'Wordilo',
+  sezioneInfo: 'Info',  
+  SpotLex: 'SpotLex',
   indietro: 'Indietro',
   tornaAlMenu: '← Torna al menu',
   parolaIncompleta: 'Parola incompleta',

@@ -6,7 +6,8 @@ import type { ChiaveTesto } from './it';
 
 export const en: Partial<Record<ChiaveTesto, string>> = {
   // — Comune —
-  wordilo: 'Wordilo',
+  sezioneInfo: 'Info',
+  SpotLex: 'SpotLex',
   indietro: 'Back',
   tornaAlMenu: '← Back to menu',
   parolaIncompleta: 'Incomplete word',

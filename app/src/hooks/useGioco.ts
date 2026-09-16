@@ -9,13 +9,13 @@ import {
   coloriTastiera,
   pescaParolaCasuale,
   parolaValida,
-} from '@wordilo/core';
+} from '@SpotLex/core';
 import type {
   LunghezzaParola,
   Modalita,
   ProblemaConferma,
   StatoGioco,
-} from '@wordilo/core';
+} from '@SpotLex/core';
 import { useConfig } from '../config/ConfigContext';
 import { useLingua } from '../lingua/LinguaContext';
 import type { CodiceLingua } from '../lingua/LinguaContext';

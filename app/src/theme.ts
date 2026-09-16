@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import type { TextStyle, ViewStyle } from 'react-native';
-import type { Colore } from '@wordilo/core';
+import type { Colore } from '@SpotLex/core';
 
 // -----------------------------------------------------------------------------
 // Tema visivo — questo file contiene la palette del tema "VETRO" (glassmorphism:

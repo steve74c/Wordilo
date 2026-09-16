@@ -121,7 +121,7 @@ export function SchermataAuth() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={stili.centro}
         >
-          <Text style={stili.titolo}>Wordilo</Text>
+          <Text style={stili.titolo}>SpotLex</Text>
 
           <View style={[stili.card, ombra(0.4, 24, 12, 14)]}>
             <View style={stili.toggle}>

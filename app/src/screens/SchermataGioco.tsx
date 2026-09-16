@@ -10,8 +10,8 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { contaColori } from '@wordilo/core';
-import type { LunghezzaParola, Modalita } from '@wordilo/core';
+import { contaColori } from '@SpotLex/core';
+import type { LunghezzaParola, Modalita } from '@SpotLex/core';
 import { useGioco } from '../hooks/useGioco';
 import { useStatistiche } from '../stats/statistiche';
 import type { CodiceLingua } from '../lingua/LinguaContext';
@@ -244,7 +244,7 @@ export function SchermataGioco({
             </Pressable>
  
             <View style={stili.titoloGruppo}>
-              <Text style={stili.titolo}>Wordilo</Text>
+              <Text style={stili.titolo}>SpotLex</Text>
               <View style={stili.sottoRiga}>
                 <View style={stili.puntoStato} />
                 <Text style={stili.sottotitolo} numberOfLines={1}>

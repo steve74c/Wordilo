@@ -1,11 +1,11 @@
 // -----------------------------------------------------------------------------
-// Wordilo — mini-versione da terminale (solo per PROVARE la logica).
+// SpotLex — mini-versione da terminale (solo per PROVARE la logica).
 // Usa il VERO motore `core`: stessi colori, stesse regole sui duplicati.
 // Modalità principiante (senza timer): il countdown è un effetto della UI e lo
 // vedremo nella schermata Expo. NON è il gioco finale, è un banco di prova.
 //
 // Avvio:   npx tsx dev/gioca.ts
-// Trucco:  WORDILO_TARGET=CANTO npx tsx dev/gioca.ts   (forza la parola)
+// Trucco:  SpotLex_TARGET=CANTO npx tsx dev/gioca.ts   (forza la parola)
 // -----------------------------------------------------------------------------
 import readline from 'node:readline';
 import {
@@ -68,7 +68,7 @@ async function main() {
   const rl = readline.createInterface({ input: process.stdin });
 
   let stato: StatoGioco | null = null;
-  const forzata = process.env.WORDILO_TARGET;
+  const forzata = process.env.SpotLex_TARGET;
 
   // Se la parola è forzata, salto la domanda sulla lunghezza.
   if (forzata) {

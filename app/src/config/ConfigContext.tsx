@@ -7,8 +7,8 @@
 // legge la config da qui con l'hook `useConfig()`.
 // -----------------------------------------------------------------------------
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { CONFIG_DEFAULT } from '@wordilo/core';
-import type { ConfigGioco } from '@wordilo/core';
+import { CONFIG_DEFAULT } from '@SpotLex/core';
+import type { ConfigGioco } from '@SpotLex/core';
 import { caricaConfigDaDB } from './configService';
 
 type ValoreConfig = {

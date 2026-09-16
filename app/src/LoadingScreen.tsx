@@ -26,7 +26,7 @@ export function LoadingScreen() {
 
   return (
     <LinearGradient colors={GRAD.sfondo} style={styles.root}>
-      <Animated.Text style={[styles.logo, { transform: [{ scale }] }]}>Wordilo</Animated.Text>
+      <Animated.Text style={[styles.logo, { transform: [{ scale }] }]}>SpotLex</Animated.Text>
       <Animated.View style={[styles.anello, { transform: [{ rotate }] }]} />
       <Text style={styles.sub}>Caricamento…</Text>
     </LinearGradient>
