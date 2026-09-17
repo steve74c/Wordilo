@@ -4,11 +4,11 @@ import {
   Modal,
   Platform,
   Pressable,
-  SafeAreaView,
   Text,
   useWindowDimensions,
   View,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { contaColori } from '@SpotLex/core';
 import type { LunghezzaParola, Modalita } from '@SpotLex/core';
@@ -121,6 +121,7 @@ export function SchermataGioco({
   const bloccato = finita || (online && esitoOnline != null);
  
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const righe = stato.maxTentativi;
  
   const altezzaTasto = width < 600 ? 52 : 46;
@@ -129,8 +130,10 @@ export function SchermataGioco({
   const HEADER_H = 92;
   const AVVISO_H = 34;
   const CONTORNO_V = 28 + 24;
-  const spazioGriglia = Math.max(140, height - HEADER_H - AVVISO_H - keyboardH - CONTORNO_V);
- 
+  
+  const altezzaUtile = height - insets.top - insets.bottom;
+  const spazioGriglia = Math.max(140, altezzaUtile - HEADER_H - AVVISO_H - keyboardH - CONTORNO_V); 
+
   const gapRiga = 0.16;
   const latoAltezza = spazioGriglia / (righe + (righe - 1) * gapRiga);
   // Riserva di colonne "virtuali" per fare spazio ai badge che stanno FUORI
