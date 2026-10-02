@@ -4,7 +4,7 @@
 > vuole costruire, con quali scelte tecniche e con quale modello dati. Va tenuto
 > aggiornato a ogni decisione presa.
 
-**Stato:** in sviluppo attivo. Single player completo, online v1 completo e chiuso, sistema temi (Vetro/Giallo) **con persistenza sul profilo** e **applicato a tutte le schermate** (incluse online + `Avatar`), multilingua it/en completo (gioco + interfaccia, incluso l'header di gioco e i bottoni auth, nessuna stringa cablata nota residua). Pulsanti online rinominati (**🎲 Gioca online** = coda casuale, **⚔️ Sfida amico** = col codice). Header di gioco ridisegnato con pallini-tentativi. Preferenze lingua **e tema** salvate sul profilo Supabase. Sistema i18n (`app/src/i18n/`) con `useT()` attivo in tutte le schermate principali **e nei messaggi d'errore di `stanze.ts`** (che ritorna chiavi `ChiaveTesto`, non testo cablato). Registrazione: selettori lingua gioco/app **e tema**. Lingua predefinita **prima del login: inglese** (UI e gioco); dopo il login prevale sempre la preferenza salvata sul profilo. Rivincita online con **retry automatico**. Coda casuale con **retry anti-stanze-fantasma**. Classifiche: **due tab Punti/Bravura**. **Novità 2026-10-02:** **economia MONETE** per il single player (calcolate lato server, costo **20 monete** per giocare online), **punti online 10/−10/0**, tentativi **da 7 a 6** (deciso, da completare), **login/registrazione scrollabile**. **Ultimo aggiornamento:** 2026-10-02
+**Stato:** in sviluppo attivo. Single player completo, online v1 completo e chiuso, sistema temi (Vetro/Giallo) **con persistenza sul profilo** e **applicato a tutte le schermate** (incluse online + `Avatar`), multilingua it/en completo (gioco + interfaccia, incluso l'header di gioco e i bottoni auth, nessuna stringa cablata nota residua). Pulsanti online rinominati (**🎲 Gioca online** = coda casuale, **⚔️ Sfida amico** = col codice). Header di gioco ridisegnato con pallini-tentativi. Preferenze lingua **e tema** salvate sul profilo Supabase. Sistema i18n (`app/src/i18n/`) con `useT()` attivo in tutte le schermate principali **e nei messaggi d'errore di `stanze.ts`** (che ritorna chiavi `ChiaveTesto`, non testo cablato). Registrazione: selettori lingua gioco/app **e tema**. Lingua predefinita **prima del login: inglese** (UI e gioco); dopo il login prevale sempre la preferenza salvata sul profilo. Rivincita online con **retry automatico**. Coda casuale con **retry anti-stanze-fantasma**. Classifiche: **due tab Punti/Bravura**. **Novità 2026-10-02:** **economia MONETE** per il single player (calcolate lato server, costo **20 monete** per giocare online), **punti online 10/−10/0**, tentativi **da 7 a 6** (deciso, da completare), **login/registrazione scrollabile**. **Novità 2026-10-03:** in sfida online, riga **"Tu VS Avversario"** con i nick dei giocatori. **Ultimo aggiornamento:** 2026-10-03
 
 ---
 
@@ -88,11 +88,11 @@ over-the-air del codice JS senza ripassare dagli store.
   src/screens/SchermataClassifiche.tsx  schermata Classifiche (C6): DUE TAB (Punti/Bravura) — legge leaderboard_points e leaderboard_skill, lista con medaglie/avatar, evidenzia la propria riga, cache per tab [FILONE C]
   src/screens/SchermataLobby.tsx  lobby online (1b): crea/entra stanza col codice + attesa avversario in Realtime + INGRESSO AUTOMATICO in partita; Indietro dell'host → annullaStanza; all'apertura chiama pulisciStanzeVecchie (2c) [FILONE C] — ⚠️ bug noto: onCrea fa setRuolo('guest') invece di 'host'
   src/screens/SchermataCodaCasuale.tsx  coda casuale (🎲 Gioca online): trovaOCreaStanzaPubblica → host in attesa o guest che entra; retry anti-fantasma (escludiIds, MAX_RETRY) [CODA]
-  src/screens/SchermataGioco.tsx  props ONLINE opzionali (parolaForzata, online, onRigaConfermata, righeAvversario, onPartitaFinita, esitoOnline) + RIVINCITA; in single player a fine partita chiama registraPartitaSolo UNA volta (guardia moneteRegistrate, azzerata da "Nuova partita") e mostra il premio nel pop-up (+N 🪙 verde / −N 🪙 arancione)
+  src/screens/SchermataGioco.tsx  props ONLINE opzionali (parolaForzata, online, onRigaConfermata, righeAvversario, onPartitaFinita, esitoOnline, nickMio, nickAvversario) + RIVINCITA; in single player a fine partita chiama registraPartitaSolo UNA volta (guardia moneteRegistrate, azzerata da "Nuova partita") e mostra il premio nel pop-up (+N 🪙 verde / −N 🪙 arancione)
   src/online/stanze.ts         creaStanza/entraInStanza/annullaStanza/pulisciStanzeVecchie/creaRivincita/trovaOCreaStanzaPubblica [FILONE C / CODA]
   src/online/canaleStanza.ts   canale Realtime broadcast: riepiloghi + ingresso guest + fine partita + abbandono/Presence (C7) + rivincita [FILONE C]
   src/online/classifiche.ts    leggiClassificaPunti + leggiClassificaBravura [FILONE C]
-  src/online/SchermataGiocoOnline.tsx  contenitore sfida online: canale, parola condivisa, pallini, arbitro dell'esito (host), scrittura esito (C5b), abbandono (C7), rivincita [FILONE C]
+  src/online/SchermataGiocoOnline.tsx  contenitore sfida online: canale, parola condivisa, pallini, arbitro dell'esito (host), scrittura esito (C5b), abbandono (C7), rivincita, nick avversario da profiles [FILONE C]
   src/LoadingScreen.tsx        schermata di caricamento brandizzata
   src/theme.ts                 palette del tema VETRO + token del sistema temi + funzioni pure (ombra/bagliore/coloreDiSfondo)
   src/temi/tipi.ts             forma di un Tema (palette/gradienti/font/misure); chiavi di palette da keyof typeof C
@@ -231,6 +231,9 @@ I valori numerici qui sotto sono **default parametrizzabili lato server**.
 - **Rivincita:** a fine sfida **🔁 Rivincita / ✓ Accetta / Rifiuta**; se accetta,
   l'**host** crea un **nuovo match** (parola nuova, stesse impostazioni) sullo stesso
   canale.
+- **Con chi sto giocando — FATTO (2026-10-03).** In partita, sotto l'header, la pillola
+  **`mioNick VS nickAvversario`**. Il nick avversario si legge da `profiles.nick`
+  (lettura pubblica); finché non arriva si mostra "Avversario".
 
 ---
 
@@ -664,6 +667,8 @@ tavolozza colori-persona fissa e iniziali bianche. Tema persistito su `profiles.
 
 - **Header**: indietro ←, **SpotLex** con `● Principiante · 5 lettere · Italiano`,
   **pallini tentativi** + contatore **`X/max`** (con 6 tentativi: `2/6`).
+- **Solo online**: sotto l'header, pillola **`mioNick VS nickAvversario`** (`HEADER_H`
+  122 invece di 92 per lasciare spazio alla griglia).
 - **Griglia**: righe = `maxTentativi`; celle a tinta piena; riga attiva evidenziata.
 - **Countdown (solo esperto)**: badge a lato della riga attiva; allarme rosso negli
   ultimi 5 secondi.

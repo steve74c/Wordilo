@@ -34,6 +34,7 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
   (con retry automatico lato host).
 - **i18n completo** (`app/src/i18n/`, `useT()`), default pre-login **inglese**.
 - **Header di gioco** ridisegnato (pallini tentativi + contatore `X/max`).
+- **Sfida online: riga "Tu VS Avversario"** sotto l'header, con i nick dei due giocatori.
 
 ### ✅ Fatto nella sessione del 2026-10-02
 
@@ -69,6 +70,23 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
 4. **Tentativi: da 7 a 6** (deciso). Va applicato in `game_settings.max_attempts` e
    nel default del core (vedi "Cosa manca").
 
+### ✅ Fatto nella sessione del 2026-10-03
+
+1. **Nick dei giocatori durante la sfida online** (commit "Sfida online: mostra Tu VS
+   Avversario", provato in app). Sotto l'header compare una pillola
+   **`mioNick VS nickAvversario`**, sia in ⚔️ Sfida amico sia in 🎲 Gioca online, e resta
+   uguale nelle rivincite.
+   - `SchermataGiocoOnline.tsx`: il mio nick da `useProfilo()`; quello dell'avversario
+     letto da **`profiles.nick`** (lettura pubblica, nessuna modifica al DB). L'id
+     dell'avversario è `guestId` se sono host, altrimenti `hostId`.
+   - `SchermataGioco.tsx`: nuove props opzionali **`nickMio`**, **`nickAvversario`**;
+     la riga si vede solo con `online`. `HEADER_H` passa da 92 a **122** quando online,
+     così la griglia non viene schiacciata.
+   - `SchermataGioco.stili.ts`: stili `rigaSfida`, `rigaSfidaNick`, `rigaSfidaVs` (a tema).
+   - i18n: chiavi **`tuVs`** ("Tu"/"You") e **`avversario`** ("Avversario"/"Opponent"),
+     usate come ripiego finché il nick non è caricato. (`tu` esisteva già: è il "(tu)"
+     delle classifiche.)
+
 ### Dove si cambiano i valori (promemoria)
 
 - **Monete per tentativo / sconfitta:** dentro la funzione SQL `registra_partita_solo`
@@ -100,6 +118,10 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
 6. **Scelta del font** in Impostazioni (accanto a lingua e tema).
 7. **Coda casuale — Passo 2 (opzionale):** ridurre la nascita delle stanze fantasma
    (`beforeunload` → `annullaStanza`, timeout coda ~5s).
+8. **(Idea) Nick dell'avversario anche nel pop-up di rivincita:** "Marco chiede la
+   rivincita" invece di "L'avversario chiede la rivincita" (il nick è già disponibile
+   in `SchermataGiocoOnline`). I testi della rivincita sono ancora cablati in italiano
+   in `SchermataGioco.tsx`: conviene portarli in i18n nello stesso passo.
 
 ## Punti dove si può migliorare (debito tecnico / idee)
 
