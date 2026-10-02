@@ -136,7 +136,14 @@ export const it = {
   tabPunti: 'Punti',
   tabBravura: 'Bravura',
   percVittorie: 'di vittorie',
-  
+
+  // — Aggiornamento app —
+  aggObbligatorioTitolo: 'Aggiornamento necessario',
+  aggObbligatorioTesto: 'È uscita una nuova versione di SpotLex. Aggiorna l’app per continuare a giocare.',
+  aggDisponibileTitolo: 'Nuova versione disponibile',
+  aggDisponibileTesto: 'Aggiorna SpotLex per avere le ultime novità e correzioni.',
+  aggAggiorna: 'Aggiorna',
+  aggPiuTardi: 'Più tardi',
 } as const;
 
 export type ChiaveTesto = keyof typeof it;

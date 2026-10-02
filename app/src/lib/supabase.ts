@@ -11,6 +11,23 @@ import 'react-native-url-polyfill/auto'; // richiesto da supabase-js su React Na
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
+import { HEADER_VERSIONE, segnalaVersioneRifiutata } from '../aggiornamento/versioneApp';
+
+// fetch "spia": se il server rifiuta la richiesta perché l'app è troppo vecchia
+// (errore APP_VERSION_TOO_OLD dalle RPC), avvisa PortaAggiornamento.
+const fetchConControlloVersione: typeof fetch = async (input, init) => {
+  const risposta = await fetch(input, init);
+  if (!risposta.ok) {
+    risposta
+      .clone()
+      .text()
+      .then((corpo) => {
+        if (corpo.includes('APP_VERSION_TOO_OLD')) segnalaVersioneRifiutata();
+      })
+      .catch(() => {});
+  }
+  return risposta;
+};
 
 // Ripuliamo i valori del .env da spazi/a-capo copiati per sbaglio e da eventuali
 // slash finali: sono la causa più comune dell'errore "Invalid path in request URL".
@@ -40,5 +57,11 @@ export const supabase = createClient(url, anonKey, {
     autoRefreshToken: true,       // rinnova il token da solo
     persistSession: true,
     detectSessionInUrl: Platform.OS === 'web', // servirà per il login OAuth su web
+  },
+  global: {
+    // Ogni richiesta dice al server piattaforma e versionCode: le RLS e le RPC
+    // rifiutano le versioni sotto la minima (vedi is_client_version_allowed).
+    headers: HEADER_VERSIONE,
+    fetch: fetchConControlloVersione,
   },
 });

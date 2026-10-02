@@ -9,6 +9,7 @@ import { StatisticheProvider } from './src/stats/statistiche';
 import { ConfigProvider } from './src/config/ConfigContext';
 import { AuthProvider, useAuth } from './src/auth/AuthContext';
 import { PortaAuth } from './src/auth/PortaAuth';
+import { PortaAggiornamento } from './src/aggiornamento/PortaAggiornamento';
 import { ProfiloProvider, useProfilo } from './src/profilo/ProfiloContext';
 import { TemaProvider, useControlliTema } from './src/temi/TemaContext';
 import { LinguaProvider, useControlliLingua } from './src/lingua/LinguaContext';
@@ -73,7 +74,8 @@ export default function App() {
   //            └─ LinguaProvider ← lingua gioco (idem)
   //               └─ InizialiLingue  ← bridge: spinge le lingue del profilo nei due contesti
   //               └─ InizialiTema    ← bridge: spinge il tema del profilo in TemaProvider
-  //                  └─ PortaAuth → SpotLex
+  //                  └─ PortaAggiornamento → PortaAuth → SpotLex
+  //                     (prima si controlla la versione, poi il login)
   return (
     <TemaProvider>
       <ConfigProvider>
@@ -87,9 +89,11 @@ export default function App() {
                   <InizialiLingue />
                   <InizialiTema />
                   {caricati ? (
-                    <PortaAuth>
-                      <SpotLex />
-                    </PortaAuth>
+                    <PortaAggiornamento>
+                      <PortaAuth>
+                        <SpotLex />
+                      </PortaAuth>
+                    </PortaAggiornamento>
                   ) : (
                     <LoadingScreen />
                   )}

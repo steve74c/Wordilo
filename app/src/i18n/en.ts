@@ -136,6 +136,13 @@ export const en: Partial<Record<ChiaveTesto, string>> = {
 
   tabPunti: 'Points',
   tabBravura: 'Skill',
-  percVittorie: 'win rate',  
-  
+  percVittorie: 'win rate',
+
+  // — App update —
+  aggObbligatorioTitolo: 'Update required',
+  aggObbligatorioTesto: 'A new version of SpotLex is out. Update the app to keep playing.',
+  aggDisponibileTitolo: 'New version available',
+  aggDisponibileTesto: 'Update SpotLex to get the latest features and fixes.',
+  aggAggiorna: 'Update',
+  aggPiuTardi: 'Later',
 };
