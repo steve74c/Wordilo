@@ -32,6 +32,7 @@ import {
   type MotivoAssenza,
 } from './canaleStanza';
 import { creaRivincita, type Sfida } from './stanze';
+import { useProfilo } from '../profilo/ProfiloContext';
 
 type EsitoOnline = 'vinta' | 'persa' | 'pareggio';
 
@@ -117,6 +118,29 @@ export function SchermataGiocoOnline({ sfida, onIndietro }: Props) {
 
   // L'host non cambia tra un round e l'altro → lo derivo dalla PROP (stabile).
   const sonoHost = mioId != null && mioId === sfida.hostId;
+
+  // Nick dei due giocatori, per la riga "Tu vs Avversario" in partita.
+  // Il mio arriva dal profilo; quello dell'avversario lo leggo da `profiles`
+  // (lettura pubblica). L'avversario è lo stesso anche nelle rivincite.
+  const { nick: nickMio } = useProfilo();
+  const [nickAvversario, setNickAvversario] = useState<string | null>(null);
+  const idAvversario = mioId == null ? null : sonoHost ? sfida.guestId : sfida.hostId;
+  useEffect(() => {
+    if (!idAvversario) return;
+    let annullato = false;
+    supabase
+      .from('profiles')
+      .select('nick')
+      .eq('id', idAvversario)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) console.warn('[VS] nick avversario non letto:', error.message);
+        if (!annullato) setNickAvversario((data?.nick as string | null) ?? null);
+      });
+    return () => {
+      annullato = true;
+    };
+  }, [idAvversario]);
 
   const fermaReinvio = useCallback(() => {
     if (reinvio.current) {
@@ -442,6 +466,8 @@ export function SchermataGiocoOnline({ sfida, onIndietro }: Props) {
       righeAvversario={righeAvversario}
       onPartitaFinita={gestisciMioFine}
       esitoOnline={esito}
+      nickMio={nickMio}
+      nickAvversario={nickAvversario}
       onIndietro={gestisciIndietro}
       statoRivincita={statoRivincita}
       onRichiediRivincita={chiediRivincita}

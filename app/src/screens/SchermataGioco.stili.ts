@@ -55,6 +55,36 @@ export function creaStili(tema: Tema) {
       letterSpacing: 0.5,
       flexShrink: 1,
     },
+    // Online: riga "Tu vs Avversario" sotto l'header (nick dei due giocatori).
+    rigaSfida: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      alignSelf: 'center',
+      maxWidth: '100%',
+      paddingVertical: 4,
+      paddingHorizontal: 14,
+      borderRadius: 999,
+      backgroundColor: tema.palette.superficieAlta,
+      borderWidth: 1,
+      borderColor: tema.palette.hair,
+      marginBottom: 2,
+    },
+    rigaSfidaNick: {
+      color: tema.palette.testo,
+      fontSize: 14,
+      fontFamily: tema.font.bold,
+      fontWeight: '700',
+      flexShrink: 1,
+    },
+    rigaSfidaVs: {
+      color: tema.palette.accentoSoft,
+      fontSize: 12,
+      fontFamily: tema.font.bold,
+      fontWeight: '800',
+      letterSpacing: 1,
+    },
     // LAYOUT: griglia + tastiera nello STESSO blocco, centrato verticalmente e
     // ravvicinato (gap).
     gioco: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingTop: 4 },

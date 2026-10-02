@@ -39,6 +39,8 @@ export const en: Partial<Record<ChiaveTesto, string>> = {
 
   // — Gioco —
   attesaAvversario: "You're done · waiting for opponent…",
+  tuVs: 'You',
+  avversario: 'Opponent',
   esitoHaiVinto: 'You won!',
   esitoPareggioTitolo: 'Draw!',
   esitoHaiPerso: 'You lost!',

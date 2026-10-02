@@ -39,6 +39,8 @@ type Props = {
   righeAvversario?: Record<number, { verdi: number; arancioni: number }>;      // online: pallini avversario
   onPartitaFinita?: (indovinato: boolean, tentativi: number) => void;          // online: ho finito
   esitoOnline?: 'vinta' | 'persa' | 'pareggio' | null;                         // online: verdetto condiviso (host)
+  nickMio?: string | null;        // online: il MIO nick (riga "Tu vs Avversario")
+  nickAvversario?: string | null; // online: nick dell'avversario (null = ancora in caricamento)
 
   // --- Rivincita (online) ---
   statoRivincita?: 'idle' | 'inviata' | 'ricevuta' | 'in-avvio' | 'rifiutata';
@@ -92,6 +94,8 @@ export function SchermataGioco({
   righeAvversario,
   onPartitaFinita,
   esitoOnline,
+  nickMio,
+  nickAvversario,
   statoRivincita = 'idle',
   onRichiediRivincita,
   onAccettaRivincita,
@@ -126,7 +130,8 @@ export function SchermataGioco({
   const altezzaTasto = width < 600 ? 52 : 46;
   const keyboardH = altezzaTasto * 3 + 16;
 
-  const HEADER_H = 92;
+  // Online c'è in più la riga "Tu vs Avversario" sotto l'header.
+  const HEADER_H = online ? 92 + 30 : 92;
   const AVVISO_H = 34;
   const CONTORNO_V = 28 + 24;
 
@@ -284,6 +289,19 @@ export function SchermataGioco({
               </Text>
             </View>
           </View>
+
+          {/* Online: con chi sto giocando (il mio nick vs quello dell'avversario) */}
+          {online && (
+            <View style={stili.rigaSfida}>
+              <Text style={stili.rigaSfidaNick} numberOfLines={1}>
+                {nickMio || t('tuVs')}
+              </Text>
+              <Text style={stili.rigaSfidaVs}>VS</Text>
+              <Text style={stili.rigaSfidaNick} numberOfLines={1}>
+                {nickAvversario || t('avversario')}
+              </Text>
+            </View>
+          )}
 
           {/* LAYOUT: griglia e tastiera insieme, centrate e ravvicinate */}
           <View style={stili.gioco}>

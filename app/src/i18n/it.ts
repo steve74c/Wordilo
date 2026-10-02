@@ -37,6 +37,8 @@ export const it = {
 
   // — Gioco —
   attesaAvversario: "Hai finito · in attesa dell'avversario…",
+  tuVs: 'Tu',
+  avversario: 'Avversario',
   esitoHaiVinto: 'Hai vinto!',
   esitoPareggioTitolo: 'Pareggio!',
   esitoHaiPerso: 'Hai perso!',
