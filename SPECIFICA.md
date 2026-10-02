@@ -4,7 +4,7 @@
 > vuole costruire, con quali scelte tecniche e con quale modello dati. Va tenuto
 > aggiornato a ogni decisione presa.
 
-**Stato:** in sviluppo attivo. Single player completo, online v1 completo e chiuso, sistema temi (Vetro/Giallo) **con persistenza sul profilo** e **applicato a tutte le schermate** (incluse online + `Avatar`), multilingua it/en completo (gioco + interfaccia, incluso l'header di gioco e i bottoni auth, nessuna stringa cablata nota residua). Pulsanti online rinominati (**🎲 Gioca online** = coda casuale, **⚔️ Sfida amico** = col codice). Header di gioco ridisegnato con pallini-tentativi. Preferenze lingua **e tema** salvate sul profilo Supabase. Sistema i18n (`app/src/i18n/`) con `useT()` attivo in tutte le schermate principali **e nei messaggi d'errore di `stanze.ts`** (che ritorna chiavi `ChiaveTesto`, non testo cablato). Registrazione: selettori lingua gioco/app **e tema**. Lingua predefinita **prima del login: inglese** (UI e gioco); dopo il login prevale sempre la preferenza salvata sul profilo. Bug `LEGENDA` in `SchermataMenu` **risolto**. Rivincita online: creazione **con retry automatico** in caso di errore transitorio; `console.log` di debug della parola **rimosso**. Coda casuale: **retry automatico anti-stanze-fantasma** (se l'host è sparito, il guest scarta la stanza morta e riprova invece di andare in errore). Classifiche: **due tab Punti/Bravura** in UI. **Ultimo aggiornamento:** 2026-09-10
+**Stato:** in sviluppo attivo. Single player completo, online v1 completo e chiuso, sistema temi (Vetro/Giallo) **con persistenza sul profilo** e **applicato a tutte le schermate** (incluse online + `Avatar`), multilingua it/en completo (gioco + interfaccia, incluso l'header di gioco e i bottoni auth, nessuna stringa cablata nota residua). Pulsanti online rinominati (**🎲 Gioca online** = coda casuale, **⚔️ Sfida amico** = col codice). Header di gioco ridisegnato con pallini-tentativi. Preferenze lingua **e tema** salvate sul profilo Supabase. Sistema i18n (`app/src/i18n/`) con `useT()` attivo in tutte le schermate principali **e nei messaggi d'errore di `stanze.ts`** (che ritorna chiavi `ChiaveTesto`, non testo cablato). Registrazione: selettori lingua gioco/app **e tema**. Lingua predefinita **prima del login: inglese** (UI e gioco); dopo il login prevale sempre la preferenza salvata sul profilo. Rivincita online con **retry automatico**. Coda casuale con **retry anti-stanze-fantasma**. Classifiche: **due tab Punti/Bravura**. **Novità 2026-10-02:** **economia MONETE** per il single player (calcolate lato server, costo **20 monete** per giocare online), **punti online 10/−10/0**, tentativi **da 7 a 6** (deciso, da completare), **login/registrazione scrollabile**. **Ultimo aggiornamento:** 2026-10-02
 
 ---
 
@@ -30,7 +30,7 @@ Gli stessi colori si applicano ai tasti della tastiera a schermo.
 - **Un solo codice** per web + iOS + Android; a ogni modifica l'impatto per
   dispositivo deve essere minimo o nullo.
 - **Parametri di gioco lato server** e modificabili senza ricompilare l'app
-  (numero tentativi, secondi per tentativo, punti, soglie).
+  (numero tentativi, secondi per tentativo, punti, monete, soglie).
 - **Online anti-cheat** *(obiettivo v2)*: la parola target non deve mai arrivare in
   chiaro al client; la valutazione dei tentativi avviene lato server. **La v1
   dell'online rinuncia a questo** in cambio di semplicità (parola sul client,
@@ -71,42 +71,44 @@ over-the-air del codice JS senza ripassare dagli store.
   src/lib/supabase.ts          client Supabase unico (URL + chiave anon dal .env)
   src/config/configService.ts  legge game_settings dal DB → ConfigGioco (fallback ai default)
   src/config/ConfigContext.tsx provider della config + hook useConfig()
-  src/auth/AuthContext.tsx     provider auth (sessione + registrati(nick,email,password,linguaGioco,linguaUI)/accedi/accediConGoogle/esci)
+  src/auth/AuthContext.tsx     provider auth (sessione + registrati(nick,email,password,linguaGioco,linguaUI,tema)/accedi/accediConGoogle/esci)
   src/auth/PortaAuth.tsx       "cancello": login se non loggato, gioco se loggato
-  src/profilo/ProfiloContext.tsx provider profilo (nick/nome/cognome/avatarUrl/linguaUI/linguaGioco + cambiaAvatar + aggiornaLingue)
+  src/profilo/ProfiloContext.tsx provider profilo (nick/nome/cognome/avatarUrl/linguaUI/linguaGioco/tema + cambiaAvatar + aggiornaLingue + aggiornaTema)
   src/profilo/avatarStorage.ts scegliEcaricaAvatar: selettore foto + upload su Storage
   src/components/Avatar.tsx    avatar tondo: foto (avatarUrl) o iniziali su sfondo colorato
   src/hooks/useGioco.ts        ponte React ↔ motore core (+ timer esperto)
   src/stats/statistiche.tsx    statistiche per-utente dal DB (games + vista user_stats)
+  src/economia/economia.ts     💰 MONETE: registraPartitaSolo (RPC registra_partita_solo → {premio, saldo}), pagaIngressoOnline (RPC paga_ingresso_online), hook useSaldo() (monete da profiles + punti da user_stats.punti_totali), costante COSTO_ONLINE = 20; file puro (ritorna codici errore, es. 'MONETE_INSUFFICIENTI')
   src/components/Griglia.tsx   griglia di celle colorate (+ countdown esperto, + pallini avversario online a sinistra riga)
   src/components/Tastiera.tsx  tastiera a schermo (neutri bianchi, OK teal)
   src/components/Coriandoli.tsx  particelle leggere per la vittoria
-  src/screens/SpotLex.tsx      router minimale menu ↔ partita ↔ classifiche ↔ lobby ↔ sfida online (senza librerie di navigazione)
-  src/screens/SchermataAuth.tsx  accesso/registrazione (email/password)
-  src/screens/SchermataMenu.tsx  saluto+logout, scelta lunghezza/modalità, contatori, legenda (senza tessere decorative), pulsanti 🎲 Gioca online (coda casuale, prop onGiocaOnline) + ⚔️ Sfida amico (col codice, prop onSfidaAmico) affiancati e 🏆 Classifica, + ⚙️ Impostazioni (tema+lingua) accanto a Esci; testi via useT()
-  src/screens/SchermataClassifiche.tsx  schermata Classifiche (C6): DUE TAB (Punti/Bravura) — legge leaderboard_points e leaderboard_skill, lista con medaglie/avatar, evidenzia la propria riga, cache per tab; il tab Bravura mostra il win_rate come % (normalizzato: se ≤1 ×100) [FILONE C]
-  src/screens/SchermataLobby.tsx  lobby online (1b): crea/entra stanza col codice + attesa avversario in Realtime + INGRESSO AUTOMATICO in partita; Indietro dell'host → annullaStanza; all'apertura chiama pulisciStanzeVecchie (2c) [FILONE C]
-  src/screens/SchermataCodaCasuale.tsx  coda casuale (🎲 Gioca online, ex SchermataCodaVeloce): all'apertura chiama trovaOCreaStanzaPubblica → host in attesa o guest che entra; RIUSA stessa stretta di mano/stili della lobby; lingua = quella dell'app; Indietro host → annullaStanza; su timeout guest fa RETRY anti-fantasma (scarta la stanza morta e richiama avvia() con escludiIds, cap MAX_RETRY); testi via useT() [CODA]
-  src/screens/SchermataGioco.tsx  props ONLINE opzionali (parolaForzata, online, onRigaConfermata, righeAvversario, onPartitaFinita, esitoOnline) + RIVINCITA (statoRivincita, onRichiediRivincita, onAccettaRivincita, onRifiutaRivincita → bottoni 🔁/✓/Rifiuta nel pop-up); senza, è il single player di sempre
-  src/online/stanze.ts         creaStanza/entraInStanza (parola dal DB via parola_casuale, codice-stanza, scrittura in matches) + annullaStanza (chiude la stanza a 'finished') + pulisciStanzeVecchie (2c: rimuove i residui propri non finiti >10 min) + creaRivincita (nuovo match per la rivincita: parola nuova, status='playing', guest già noto — solo host per RLS) + trovaOCreaStanzaPubblica (CODA casuale: cerca una stanza pubblica compatibile ed entra come guest, altrimenti crea una stanza is_public='waiting' e attende come host; ritorna anche il ruolo; param opzionale `escludiIds` per saltare stanze "morte" nel retry anti-fantasma) [FILONE C / CODA]
-  src/online/canaleStanza.ts   canale Realtime broadcast: inviaRiga (riepiloghi) + ingresso guest (guest-entrato/host-ok) + fine partita (finito/esito) + abbandono/Presence (C7) + RIVINCITA (rivincita-richiesta/risposta/via) [FILONE C]
-  src/online/classifiche.ts    leggiClassificaPunti (vista leaderboard_points) + leggiClassificaBravura (vista leaderboard_skill: win_rate, soglia minima partite) → voci pronte per la UI [FILONE C]
-  src/online/SchermataGiocoOnline.tsx  contenitore sfida online: apre il canale, monta SchermataGioco sulla parola condivisa, passa righeAvversario (pallini), fa da ARBITRO dell'esito (host) → esitoOnline condiviso, SCRIVE l'esito (C5b: games + matches finished) e gestisce abbandono/disconnessione (C7) + RIVINCITA (negoziato richiesta/accetta/rifiuta, riavvio del round con reset guardie + key; canale aperto una sola volta via handlersRef) [FILONE C]
+  src/screens/SpotLex.tsx      router minimale menu ↔ partita ↔ classifiche ↔ lobby ↔ sfida online (senza librerie di navigazione); entraInPartitaOnline paga le 20 monete prima di aprire la sfida (lobby e coda), altrimenti torna al menu con `avviso`
+  src/screens/SchermataAuth.tsx  accesso/registrazione (email/password); contenuto in una ScrollView (scrollInner: flexGrow 1 + center) dentro il KeyboardAvoidingView, così la card lunga di registrazione scorre
+  src/screens/SchermataMenu.tsx  saluto+logout, chip saldo 🪙 monete · ⭐ punti (useSaldo), scelta lunghezza/modalità, contatori, legenda, pulsanti 🎲 Gioca online + ⚔️ Sfida amico (con "🪙 20", disattivati se monete < 20) e 🏆 Classifica, + ⚙️ Impostazioni accanto a Esci; prop `avviso`; testi via useT()
+  src/screens/SchermataClassifiche.tsx  schermata Classifiche (C6): DUE TAB (Punti/Bravura) — legge leaderboard_points e leaderboard_skill, lista con medaglie/avatar, evidenzia la propria riga, cache per tab [FILONE C]
+  src/screens/SchermataLobby.tsx  lobby online (1b): crea/entra stanza col codice + attesa avversario in Realtime + INGRESSO AUTOMATICO in partita; Indietro dell'host → annullaStanza; all'apertura chiama pulisciStanzeVecchie (2c) [FILONE C] — ⚠️ bug noto: onCrea fa setRuolo('guest') invece di 'host'
+  src/screens/SchermataCodaCasuale.tsx  coda casuale (🎲 Gioca online): trovaOCreaStanzaPubblica → host in attesa o guest che entra; retry anti-fantasma (escludiIds, MAX_RETRY) [CODA]
+  src/screens/SchermataGioco.tsx  props ONLINE opzionali (parolaForzata, online, onRigaConfermata, righeAvversario, onPartitaFinita, esitoOnline) + RIVINCITA; in single player a fine partita chiama registraPartitaSolo UNA volta (guardia moneteRegistrate, azzerata da "Nuova partita") e mostra il premio nel pop-up (+N 🪙 verde / −N 🪙 arancione)
+  src/online/stanze.ts         creaStanza/entraInStanza/annullaStanza/pulisciStanzeVecchie/creaRivincita/trovaOCreaStanzaPubblica [FILONE C / CODA]
+  src/online/canaleStanza.ts   canale Realtime broadcast: riepiloghi + ingresso guest + fine partita + abbandono/Presence (C7) + rivincita [FILONE C]
+  src/online/classifiche.ts    leggiClassificaPunti + leggiClassificaBravura [FILONE C]
+  src/online/SchermataGiocoOnline.tsx  contenitore sfida online: canale, parola condivisa, pallini, arbitro dell'esito (host), scrittura esito (C5b), abbandono (C7), rivincita [FILONE C]
   src/LoadingScreen.tsx        schermata di caricamento brandizzata
   src/theme.ts                 palette del tema VETRO + token del sistema temi + funzioni pure (ombra/bagliore/coloreDiSfondo)
-  src/temi/tipi.ts             forma di un Tema (palette/gradienti/font/misure); le chiavi di palette derivano da keyof typeof C (niente token dimenticati)
+  src/temi/tipi.ts             forma di un Tema (palette/gradienti/font/misure); chiavi di palette da keyof typeof C
   src/temi/Temavetro.ts        tema "vetro" = valori di theme.ts impacchettati
-  src/temi/TemaGiallo.ts       tema "giallo" (chiaro flat/pieno); tutti i suoi colori si affinano da qui
-  src/temi/TemaContext.tsx     TemaProvider (montato in cima ad App.tsx) + useTema()/useControlliTema() (cambio tema a runtime)
-  src/lingua/LinguaContext.tsx  LinguaProvider + useLingua()/useControlliLingua(): lingua del GIOCO (parole/dizionario)
-  src/i18n/it.ts               catalogo testi in ITALIANO (~100 chiavi, fonte di verità delle chiavi, incl. blocco err* per gli errori online); tipo ChiaveTesto
-  src/i18n/en.ts               catalogo testi in INGLESE (completo, incl. blocco err*); Partial<Record<ChiaveTesto,string>>
-  src/i18n/LinguaUIContext.tsx  LinguaUIProvider + useT()/useControlliLinguaUI(): lingua dell'INTERFACCIA (testi UI); default PRIMA del login = 'en'; fallback all'italiano se una chiave manca; interpola {segnaposto}
-  src/screens/SchermataImpostazioni.tsx  scelta del TEMA (Vetro/Giallo), della LINGUA DEL GIOCO (🇮🇹/🇬🇧) e della LINGUA DELL'APP (🇮🇹/🇬🇧); al cambio chiama aggiornaLingue → salva su profiles; testi via useT()
-  src/**/*.stili.ts            stili per-schermata via creaStili(tema): Menu/Gioco/Auth/Griglia/Tastiera/Coriandoli/Loading (le schermate online e Avatar sono ancora statiche)
+  src/temi/TemaGiallo.ts       tema "giallo" (chiaro flat/pieno)
+  src/temi/TemaContext.tsx     TemaProvider + useTema()/useControlliTema()
+  src/lingua/LinguaContext.tsx  LinguaProvider + useLingua()/useControlliLingua(): lingua del GIOCO
+  src/i18n/it.ts               catalogo testi in ITALIANO (fonte di verità delle chiavi); tipo ChiaveTesto
+  src/i18n/en.ts               catalogo testi in INGLESE
+  src/i18n/LinguaUIContext.tsx  LinguaUIProvider + useT()/useControlliLinguaUI(): lingua dell'INTERFACCIA; default pre-login 'en'
+  src/screens/SchermataImpostazioni.tsx  scelta TEMA, LINGUA DEL GIOCO, LINGUA DELL'APP (salvate su profiles)
+  src/**/*.stili.ts            stili per-schermata via creaStili(tema)
   assets/fonts/                font Poppins incorporati (.ttf)
   metro.config.js              wiring monorepo (Metro vede /core)
 /backend     → Edge Functions / logica server per l'online (non ancora creata; serve solo alla v2 anti-cheat)
+supabase_monete_punti.sql → migrazione economia (colonna monete, trigger, movimenti_monete, RPC, punti online) — eseguita
 ```
 
 L'app importa il core come `@SpotLex/core`: l'alias è risolto sia da TypeScript
@@ -126,11 +128,15 @@ Registrazione e login tramite **Supabase Auth**:
 
 **Stato attuale (implementato):** **login obbligatorio** con **email/password**
 (`AuthProvider` + `SchermataAuth`; `PortaAuth` mostra login o gioco a seconda della
-sessione). Alla registrazione si raccoglie per ora **solo il nick** (oltre a
-email/password); nome, cognome e avatar arriveranno con il login social. Il
-**profilo** viene creato **in automatico** al primo accesso da un **trigger** sul
-database (`handle_new_user`), così esiste sempre. In sviluppo la **conferma via
-email è disattivata** (registrazione → subito dentro).
+sessione). Alla registrazione si raccolgono **nick**, email/password e le tre
+preferenze (lingua gioco, lingua app, tema). Il **profilo** viene creato **in
+automatico** al primo accesso da un **trigger** sul database (`handle_new_user`),
+così esiste sempre; parte con **100 monete** (default della colonna). In sviluppo la
+**conferma via email è disattivata** (registrazione → subito dentro).
+
+La schermata di accesso/registrazione è **scrollabile** (`ScrollView` dentro il
+`KeyboardAvoidingView`): su schermi bassi la card di registrazione, più lunga, non
+viene più tagliata.
 
 **Login Google — collegato (web).** Provider Google attivo su Supabase (client
 OAuth di tipo *Web application*; il *client secret* sta **solo** su Supabase, mai
@@ -146,7 +152,7 @@ ancora da collegare.
 ### Profilo
 
 Ogni utente ha un profilo con: **nick** (univoco), nome, cognome, **immagine
-avatar**.
+avatar**, preferenze (lingue, tema) e **saldo monete**.
 
 Gestione avatar in tre casi, in ordine di priorità:
 
@@ -175,7 +181,7 @@ I valori numerici qui sotto sono **default parametrizzabili lato server**.
 
 ### 5.1 Principiante
 
-- **7 tentativi** (default) per indovinare la parola.
+- **6 tentativi** (default; prima erano 7 — passaggio a 6 deciso il 2026-10-02).
 - Nessun timer.
 - Dopo l'ultimo tentativo sbagliato si perde.
 
@@ -183,7 +189,7 @@ I valori numerici qui sotto sono **default parametrizzabili lato server**.
 
 - **25 secondi per ogni tentativo** (default), con countdown mostrato a lato
   della riga corrente.
-- Se scadono i 25 secondi, quel **tentativo è perso** e si passa al successivo
+- Se scadono i secondi, quel **tentativo è perso** e si passa al successivo
   (non si perde l'intera partita). In dettaglio: la riga viene **persa senza
   valutazione** — ciò che era stato digitato si scarta e **non riceve colori** —,
   il timeout **consuma comunque un tentativo** (conta verso il massimo) e il
@@ -195,6 +201,12 @@ I valori numerici qui sotto sono **default parametrizzabili lato server**.
 - Sfida tra **due giocatori** sulla **stessa parola target**.
 - Si sceglie se giocare in modalità **principiante o esperto** (ne eredita le
   regole: tentativi e/o timer).
+- **Costo d'ingresso: 20 monete** per partita (sia coda casuale sia sfida con
+  amico), pagate da **ciascun** giocatore quando la partita parte davvero (dopo la
+  stretta di mano: una stanza annullata non costa nulla). Serve un saldo **≥ 20**; nel
+  menu i pulsanti online sono disattivati se le monete non bastano. Il pagamento è
+  **idempotente** (una sola volta per partita). Anche la **rivincita** è un nuovo match;
+  oggi il pagamento è agganciato all'ingresso da lobby/coda in `SpotLex.tsx`.
 - **Accoppiamento: due modalità che convivono.**
   1. **Con un amico — codice-stanza** (⚔️ Sfida amico): un giocatore crea la stanza
      e riceve un codice breve da condividere; l'altro entra digitandolo.
@@ -202,61 +214,70 @@ I valori numerici qui sotto sono **default parametrizzabili lato server**.
      codici; l'app **cerca** una stanza pubblica in attesa con le **stesse impostazioni**
      (modalità + lunghezza + lingua) e vi **entra**; se non ce n'è, ne **crea** una
      pubblica e **aspetta** che arrivi il prossimo. Regola anti-corsa: *prima cerca, poi
-     crea* (+ guardia `guest_id IS NULL` sull'update), così due che premono insieme si
-     accoppiano invece di restare entrambi in attesa. Le stanze della coda sono marcate
-     `is_public = true` (le stanze col codice restano `false`), così un giocatore casuale
-     non entra mai in una partita creata per un amico. Riusa la **stessa stretta di mano**
-     Realtime e la stessa pulizia/scadenza stanze della modalità col codice.
-     **Anti-stanze-fantasma:** se l'host di una stanza pubblica è sparito (ha chiuso
-     la scheda senza premere Indietro), il guest che vi entra non riceve mai
-     `host-ok`; allo scadere del timeout **scarta** quella stanza (lista locale di id
-     "morti", passata a `trovaOCreaStanzaPubblica` come `escludiIds`) e **riprova** il
-     matchmaking — trova un altro avversario o diventa host, senza vicolo cieco. Cap
-     a `MAX_RETRY` tentativi; poi messaggio. Un fantasma "morde" comunque al più un
-     guest: entrandovi lo porta a `playing`, togliendolo dalla pool `waiting`.
+     crea* (+ guardia `guest_id IS NULL` sull'update). Le stanze della coda sono marcate
+     `is_public = true` (le stanze col codice restano `false`). Riusa la **stessa stretta
+     di mano** Realtime e la stessa pulizia/scadenza stanze della modalità col codice.
+     **Anti-stanze-fantasma:** se l'host di una stanza pubblica è sparito, il guest
+     allo scadere del timeout **scarta** quella stanza (`escludiIds`) e **riprova** il
+     matchmaking (cap `MAX_RETRY`).
 - **Indicatore avversario:** a lato di ogni riga giocata dall'avversario
-  compaiono due pallini che riassumono il suo tentativo su quella riga —
-  **un pallino verde con il numero di lettere corrette** e **un pallino arancione
+  compaiono due pallini — **verde con il numero di lettere corrette** e **arancione
   con il numero di lettere presenti ma fuori posizione**. Si trasmettono **solo i
-  conteggi, mai le lettere**, così si vede l'andamento dell'avversario senza poter
-  copiare.
-- **Lingua della sfida — FATTO.** La lingua è una **proprietà della sfida**, uguale per
-  host e guest, così entrambi validano sullo **stesso** dizionario. È salvata nella
-  colonna **`lang`** di `matches`, esposta nel tipo `Sfida` (`stanze.ts`) e propagata a
-  `useGioco` come **`linguaForzata`** (gemella di `parolaForzata`), che valida/pesca con
-  `linguaEffettiva = linguaForzata ?? lingua`. Nella modalità **col codice** la sceglie
-  l'host (chip 🇮🇹/🇬🇧 in lobby, stato locale che non tocca la lingua globale); nella
-  **coda casuale** è la lingua che il giocatore sta usando nell'app (fa parte dei criteri
-  di accoppiamento). La parola bersaglio si pesca dal DB **nella lingua della sfida**
-  (`parola_casuale(lunghezza, p_lang)`). L'header della schermata di gioco mostra la
-  lingua **effettiva** con la bandierina (`linguaForzata ?? linguaApp`).
-- **Rivincita:** a fine sfida il pop-up di esito offre **🔁 Rivincita**. Chi la
-  chiede manda una richiesta sul canale Realtime; l'altro vede **✓ Accetta /
-  Rifiuta**. Se rifiuta, il richiedente legge "Rivincita rifiutata" e può solo
-  tornare al menu. Se accetta, l'**host** crea un **nuovo match** (parola nuova,
-  stessa modalità/lunghezza/lingua, guest già dentro, `status='playing'`) e lo
-  diffonde: entrambi ripartono su una partita fresca **sullo stesso canale**
-  (nessun nuovo handshake). Solo l'host può creare (lo impone la RLS di `matches`),
-  perciò la creazione è sempre instradata a lui, chiunque abbia chiesto la rivincita.
+  conteggi, mai le lettere**.
+- **Lingua della sfida — FATTO.** Proprietà della sfida (`matches.lang`), uguale per
+  host e guest; propagata a `useGioco` come `linguaForzata`. Col codice la sceglie
+  l'host (chip 🇮🇹/🇬🇧); nella coda è la lingua dell'app. Parola pescata con
+  `parola_casuale(lunghezza, p_lang)`.
+- **Rivincita:** a fine sfida **🔁 Rivincita / ✓ Accetta / Rifiuta**; se accetta,
+  l'**host** crea un **nuovo match** (parola nuova, stesse impostazioni) sullo stesso
+  canale.
 
 ---
 
-## 6. Punteggio ed esiti
+## 6. Punteggio, monete ed esiti
 
-### Single player (principiante / esperto)
+### Single player (principiante / esperto) → **MONETE**
 
-- **Nessun punteggio.** Solo esito: **vinta** o **persa**. Non esiste il pareggio.
+- Esito: **vinta** o **persa** (nessun pareggio).
+- **Nessun punto in classifica**, ma si guadagnano/perdono **monete**, che servono
+  per giocare online.
 
-### Online
+| Vinta al tentativo | 1 | 2 | 3 | 4 | 5 | 6 | Persa |
+|---|---|---|---|---|---|---|---|
+| Principiante | 100 | 70 | 50 | 30 | 0 | 0 | **−20** |
+| Esperto | 200 | 150 | 100 | 60 | 0 | 0 | **−40** |
+
+- **Saldo iniziale: 100 monete.** Le monete **possono andare in negativo**.
+- Il premio è **calcolato dal server** (funzione `registra_partita_solo`): l'app invia
+  solo modalità, vinta/persa e numero di tentativi. Anti-spam: al massimo una partita
+  registrata ogni 5 secondi; tentativi validati (1..6).
+- Il pop-up di fine partita mostra il premio (**+70 🪙** / **−20 🪙**).
+
+### Online → **PUNTI**
 
 - Chi indovina per primo **vince**; l'altro **perde**.
 - Se **nessuno dei due** indovina entro i tentativi → **pareggio**.
-- Punti (default parametrici): **vittoria 10**, **sconfitta 0**, **pareggio 5 a
-  testa**.
-- I punti si accumulano **solo dall'online** (il single player vale sempre 0).
+- Punti (parametrici, `game_settings`): **vittoria +10**, **sconfitta −10**,
+  **pareggio 0** (dal 2026-10-02; prima 10/0/5). **Stesse regole** per coda casuale e
+  sfida con amico.
+- I punti si accumulano **solo dall'online**; le monete **solo dal single player**
+  (l'online le **consuma**: 20 per partita).
 - La **rivincita** apre una **nuova partita = nuovo `matches`**: ogni round ha la
-  sua riga in `games` e il proprio esito (`winner_id`/`is_draw`), quindi statistiche
-  e classifiche contano tutti i round.
+  sua riga in `games` e il proprio esito.
+
+### Dove si cambiano i valori
+
+- **Monete per tentativo / sconfitta:** funzione SQL `registra_partita_solo`
+  (array `v_base`, `v_esperto`; variabili `v_persa_base`, `v_persa_esperto`). Si
+  cambia rieseguendo il solo blocco `create or replace function` nel SQL Editor
+  (effetto immediato, senza aggiornare l'app). Ogni array deve avere **6 numeri**.
+- **Costo online (20):** funzione `paga_ingresso_online` **e** `COSTO_ONLINE` in
+  `economia.ts` (il server decide; l'app lo usa solo per il menu) — tenerli allineati.
+- **Monete iniziali (100):** `default` della colonna `profiles.monete` **e** trigger
+  `_proteggi_monete`.
+- **Punti online:** Table Editor → `game_settings` (`points_win/lose/draw`).
+- **Saldo di un giocatore:** Table Editor → `profiles.monete` (correzione manuale
+  consentita dalla dashboard, non registrata in `movimenti_monete`).
 
 ---
 
@@ -264,35 +285,30 @@ I valori numerici qui sotto sono **default parametrizzabili lato server**.
 
 Due classifiche **distinte**:
 
-1. **Classifica a punti** — somma dei punti guadagnati online. Premia la costanza
-   (chi gioca molto e vince).
+1. **Classifica a punti** — somma dei punti guadagnati online (ora possono anche
+   scendere: −10 a sconfitta).
 2. **Classifica per bravura** — ordinata sul **win-rate** (vittorie/partite).
-   Premia la qualità.
 
-**Soglia minima** per la classifica bravura: per entrare servono almeno
-**N partite online** (default 10, parametrico), altrimenti un giocatore con una
-sola vittoria risulterebbe al 100%. A parità di win-rate, sta più in alto chi ha
-giocato più partite.
+**Soglia minima** per la classifica bravura: almeno **N partite online** (default 10,
+parametrico). A parità di win-rate, sta più in alto chi ha giocato più partite.
 
-*(In futuro, eventuale sistema tipo Elo o media pesata al posto della soglia
-secca. Rimandato.)*
+*(In futuro: Elo/media pesata, classifiche per periodo/categoria, classifica monete.
+Rimandato.)*
 
 ---
 
 ## 8. Statistiche personali
 
-All'ingresso l'utente vede le **ultime partite** (vinte / perse / pareggiate) e i
-contatori aggregati. Le "ultime partite" sono gli ultimi N record dell'utente
+All'ingresso l'utente vede i contatori aggregati e il **saldo** (🪙 monete,
+⭐ punti online). Le "ultime partite" sono gli ultimi N record dell'utente
 ordinati per data; gli aggregati escono da una vista sul database.
 
-**Stato attuale (implementato):** le statistiche sono **reali e per-utente**. A
-fine partita l'app scrive una riga in **`games`** (`app/src/stats/statistiche.tsx`,
-hook `useStatistiche`, alimentato da `useGioco(..., registra)`); i contatori
-**giocate / vinte / perse** del menu si leggono dalla vista **`user_stats`**, che
-aggrega `games` rispettando la RLS (ogni utente vede solo i propri). Essendo su
-Supabase, le statistiche **seguono l'utente su ogni dispositivo** e sopravvivono
-ai riavvii. Le "ultime partite" in dettaglio e gli aggregati online (pareggiate,
-win-rate, punti) arriveranno con la parte online.
+**Stato attuale (implementato):** statistiche **reali e per-utente**. A fine partita
+l'app scrive una riga in **`games`** (`useStatistiche`, alimentato da
+`useGioco(..., registra)`); i contatori **giocate / vinte / perse** del menu si
+leggono dalla vista **`user_stats`**. Il saldo si legge con `useSaldo()`
+(`profiles.monete` + `user_stats.punti_totali`); il menu si rimonta a ogni ritorno,
+quindi il saldo è sempre aggiornato.
 
 ---
 
@@ -308,27 +324,21 @@ dall'input dell'utente (es. `perché` → `PERCHE`) e la tastiera a schermo non 
 tasti accentati. La normalizzazione è centralizzata in `normalizzaParola` (`core`).
 
 **Stato attuale (implementato): dizionario MULTILINGUA (it + en).** La tabella `words`
-ha la colonna **`lang`** e ora contiene due lingue:
+ha la colonna **`lang`** e contiene due lingue:
 
 - **Italiano** (`lang='it'`): **26.793 parole** (8.176 da 5, 18.617 da 6); bersagli
   (`is_solution=true`): **1.452** da 5 e **1.705** da 6, scelti per frequenza (~top 15.000).
 - **Inglese** (`lang='en'`): **33.482 parole** (12.041 da 5, 21.441 da 6); bersagli:
   **1.769** da 5 e **2.039** da 6, scelti con **frequenza d'uso reale** (libreria
-  `wordfreq`, soglia **Zipf ≥ 3.5**), così le soluzioni sono parole comuni e non termini
-  da dizionario oscuri. Import fatto via **CSV** (senza colonna `id`, che è
-  `GENERATED ALWAYS AS IDENTITY` e va lasciata generare dal DB).
+  `wordfreq`, soglia **Zipf ≥ 3.5**). Import fatto via **CSV** (senza colonna `id`, che è
+  `GENERATED ALWAYS AS IDENTITY`).
 
-La scelta dei bersagli si affina in ogni momento con un `UPDATE` di `is_solution` (o
-rigenerando con una soglia diversa), senza reimportare. **Offline-first**: il dizionario
-è anche **dentro l'app**, ora **indicizzato per lingua** — `core/src/dizionarioDati.ts`
-è l'**indice** (`SOLUZIONI[lingua][lunghezza]`, `VALIDE[lingua][lunghezza]`, tipo
-`Lingua`), che unisce i due file dati per lingua (`dizionarioDati.it.ts` /
-`dizionarioDati.en.ts`, generati dai dati). Le funzioni del core prendono la lingua:
-`pescaParolaCasuale(lingua, lunghezza)` e `parolaValida(parola, lingua, lunghezza)`. La
-lingua attiva arriva dal `LinguaProvider` (§16), letta in `useGioco` con `useLingua()`.
-Il DB resta la **fonte di verità**; la funzione SQL è ora **per lingua**,
-`parola_casuale(lunghezza, p_lang)` (default `p_lang='it'`), usata dall'online per pescare
-il bersaglio nella lingua della sfida.
+La scelta dei bersagli si affina con un `UPDATE` di `is_solution`, senza reimportare.
+**Offline-first**: il dizionario è anche **dentro l'app**, **indicizzato per lingua**
+(`core/src/dizionarioDati.ts` + file per lingua). Le funzioni del core prendono la
+lingua: `pescaParolaCasuale(lingua, lunghezza)` e `parolaValida(parola, lingua,
+lunghezza)`. Il DB resta la **fonte di verità**; `parola_casuale(lunghezza, p_lang)` è
+usata dall'online.
 
 ---
 
@@ -342,69 +352,96 @@ profiles
   nome         text
   cognome      text
   avatar_url   text
-  lingua_ui    text not null default 'it'    -- lingua dell'interfaccia preferita
-  lingua_gioco text not null default 'it'    -- lingua del gioco preferita
-  tema         text not null default 'giallo' check (tema in ('giallo','vetro')) -- tema preferito
+  lingua_ui    text not null default 'it'
+  lingua_gioco text not null default 'it'
+  tema         text not null default 'giallo' check (tema in ('giallo','vetro'))
+  monete       int  not null default 100     -- 💰 saldo monete (può essere negativo); NON scrivibile dal client
   created_at   timestamptz default now()
-  -- email e provider (google/facebook/email) stanno già in auth.users
 
 -- 2. DIZIONARIO
 words
   id           bigint PK
   word         text not null
   length       smallint not null          -- 5 o 6
-  is_solution  boolean default true        -- true = estraibile come target
+  is_solution  boolean default true
   lang         text default 'it'
   unique(word, lang)
 
 -- 3. PARAMETRI PER MODALITÀ
 game_settings
   mode                 text PK             -- 'principiante' | 'esperto'
-  max_attempts         int not null default 7
+  max_attempts         int not null        -- 6 (deciso 2026-10-02; prima 7) — da aggiornare
   seconds_per_attempt  int                 -- null = senza timer; 25 per esperto
-  points_win           smallint default 10
-  points_lose          smallint default 0
-  points_draw          smallint default 5
+  points_win           smallint            -- 10
+  points_lose          smallint            -- -10 (prima 0)
+  points_draw          smallint            -- 0   (prima 5)
   updated_at           timestamptz
 
 -- 3b. PARAMETRI GLOBALI (riga singola)
 app_config
   id               int PK default 1
-  skill_min_games  int default 10          -- soglia classifica bravura
+  skill_min_games  int default 10
 
--- 4. PARTITE ONLINE (l'incontro tra due giocatori)
+-- 4. PARTITE ONLINE
 matches
   id            uuid PK
-  room_code     text unique                -- es. "K7P2Q"
-  mode          text                        -- 'principiante' | 'esperto'
-  word_id       bigint → words.id           -- stessa parola per entrambi
+  room_code     text unique
+  mode          text
+  word_id       bigint → words.id
   word_length   smallint
-  host_id       uuid → profiles.id          -- chi crea la stanza
-  guest_id      uuid → profiles.id          -- chi entra (null finché vuota)
+  host_id       uuid → profiles.id
+  guest_id      uuid → profiles.id
   status        text                        -- 'waiting' | 'playing' | 'finished'
   winner_id     uuid → profiles.id          (nullable)
   is_draw       boolean default false
-  lang          text default 'it'           -- lingua della sfida (it/en), uguale per i due
-  is_public     boolean not null default false -- true = stanza della CODA casuale; false = col codice
+  lang          text default 'it'
+  is_public     boolean not null default false
   created_at    timestamptz
   finished_at   timestamptz
 
--- 5. GIOCATE (una riga per partita giocata da un utente)
+-- 5. GIOCATE
 games
   id            uuid PK
   user_id       uuid → profiles.id
   match_id      uuid → matches.id           -- null = single player
-  mode          text                        -- 'principiante' | 'esperto' | 'online'
-  word_length   smallint                    -- 5 o 6
-  word_id       bigint → words.id           -- target (per il single player)
+  mode          text
+  word_length   smallint
+  word_id       bigint → words.id
   result        text                        -- 'won' | 'lost' | 'draw'
   attempts_used smallint
   duration_ms   int
-  points        smallint                    -- 0 / 5 / 10 (sempre 0 in single player)
-  guesses       jsonb                       -- [{ word, pattern:['green','orange','grey',...] }]
+  points        smallint                    -- online: +10 / -10 / 0; single player 0
+  guesses       jsonb
   created_at    timestamptz
   finished_at   timestamptz
+
+-- 6. STORICO MONETE  💰 (2026-10-02)
+movimenti_monete
+  id         bigint PK (identity)
+  user_id    uuid → auth.users (on delete cascade)
+  tipo       text check in ('solo','ingresso_online')
+  importo    int                            -- es. +70, -20
+  match_id   uuid → matches (on delete set null)   -- solo per ingresso_online
+  dettagli   jsonb                          -- {modalita, vinta, tentativi} per 'solo'
+  creato_il  timestamptz default now()
+  -- indice UNICO (user_id, match_id) where tipo='ingresso_online' → si paga una volta per partita
+  -- RLS: select solo delle proprie righe; nessuna scrittura dal client
 ```
+
+### Funzioni e trigger dell'economia (2026-10-02)
+
+- **`_proteggi_monete()`** — trigger `before insert or update` su `profiles`: se a
+  scrivere è il client (`anon`/`authenticated`), all'insert forza `monete = 100` e
+  all'update **vieta** di cambiare `monete` (`SALDO_NON_MODIFICABILE`). Le funzioni
+  `security definer` girano come proprietario e quindi possono aggiornarle.
+- **`registra_partita_solo(p_modalita, p_vinta, p_tentativi) → jsonb {premio, saldo}`**
+  — calcola il premio dalla tabella §6, anti-spam 5s, scrive `movimenti_monete` e
+  aggiorna `profiles.monete`. Errori: `NON_AUTENTICATO`, `MODALITA_NON_VALIDA`,
+  `TENTATIVI_NON_VALIDI`, `TROPPO_VELOCE`.
+- **`paga_ingresso_online(p_match_id) → int saldo`** — verifica che l'utente sia
+  host/guest del match, idempotente, richiede saldo ≥ 20, scala 20. Errori:
+  `NON_PARTECIPANTE`, `MONETE_INSUFFICIENTI`.
+- `execute` revocato a `anon`/`public`, concesso solo ad `authenticated`.
 
 ### Storage
 
@@ -414,125 +451,82 @@ games
 ### Viste
 
 ```sql
--- statistiche personali  ✅ IMPLEMENTATA ED ESTESA (C6)
---   (security_invoker: rispetta la RLS di games → ognuno vede solo i propri)
---   giocate/vinte/perse su TUTTE le partite (single + online);
---   gli aggregati online: giocate_online, pareggiate, win_rate, punti_totali.
-user_stats (view)
-  → user_id, giocate, vinte, perse, pareggiate, giocate_online, win_rate,
-    punti_totali
-  -- win_rate = vinte_online / giocate_online (0..1, 3 decimali; null se 0 online)
+user_stats (view, security_invoker)
+  → user_id, giocate, vinte, perse, pareggiate, giocate_online, win_rate, punti_totali
 
--- classifica a punti  ✅ IMPLEMENTATA (C6) — vista PUBBLICA (no security_invoker)
-leaderboard_points (view)
-  → user_id, nick, avatar_url, partite_online, vinte, perse, pareggiate,
-    punti_totali
+leaderboard_points (view pubblica)
+  → user_id, nick, avatar_url, partite_online, vinte, perse, pareggiate, punti_totali
   order by punti_totali desc, vinte desc
-  -- partite_online = tutte le righe games con mode='online'
 
--- classifica per bravura (con soglia minima)  ✅ IMPLEMENTATA (C6) — PUBBLICA
-leaderboard_skill (view)
+leaderboard_skill (view pubblica)
   → user_id, nick, avatar_url, partite_online, vinte, win_rate
-  where partite_online >= app_config.skill_min_games   -- default 10
+  where partite_online >= app_config.skill_min_games
   order by win_rate desc, partite_online desc
 ```
 
 ### Note di modellazione
 
 - **`matches` separata da `games`**: un match online produce **due righe** in
-  `games` (una per giocatore), con lo stesso `match_id`. Così le statistiche di un
-  utente si calcolano **sempre** dalla sola `games`, sia solitario che online.
-- **`guesses` (jsonb)** salva la sequenza dei tentativi con i colori: utile per
-  rimostrare una partita passata e, nell'online, come traccia. Opzionale.
-- Parametri di gioco e punti stanno nel DB → si cambiano senza ricompilare.
-- **Stato attuale del DB (implementato):** create tutte le tabelle qui sopra con
-  **RLS attiva** (ognuno vede/scrive solo i propri dati; dizionario e parametri in
-  lettura pubblica), il **trigger** `handle_new_user` che popola `profiles` alla
-  registrazione, i **seed** di `game_settings`/`app_config` (esperto = 25s), il
-  **dizionario italiano reale** in `words` (26.793 parole, di cui 3.157 bersagli), la
-  funzione `parola_casuale(lunghezza)` (restituisce `id` + `word` di un bersaglio a
-  caso lato server, usata dall'online) e la **vista `user_stats`**. La tabella
-  **`matches`** è ora **completa e blindata** (filone C1): `room_code` **unico**,
-  campi obbligatori (`room_code`/`mode`/`word_length`/`host_id`), **check** su
-  `mode` e `status`, **RLS** con tre policy (host crea; lettura delle proprie sfide o
-  di quelle `waiting`; update per giocare o per entrare in una stanza libera).
-  **Nota trigger:** il trigger `handle_new_user` è aggiornato per scrivere anche
-  `lingua_ui`/`lingua_gioco`/`tema` dai metadati di registrazione (default `'it'`/
-  `'it'`/`'giallo'` via `coalesce`, sia nell'insert sia nell'`on conflict do update`).
-  Migrazioni SQL: `migrazione_lingue_profilo.sql` (lingue) e `migrazione_tema_profilo.sql`
-  (colonna `tema` + check + aggiornamento trigger).
-  Due account creati prima dell'ultima versione erano rimasti senza profilo e sono
-  stati rigenerati a mano.
-  **Aggiornamento C5b/C6:** verificato che la RLS di `matches` copre già l'**update di
-  chiusura** dell'host (policy `aggiorna match (entra o gioca)`: `host_id = auth.uid()`
-  vale sia in USING sia in WITH CHECK) e che `games_insert_own` consente a ciascuno di
-  inserire la **propria** riga online con `match_id`. La vista **`user_stats` è stata
-  estesa** (pareggiate, giocate_online, win_rate, punti_totali) e sono state **create le
-  due viste classifiche** `leaderboard_points` e `leaderboard_skill` (pubbliche; la
-  soglia bravura arriva da `app_config.skill_min_games`). Resta da verificare il bucket
-  **`avatars`** (l'upload avatar su web funziona già via Storage).
-  **Aggiornamento lobby/pulizia stanze (1b/2c):** aggiunta a `matches` una **quarta
-  policy — DELETE** `"host cancella stanze proprie non finite"`
-  (`host_id = auth.uid()` **e** `status <> 'finished'` **e**
-  `created_at < now() - interval '10 minutes'`): permette al proprietario di rimuovere
-  le proprie stanze residue non finite oltre i 10 minuti, mai una sfida in corso (che
-  dura pochi minuti). Su questa policy si appoggia `pulisciStanzeVecchie`. L'**Annulla**
-  dell'host in lobby (stanza appena creata, 0 minuti → fuori dalla finestra DELETE) NON
-  cancella ma **chiude** la stanza a `finished` via la policy di UPDATE dell'host.
-  Fatta anche una **pulizia una-tantum** dei residui `playing` dei test (con le relative
-  righe `games` collegate).
-  **Aggiornamento coda casuale (🎲):** aggiunta a `matches` la colonna **`is_public`**
-  (`boolean not null default false`): `true` marca le stanze della coda, `false` (default)
-  quelle col codice — così `creaStanza`/`creaRivincita` restano private senza modifiche.
-  **Nessuna nuova policy RLS**: la coda riusa i permessi già esistenti (la SELECT lascia
-  leggere le stanze `waiting`; la UPDATE lascia entrare in una `waiting` con
-  `guest_id IS NULL`), verificato prima di implementare. `parola_casuale` estesa a
-  `(lunghezza, p_lang)` per pescare il bersaglio nella lingua della sfida.
+  `games` (una per giocatore), con lo stesso `match_id`.
+- **Monete separate dai punti**: le monete vivono su `profiles.monete` con storico in
+  `movimenti_monete`; i punti online restano in `games.points` (aggregati da
+  `user_stats`/`leaderboard_points`). Due "valute" indipendenti.
+- Parametri di gioco e punti stanno nel DB → si cambiano senza ricompilare; i valori
+  delle monete stanno nella funzione SQL (anch'essi modificabili senza ricompilare).
+- **Nome reale della tabella profili: `profiles`** (non `profili`): verificare sempre i
+  nomi reali prima di scrivere SQL.
+- **Stato attuale del DB (implementato):** tutte le tabelle con **RLS attiva**,
+  trigger `handle_new_user` (scrive anche `lingua_ui`/`lingua_gioco`/`tema`), seed di
+  `game_settings`/`app_config`, dizionario reale it/en, `parola_casuale(lunghezza,
+  p_lang)`, viste `user_stats`/`leaderboard_points`/`leaderboard_skill`. `matches` con
+  quattro policy (insert host; select proprie o `waiting`; update entra/gioca; delete
+  stanze proprie non finite > 10 min) e colonne `lang`/`is_public`. **Economia monete**
+  (migrazione `supabase_monete_punti.sql`): colonna `monete`, trigger
+  `_proteggi_monete`, tabella `movimenti_monete`, RPC `registra_partita_solo` e
+  `paga_ingresso_online`, `game_settings` punti a 10/−10/0.
 
 ---
 
 ## 11. Flusso della sfida online (codice-stanza)
 
-> **Nota v1 / v2.** La sequenza qui sotto descrive il traguardo **v2** (parola e
-> valutazione lato server). **La v1 — quella che costruiamo per prima —** è
-> identica nella struttura (tabella `matches`, codice-stanza, Realtime, punteggi,
-> classifiche), ma **senza Edge Function**: la parola la sceglie e la valuta il
-> **client** (riuso del `core`, come nel single player). Passare a v2 significherà
-> spostare **solo** i punti 2 e 3 (scelta parola + valutazione) dentro un'Edge
-> Function, senza rifare il resto.
+> **Nota v1 / v2.** La sequenza descrive il traguardo **v2** (parola e valutazione
+> lato server). **La v1** è identica nella struttura ma **senza Edge Function**: la
+> parola la sceglie e la valuta il **client**.
 
-1. **Host crea** la stanza → `matches` con `room_code` generato, `guest_id` vuoto,
+1. **Host crea** la stanza → `matches` con `room_code`, `guest_id` vuoto,
    `status = 'waiting'`.
 2. **Guest entra** col codice → si riempie `guest_id`, `status = 'playing'`.
-   **In questo momento** il server assegna `word_id` (non prima).
-3. I client ricevono **solo la lunghezza** della parola; ogni tentativo è valutato
-   dal server, che restituisce i colori.
-4. Dopo ogni tentativo, ciascun client pubblica sul canale realtime un messaggio
-   minimale, es. `{ riga: 3, verdi: 2, arancioni: 1 }`; l'avversario disegna i due
-   pallini accanto a quella riga.
+3. Stretta di mano Realtime (`guest-entrato`/`host-ok`); **ciascuno paga 20 monete**
+   (`paga_ingresso_online`) ed entra in partita. In v2 il server assegna qui la parola
+   e la valuta.
+4. Dopo ogni tentativo, ciascun client pubblica `{ riga, verdi, arancioni }`;
+   l'avversario disegna i pallini.
 5. Fine sfida → `status = 'finished'` con `winner_id` oppure `is_draw = true`;
-   vengono scritte le due righe in `games` con `result` e `points`.
+   vengono scritte le due righe in `games` con `result` e `points` (+10/−10/0).
 
 ---
 
 ## 12. Sicurezza (anti-cheat)
 
-> **Applicabile in v2.** In **v1** la parola sta sul **client**, quindi un utente
-> tecnico potrebbe leggerla: la classifica v1 è "sulla fiducia" (online amichevole
-> col codice-stanza). I punti sotto sono il modello **v2**, che blinda le
-> classifiche pubbliche.
+> **Applicabile in v2.** In **v1** la parola sta sul **client**: la classifica v1 è
+> "sulla fiducia".
 
 - Parola target **solo lato server**; al client va solo la lunghezza.
 - Valutazione tentativi via **Edge Function**; il client riceve solo i colori.
-- Nell'online si trasmettono **conteggi**, non lettere, per i pallini avversario.
-- Regole di accesso a livello di riga (RLS) su Supabase: ogni utente legge/scrive
-  solo i propri dati; classifiche e avatar in lettura pubblica.
+- Nell'online si trasmettono **conteggi**, non lettere.
+- RLS su Supabase: ogni utente legge/scrive solo i propri dati; classifiche e avatar
+  in lettura pubblica.
+- **Monete (già in v1):** saldo **non scrivibile** dal client (trigger); premi e costi
+  calcolati da funzioni `security definer`. Limiti noti: l'esito single player è
+  dichiarato dal client (mitigato da anti-spam e validazione); il pagamento d'ingresso
+  è **chiamato dal client** (`SpotLex.tsx`) — da spostare dentro le RPC di
+  creazione/ingresso stanza per renderlo obbligatorio.
 
 ---
 
 ## 13. Logica di gioco condivisa (`core`)
 
-Funzione pura, indipendente dal dispositivo, usata identica ovunque:
+Funzione pura, indipendente dal dispositivo:
 
 ```
 valutaTentativo(guess, target) →
@@ -541,587 +535,181 @@ valutaTentativo(guess, target) →
 
 Regola dei duplicati (come in Wordle): le lettere verdi "consumano" le occorrenze
 del target per prime; l'arancione si assegna solo se restano occorrenze non ancora
-abbinate. Da definire con test dedicati.
+abbinate.
 
 Le tre modalità differiscono solo per configurazione (numero tentativi, timer,
 sincronizzazione avversario), non per codice.
 
-Oltre a `valutaTentativo`, il `core` contiene un **motore di gioco puro** (crea
-stato, digita/cancella, `svuotaRiga` — svuota solo la parola in digitazione per il
-pulsante ↻ —, conferma tentativo, `timeoutTentativo`, `coloriTastiera`, e
-`contaColori` — riepiloga una riga in {verdi, arancioni} per l'online, solo conteggi
-mai le lettere):
-funzioni senza effetti collaterali che le schermate consumano senza duplicare
-logica; il timer, essendo un effetto, vive nella UI e allo scadere chiama
-`timeoutTentativo`. La configurazione (`ConfigGioco`) si legge da un provider
-(`ConfigProvider`/`useConfig`): oggi i valori arrivano **dal server**
-(`game_settings` via `configService`), con `CONFIG_DEFAULT` come **fallback** se la
-rete non risponde — il tutto senza modifiche al `core`. La **validazione**
-della parola è un predicato **iniettabile** (`confermaTentativo(stato, isValida)`):
-oggi è **attiva** e usa `parolaValida(parola, lingua, lunghezza)` (lookup nell'insieme
-`VALIDE[lingua][lunghezza]` di `dizionarioDati.ts`, accent-insensitive). Anche il target
-si sceglie in locale con `pescaParolaCasuale(lingua, lunghezza)`, che attinge al
-**dizionario reale per lingua** (`SOLUZIONI[lingua][lunghezza]`). La **lingua** è ora un
-parametro di entrambe le funzioni: `useGioco` la legge dal `LinguaProvider` (`useLingua`)
-e la passa; il `core` resta puro (non conosce React, riceve solo la lingua).
+Il `core` contiene un **motore di gioco puro** (crea stato, digita/cancella,
+`svuotaRiga`, conferma tentativo, `timeoutTentativo`, `coloriTastiera`, `contaColori`).
+Il timer vive nella UI. La configurazione (`ConfigGioco`) si legge da `ConfigProvider`/
+`useConfig`: valori **dal server** (`game_settings` via `configService`), con
+`CONFIG_DEFAULT` come **fallback** offline (⚠️ da allineare a **6 tentativi**). La
+**validazione** è un predicato iniettabile (`confermaTentativo(stato, isValida)`) che
+usa `parolaValida(parola, lingua, lunghezza)`. La **lingua** è un parametro; il `core`
+resta puro. **Le monete non sono nel core**: le gestisce `app/src/economia/` + server.
 
 ---
 
 ## 14. Decisioni prese
 
 - Stack: **Expo + Supabase**, TypeScript, monorepo `core`/`app`/`backend`.
-- Principiante: **7 tentativi** (default parametrico), nessun timer.
+- Principiante: **6 tentativi** (default parametrico; **cambiato da 7 a 6 il
+  2026-10-02**), nessun timer.
 - Esperto: **25 secondi/tentativo** (default parametrico); allo scadere si perde
   **solo quel tentativo**.
 - Tutti i valori numerici chiave sono **parametrici lato server**.
-- Single player: **nessun punteggio**, solo vinta/persa, niente pareggio.
+- **Single player: MONETE** (dal 2026-10-02; prima "nessun punteggio") —
+  100/70/50/30/0/0 e −20 (principiante), 200/150/100/60/0/0 e −40 (esperto); saldo
+  iniziale 100; può andare in negativo. Le monete servono per giocare online.
+- **Online: costo 20 monete a partita** per ciascun giocatore, coda casuale e amico
+  uguali; serve saldo ≥ 20.
+- **Punti online: +10 / −10 / 0** (dal 2026-10-02; prima 10/0/5), stesse regole per
+  coda casuale e amico.
+- **Economia lato server:** monete calcolate da funzioni SQL `security definer`
+  (`registra_partita_solo`, `paga_ingresso_online`); colonna saldo protetta da
+  trigger; storico in `movimenti_monete`. L'app invia solo l'esito. Scelto di **non**
+  duplicare il sistema punti online (già esistente su `games`/`game_settings`).
+- **Pagamento all'ingresso, non alla creazione:** si paga quando la partita parte
+  davvero (dopo la stretta di mano), così una stanza annullata non costa nulla.
 - Online: **due accoppiamenti** — codice-stanza (con un amico) e **coda casuale**
-  (🎲 Gioca online, con uno sconosciuto: stesse impostazioni, stanze `is_public`).
-- Punti online: **10 / 0 / 5**.
+  (🎲 Gioca online, stanze `is_public`).
 - **Due classifiche** distinte (punti + bravura), bravura con **soglia minima**
   (default 10 partite).
 - Avatar in **Storage**, con fallback social → iniziali.
-- Esperto, dettaglio timeout: allo scadere la riga è **persa senza valutazione**
-  (nessun colore), **consuma un tentativo**, e il **timer riparte a ogni riga**.
-- Timer esperto **implementato come effetto in `useGioco`** (non nel `core` puro):
-  scadenza a timestamp, aggiornamento al secondo, allo scadere chiama
-  `timeoutTentativo`; il countdown è un **badge a lato della riga attiva** nella
-  `Griglia` (teal → arancione negli ultimi secondi). Digitare/cancellare non lo
-  resetta.
-- Gioco **accent-insensitive**: accenti rimossi da dizionario, input e tastiera.
-- **Validazione parola** iniettabile (`isValida` in `confermaTentativo`): ora
-  **attiva** tramite `parolaValida` (insieme `VALIDE`). ✅ collegato.
-- **Dizionario reale** importato in `words` (26.793 parole); **bersagli** scelti per
-  **frequenza** (~top 15.000 → 1.452 da 5, 1.705 da 6), affinabili con un semplice
-  `UPDATE` di `is_solution` senza reimportare. ✅
-- **Single player offline-first**: dizionario **dentro l'app**
-  (`core/src/dizionarioDati.ts`, generato dal DB) → target e validazione **locali,
-  senza rete**. Il DB resta la fonte di verità; la funzione SQL
-  `parola_casuale(lunghezza)` è riservata all'**online** (parola lato server).
-  Aggiornare le parole = rigenerare il file + aggiornamento OTA. ✅
-- Config di gioco letta da un **provider** (`ConfigProvider`): **valori dal DB**
-  (`game_settings`), con `CONFIG_DEFAULT` come **fallback** offline. ✅ collegato.
-- Righe della griglia = `maxTentativi` (parametrico): la griglia si allinea sempre
-  al parametro.
-- Navigazione: **router minimale** senza librerie (`SpotLex.tsx`) che alterna
-  `SchermataMenu` ↔ `SchermataGioco`; la scelta lunghezza/modalità sta nel menu.
-- Statistiche: **reali dal DB** — a fine partita si scrive in `games`, i conteggi
-  vengono dalla vista `user_stats`. ✅ collegato (era un modulo provvisorio locale).
-- **Backend Supabase** (passi 3–6): un unico client `supabase.ts` con chiavi nel
-  `.env` (`EXPO_PUBLIC_*`, fuori da Git); la chiave `anon` sta nell'app, protetta
-  dalla **RLS**. **Login obbligatorio** email/password; **profilo creato via
-  trigger** alla registrazione; **conferma email disattivata** in sviluppo.
-  Vista `user_stats` con **`security_invoker`** per rispettare la RLS. Login social
-  (Google/Facebook) e viste classifiche rimandati.
-- **Login social — Google (filone A):** collegato **sul web**. Provider Google su
-  Supabase con client OAuth *Web application*; il *client secret* resta **solo** su
-  Supabase. `accediConGoogle` è **universale**: su web fa il redirect di pagina, su
-  iOS/Android apre un browser interno e rientra via **deep link** (`scheme:
-  "SpotLex"`, redirect `SpotLex://auth-callback` tra i *Redirect URLs* di Supabase),
-  usando `expo-web-browser` + `expo-auth-session`. **Test su telefono rimandato**:
-  richiede un **development build** (Expo Go non registra lo scheme). Facebook non
-  ancora fatto (richiederà la revisione dell'app lato Meta).
-- **Trigger `handle_new_user` aggiornato:** se il nick manca (login social) ne
-  **genera uno univoco** (base dall'email + suffisso se già preso) e importa
-  **nome/cognome/avatar** da Google. Il flusso email/password resta invariato.
-- **Avatar:** componente `Avatar` (foto o iniziali su sfondo colorato stabile, con
-  fallback automatico se la foto non carica) in `src/components/Avatar.tsx`;
-  `ProfiloContext` espone **nick/nome/cognome/avatarUrl** e `cambiaAvatar` (selettore
-  + upload su Storage, già esistente). Nel menu l'avatar è **toccabile** per cambiare
-  foto, con spinner durante il caricamento.
-- **Nick nel menu** letto dal **profilo** (`ProfiloContext`), valido per tutti
-  (anche Google), con ripiego sui metadati di Auth finché il profilo carica.
-- **Online in due tappe (decisione):** si costruisce prima una **v1** senza
-  Edge Function — parola scelta e valutata **sul client** (riuso del `core`), sfida
-  col codice-stanza e **Realtime** per vedersi i progressi. Vantaggio: introduce
-  **una sola** tecnologia nuova (Realtime) e resta tutta debuggabile lato client;
-  costo: la classifica v1 è "sulla fiducia". La **v2** (in futuro) sposta scelta
-  parola + valutazione dentro un'**Edge Function** per rendere le classifiche
-  pubbliche non falsificabili — **senza** rifare tabelle/Realtime/punteggi, che
-  restano identici (la v1 è ~90% della v2). Motivazione tecnica: cifrare la parola
-  sul client **non** protegge (il client dovrebbe avere anche la chiave, quindi è
-  leggibile) → l'unico anti-cheat vero è tenerla sul server.
-- App su **Expo SDK 57** (React Native 0.86); l'app importa il core come
-  `@SpotLex/core` via alias Metro (`extraNodeModules`) + `paths` di TypeScript.
-- Grafica e interfaccia: stile **flat** allineato al riferimento condiviso — celle
-  e tasti a tinta piena, tasti neutri **bianchi**, tasto invio **"OK" in teal**,
-  micro-animazioni, **pop-up** di fine partita, font **Poppins** incorporato. Tutti
-  i dettagli in **§16**.
-- **Online v1 — parola dal DB (non dal `core`):** host e guest devono avere la
-  **stessa** parola, quindi l'online la sceglie con `parola_casuale` (che dà `id` +
-  testo, così si salva `word_id` in `matches` e il guest risale al testo). Non usa
-  `pescaParolaCasuale` del core (che dà solo il testo). Non cambia la sicurezza: la
-  differenza v1/v2 è l'anti-cheat, non chi pesca la parola.
-- **`useGioco` accetta una parola forzata** (4° argomento opzionale `parolaForzata`):
-  se presente la usa, altrimenti pesca a caso come sempre → **single player
-  invariato**. È il gancio che permette all'online di imporre la parola condivisa.
-- **`SchermataGioco` estesa (Opzione B), con props ONLINE opzionali:**
-  `parolaForzata`, `online` (nasconde "Nuova partita" e cambia i testi),
-  `onRigaConfermata(riga, verdi, arancioni)` (a ogni riga confermata invia il
-  riepilogo al canale). Regola ferrea: **se le props mancano, è il single player di
-  sempre**. Scelta consapevole di NON duplicare la schermata (un solo file), tenendo
-  griglia/tastiera come componenti condivisi.
-- **Contenitore online `SchermataGiocoOnline`:** apre il canale Realtime della stanza
-  e monta `SchermataGioco` sulla parola condivisa; raccoglie i riepiloghi
-  dell'avversario (→ pallini D4) e **arbitra l'esito** (C5a). Il router
-  `SpotLex.tsx` mostra la sfida online a tutto schermo quando è attiva.
-- **Esito online arbitrato dall'host (C5a):** "vince chi indovina **per primo**; se
-  l'altro indovina dopo, perde comunque". Poiché i due dispositivi **non hanno un
-  orologio comune**, non ci si fida di un timestamp: chi finisce **annuncia** sul
-  canale (`finito`, con indovinato sì/no); **l'host** ascolta entrambi i finali e il
-  **primo "indovinato" che vede** vince (pareggio se finiscono entrambi senza
-  indovinare), poi **ribatte** il verdetto ufficiale (`esito`), che i due si limitano
-  a **mostrare** → sempre **d'accordo** by-construction (il guest accetta il verdetto).
-  Il guest **ribatte** il proprio `finito` finché non riceve l'`esito` (broadcast non
-  conserva i messaggi). Se il verdetto arriva mentre gioco ancora, mi **blocca** e
-  mostra il pop-up. Limite noto (accettato in v1): nelle gare al millesimo l'host può
-  "vedere" prima il proprio finale per il ritardo di rete. La **perdita totale** dei
-  messaggi è materia di **C7**.
-- **Host che parte da solo (avviso via broadcast, non Postgres Changes):** quando il
-  guest entra, **annuncia** l'ingresso sul canale (`guest-entrato`); l'host in ascolto
-  aggiorna la sfida a `playing` e **conferma** (`host-ok`). Il guest **ribatte**
-  l'annuncio finché non riceve l'ok (max 5 volte), per battere il caso in cui il
-  primo messaggio parte prima che l'host ascolti. Scelto il broadcast (già collaudato
-  in C3) perché non richiede né configurazione della *publication* Realtime né gestione
-  della RLS sulle notifiche, a differenza di *Postgres Changes*.
-- **Metodo online:** finché non c'è la lobby vera nel menu, si crea/entra nelle stanze
-  con un **banco di prova temporaneo** in fondo al menu (`BancoProvaStanze`), provabile
-  con **due browser** (uno in incognito), account diversi. Da rimuovere a lobby pronta.
-- **Scrittura dell'esito (C5b):** l'esito diventa "ufficiale" in un imbuto unico
-  (`applicaEsito`), da cui passano sia host sia guest. Lì **ciascun client scrive la
-  propria riga** in `games` (RLS `games_insert_own`), con `result` dal proprio punto di
-  vista, `points` letti da `game_settings` (fallback 10/0/5), `mode='online'`,
-  `match_id`, `word_length`; **guardia sincrona** contro le doppie scritture (l'esito
-  può rimbalzare per le ribattute). I **tentativi** usano il conteggio vero quando la
-  mia partita finisce da sola, o un contatore live delle righe se l'esito mi ferma
-  prima. La chiusura di `matches` (`status='finished'` + `winner_id`/`is_draw`/
-  `finished_at`) la scrive di norma **solo l'host** (resta l'arbitro), anch'essa con
-  guardia. `word_id`/`duration_ms`/`guesses` restano opzionali (per ora null).
-- **Classifiche (C6):** tre viste (vedi §10). `user_stats` **estesa** senza rompere il
-  menu che leggeva già giocate/vinte/perse. Le `leaderboard_*` sono **pubbliche**
-  (niente `security_invoker`): aggregano dentro la vista, così escono solo dati non
-  sensibili (nick/avatar già pubblici + conteggi). **UI:** modulo dati
-  `online/classifiche.ts` (`leggiClassificaPunti`) + `SchermataClassifiche` (stile card
-  vetro, medaglie 🥇🥈🥉, riga propria evidenziata), aperta dal menu con 🏆; il router
-  `SpotLex.tsx` gestisce la vista classifiche e passa il proprio `userId`. In UI ci
-  sono **entrambe le classifiche**, come due tab **Punti/Bravura** (il tab bravura mostra
-  il win_rate in percentuale, con soglia minima di partite lato vista).
-- **Casi limite — abbandono/disconnessione (C7):** regola scelta: **chi lascia perde,
-  l'altro vince**. Due segnali confluiscono in un'unica callback
-  `onAvversarioAssente(motivo)`: (a) **uscita esplicita** — chi preme "Indietro" a
-  partita in corso manda un broadcast `abbandono` e si scrive la riga `lost`, poi esce;
-  (b) **disconnessione vera** — tramite **Presence** del canale (join/leave), con
-  un'**attesa di grazia** (~6s) che annulla se l'avversario rientra (blip di rete). Chi
-  resta si **auto-dichiara vincitore** (niente arbitro: l'altro non c'è più) e scrive/
-  chiude; per questo, in caso di abbandono, la chiusura di `matches` è concessa **anche
-  al guest** (la RLS lo permette perché è `guest_id`). Limite noto v1: chi **crolla**
-  (scheda chiusa) non riesce a scrivere la propria riga `lost` → resta solo la riga
-  `won` di chi rimane (match e classifica del vincitore comunque corretti). Altro limite
-  noto: la Presence vede la caduta solo dopo la scadenza dei "battiti" (~10-20s con la
-  grazia); l'uscita esplicita è invece immediata. Le due strade si coprono a vicenda.
-- **Lobby vera dal menu (1b) — chiude il filone C v1:** nuova `SchermataLobby` aperta
-  dal pulsante **⚔️ Sfida amico** del menu, che eredita **modalità e lunghezza** già
-  scelte con le pillole (nessun selettore duplicato). L'host crea, vede il **codice** e
-  attende; il guest entra col codice. L'**ingresso in partita è automatico**: riuso la
-  stretta di mano collaudata (`guest-entrato`/`host-ok`), sostituendo i vecchi bottoni
-  manuali del banco con l'auto-ingresso. Regola ferrea: nessuno entra prima che la
-  stretta di mano sia completa (l'host attende `guest-entrato` e resta un attimo per far
-  arrivare `host-ok`; il guest attende `host-ok`, con `annunciaIngresso` che ora accetta
-  una callback `onConfermato`). Il **banco di prova è stato rimosso**
-  (`BancoProvaStanze.tsx` + innesti in `SchermataMenu`/`SpotLex`).
-- **Pulizia/scadenza stanze (2c):** scelta la **Strada 1** (pulizia dall'app, niente
-  `pg_cron`): all'apertura della lobby `pulisciStanzeVecchie` rimuove le **proprie**
-  stanze non finite più vecchie di **10 minuti** (una partita dura pochi minuti → oltre
-  quella soglia è per forza un residuo). La policy **DELETE** su `matches` è stata
-  allargata di conseguenza (`status <> 'finished'` + finestra 10 min). L'**Annulla**
-  dell'host non usa più la DELETE (0 minuti la escluderebbe) ma **chiude** la stanza a
-  `finished` via UPDATE. La Strada 2 (job schedulato `pg_cron` lato Supabase) resta in
-  tasca per il futuro se servirà.
-- **Sistema temi (Vetro/Giallo):** i colori non sono più costanti statiche importate
-  ovunque, ma un oggetto `Tema` fornito da `TemaProvider` e letto con `useTema()`. La
-  *forma* del tema (`temi/tipi.ts`) deriva le chiavi da `keyof typeof C`: aggiungere un
-  token in `theme.ts` **obbliga** ogni tema a fornirlo (rete di sicurezza contro i
-  colori dimenticati). `theme.ts` diventa "palette del tema Vetro + funzioni pure";
-  ogni schermata ha un `*.stili.ts` con `creaStili(tema)`. Scelta chiave sul **Giallo**:
-  essendo **chiaro**, non può riusare le superfici traslucide del vetro (sparirebbero) →
-  è un tema **flat/pieno** (superfici piene, bordi ambra, ombra). Migrazione fatta a
-  **lotti**, un gruppo di file alla volta, tenendo il **tema Vetro identico a prima**
-  come verifica. `TemaProvider` va **in cima** ad `App.tsx`: senza, `cambiaTema` cade sul
-  no-op del context di default e il cambio tema non ha effetto. *Ancora statiche*
-  (da migrare): schermate online e `Avatar`. **Persistenza del tema — FATTA**: colonna
-  `profiles.tema` (default `'giallo'`, check su `'giallo'|'vetro'`), `ProfiloContext`
-  espone `tema`/`aggiornaTema`, componente ponte `InizialiTema` in `App.tsx` (gemello
-  di `InizialiLingue`, attivo solo con sessione presente) spinge il tema salvato in
-  `TemaProvider` al login, `SchermataImpostazioni` salva al cambio tramite
-  `onCambiaTema` (wrapper che chiama sia `cambiaTema` sia `aggiornaTema`).
-
-- **Multilingua (it/en), architettura.** Due lingue indipendenti:
-  1. **Lingua del gioco** (`LinguaProvider`/`useLingua`): decide le parole e il dizionario.
-     Dizionario splittato per lingua (`dizionarioDati.it.ts` / `.en.ts`) con indice
-     (`dizionarioDati.ts`). Funzioni del core parametrizzate per lingua (core puro).
-     Bersagli inglesi per frequenza d'uso (Zipf ≥ 3.5).
-  2. **Lingua dell'interfaccia** (`LinguaUIProvider`/`useT()`): decide i testi UI.
-     Cataloghi in `app/src/i18n/it.ts` (completo, fonte di verità) e `en.ts` (completo);
-     fallback all'italiano se una chiave manca. Tutte le schermate principali usano
-     `useT()` — niente stringhe cablate nel JSX. L'interfaccia cambia lingua in
-     tempo reale. `useT()` va chiamato **solo dentro i componenti React** (è un hook).
-  Entrambe le preferenze salvate su `profiles.lingua_gioco` / `profiles.lingua_ui`,
-  lette all'avvio da `ProfiloContext` e inizializzate da `InizialiLingue` in `App.tsx`
-  — che ora scatta **solo se c'è una sessione attiva** (`sessione &&` in entrambi gli
-  `useEffect`), altrimenti sovrascriveva il default pre-login con `'it'` letto da un
-  `ProfiloContext` senza utente. **Default prima del login: inglese** (sia
-  `LINGUA_UI_DEFAULT` in `LinguaUIContext.tsx` sia il default equivalente in
-  `LinguaContext.tsx`), così chi apre l'app per la prima volta vede "Log in / Sign up"
-  e "Game language" in inglese; dopo il login prevale sempre la preferenza salvata sul
-  profilo. La lingua della sfida online è proprietà di `matches.lang` (§5.3). La
-  registrazione (`SchermataAuth`) raccoglie ora **tre** preferenze (lingua gioco,
-  lingua app, tema), tutte passate a `registrati()` e salvate dal trigger. Gli errori
-  di `app/src/online/stanze.ts` (creazione/ingresso stanza, rivincita, coda casuale)
-  sono stati convertiti da testo italiano cablato a **chiavi `ChiaveTesto`**
-  (`RisultatoStanza.errore` / `RisultatoCoda.errore` sono `ChiaveTesto`, non
-  `string`): `stanze.ts` resta un file puro (nessun `useT()`), la traduzione avviene
-  nelle schermate chiamanti (`SchermataLobby`, `SchermataCodaCasuale`) con
-  `t(risultato.errore)`. La scelta del font resta da fare.
+- Esperto, dettaglio timeout: riga **persa senza valutazione**, **consuma un
+  tentativo**, **timer riparte a ogni riga**.
+- Timer esperto **come effetto in `useGioco`**; countdown **badge a lato della riga
+  attiva**.
+- Gioco **accent-insensitive**.
+- **Validazione parola** iniettabile, attiva tramite `parolaValida`.
+- **Dizionario reale** in `words`, bersagli per frequenza, affinabili con `UPDATE`.
+- **Single player offline-first** (dizionario dentro l'app).
+- Config di gioco da **provider** con fallback offline.
+- Righe della griglia = `maxTentativi` (parametrico).
+- Navigazione: **router minimale** senza librerie (`SpotLex.tsx`).
+- Statistiche **reali dal DB** (`games` + `user_stats`).
+- **Backend Supabase**: client unico, chiavi nel `.env`, `anon` protetta da RLS, login
+  obbligatorio, profilo via trigger.
+- **Login Google** collegato sul web; telefono richiede development build.
+- **Online in due tappe** (v1 parola sul client, v2 Edge Function).
+- **Online v1 — parola dal DB** (`parola_casuale`), `useGioco` accetta `parolaForzata`,
+  `SchermataGioco` con props online opzionali, contenitore `SchermataGiocoOnline`.
+- **Esito online arbitrato dall'host** (C5a); scrittura esito (C5b) con punti da
+  `game_settings` (⚠️ fallback in codice ancora 10/0/5 → aggiornare a 10/−10/0).
+- **Classifiche (C6)**, **casi limite (C7)**, **lobby (1b)**, **pulizia stanze (2c)**,
+  **rivincita**, **coda casuale** con retry anti-fantasma.
+- **Sistema temi (Vetro/Giallo)** con persistenza su `profiles.tema`.
+- **Multilingua (it/en)**: lingua del gioco e lingua dell'interfaccia indipendenti,
+  persistite su `profiles`; default pre-login inglese.
+- **Schermate lunghe scrollabili:** menu (già) e ora anche **login/registrazione**
+  (`ScrollView` con `flexGrow:1` + `justifyContent:'center'`).
+- **Regola di codice:** hook e chiamate che usano props/stato vanno **dentro** il
+  componente (in `useEffect` con guardia `useRef` se devono scattare una volta), mai a
+  livello di modulo.
 
 ---
 
 ## 15. Punti ancora aperti
 
-- **Affinamento bersagli del dizionario**: oggi scelti per frequenza (~top 15.000).
-  Possibile ripulire in futuro nomi propri/forestierismi dai bersagli con un `UPDATE`
-  di `is_solution` (le parole restano comunque valide come tentativo).
-- **Classifica bravura**: soglia secca ora; valutare in futuro Elo/media pesata.
-- **Gestione disconnessione** in una sfida online: ✅ **risolto in C7** (chi lascia
-  perde, l'altro vince; via broadcast `abbandono` + Presence con grazia). **Scadenza
-  stanze e pulizia residui**: ✅ **risolti in 2c** (`pulisciStanzeVecchie` all'apertura
-  della lobby + policy DELETE con finestra 10 min; residui dei test già ripuliti).
-- **Stanze fantasma nella coda casuale**: ✅ **mitigato (Passo 1)** — retry automatico
-  lato guest (scarta la stanza morta e riprova, cap `MAX_RETRY`), così non si finisce
-  più nel vicolo cieco degli ~8s. *Resta aperto (opzionale):* ridurre la **nascita**
-  dei fantasmi — chiudere la stanza dell'host su chiusura scheda web (`beforeunload` →
-  `annullaStanza`, best-effort) e/o accorciare il timeout della sola coda (~5s).
-- **Ordine di sviluppo**: si parte dal **single player**.
-  - ✅ Fatto: modulo `core` (logica colori + motore di gioco + test).
-  - ✅ Fatto: app Expo + schermata **principiante** (griglia + tastiera) su web e
-    mobile, wiring monorepo verificato con export web.
-  - ✅ Fatto: **schermata di scelta** (lunghezza 5/6 + modalità) con router minimale
-    menu ↔ partita (`SchermataMenu` + `SpotLex`).
-  - ✅ Fatto: **statistiche** (giocate/vinte/perse) mostrate nel menu e aggiornate a
-    fine partita.
-  - ✅ Fatto: **modalità esperto** completa — timer/countdown per tentativo
-    (`useGioco` → `timeoutTentativo`) con badge a lato della riga attiva; con questo
-    il **single player è completo**.
-  - ✅ Fatto: **collegamento a Supabase** — client unico + chiavi in `.env` (passo 3).
-  - ✅ Fatto: **schema del database** — tabelle §10 + RLS + trigger profilo + seed
-    (esperto 25s) + dizionario di prova, poi **sostituito dal dizionario reale** nel
-    filone B (passo 2).
-  - ✅ Fatto: **config dal database** — `game_settings` via `ConfigProvider`, con
-    fallback ai default (passo 4).
-  - ✅ Fatto: **login e profili** — email/password, login obbligatorio, profilo
-    automatico via trigger, saluto + logout nel menu (passo 5).
-  - ✅ Fatto: **statistiche reali dal database** — partite in `games`, conteggi da
-    `user_stats` (passo 6).
-  - ✅ Fatto: **dizionario reale + validazione** (filone B) — import in `words`,
-    target dal dizionario vero e validazione attiva, **offline-first**
-    (`dizionarioDati.ts`); resta la funzione SQL `parola_casuale` per l'online.
-  - ✅ Fatto: **login Google (web) + avatar** (filone A) — provider Google su
-    Supabase, `accediConGoogle` (web ok; codice telefono pronto), trigger aggiornato
-    per generare il nick sui login social, componente `Avatar` (foto/iniziali)
-    toccabile nel menu, nick letto dal profilo per tutti.
-  - 🟡 In sospeso nel filone A: **test del login Google su Android/iOS** (passo 3c —
-    richiede un **development build**); **login Facebook**; verifica dell'**upload
-    avatar da telefono**.
-  - 🔵 **Online — filone C, versione v1** (parola sul client, niente Edge Function):
-    **la sfida è completa e giocabile** — creazione/ingresso, parola condivisa,
-    riepiloghi/pallini, esito arbitrato **scritto** su DB, classifiche e casi limite,
-    **lobby dal menu** e **pulizia/scadenza stanze**. Provato **su web** con due browser
-    (account diversi). **Filone C v1 CHIUSO**, con in più la **rivincita online**
-    (la classifica bravura in UI è ora FATTA — vedi sotto). Dettaglio:
-    - ✅ **C1** — tabella `matches` + RLS (vincoli e policy verificati).
-    - ✅ **C2** — crea/entra stanza col **codice** (`stanze.ts`: `creaStanza`/
-      `entraInStanza`, parola dal DB uguale per i due). Lungo la strada risolto un
-      problema latente: **profili mancanti** per 2 utenti vecchi (rigenerati a mano).
-    - ✅ **C3** — **Realtime** broadcast (`canaleStanza.ts`): i riepiloghi
-      verdi/arancioni viaggiano tra i due. Aggiunto l'**avviso ingresso guest** così
-      l'host passa a `playing` **da solo** (guest-entrato/host-ok, con ribattuta).
-    - ✅ **D1** — `useGioco` accetta `parolaForzata` (single player invariato).
-    - ✅ **D2a** — `SchermataGioco` accetta `parolaForzata`/`online` (opzionali).
-    - ✅ **D2b** — a ogni riga confermata `SchermataGioco` chiama `onRigaConfermata`
-      (usa `contaColori` del core); `contaColori` aggiunta al core.
-    - ✅ **D3** — contenitore `SchermataGiocoOnline` + routing in `SpotLex.tsx` +
-      pulsante "Entra in partita" nel banco: **testato su web** (host che parte da
-      solo; riepiloghi che viaggiano in partita). Il log temporaneo `[D3]` è stato
-      rimosso in D4.
-    - ✅ **D4** — **pallini** dell'avversario (verde=corrette, arancione=fuori
-      posizione) disegnati **a sinistra delle righe** nella `Griglia` (componenti
-      `PalliniAvversario`/`Pallino`, figli della riga in `absolute` come il
-      countdown, così non spostano le celle). Lo stato `righeAvversario` scende da
-      `SchermataGiocoOnline` → `SchermataGioco` → `Griglia`. **Testato su web**.
-    - ✅ **C5a** — **esito condiviso** ("vince chi indovina per primo; se l'altro
-      indovina dopo, perde comunque"). L'**host fa da arbitro**: chi finisce annuncia
-      sul canale (`finito`: indovinato sì/no); il **primo "indovinato" che l'host
-      vede vince**, se finiscono entrambi senza indovinare → **pareggio**; l'host
-      ribatte il verdetto ufficiale (`esito`) e i due mostrano lo **stesso** risultato
-      (pop-up "Hai vinto/perso/Pareggio"). Se l'avversario indovina mentre gioco
-      ancora, l'esito **mi ferma**. Il guest **ribatte** il `finito` finché non riceve
-      l'esito. Scelto l'host-arbitro (non un timestamp) perché i due non hanno un
-      orologio comune: così sono **sempre d'accordo** sull'esito; limite noto — nelle
-      gare al millesimo può vincere l'host per il ritardo di rete (accettato in v1).
-      **Testato su web** (vittoria, sconfitta, pareggio, fotofinish). *Ancora niente
-      scrittura su DB: è C5b.*
-    - ✅ **C5b** — **scrittura dell'esito**: a fine sfida ciascun client scrive la
-      **propria riga** in `games` (`result` won/lost/draw, `points` 10/0/5 da
-      `game_settings` con fallback, `mode='online'`, `match_id`, `word_length`), con
-      guardia anti-doppione; l'**host** porta `matches` a **`finished`**
-      (`winner_id`/`is_draw`/`finished_at`). RLS **già sufficiente** (verificata, nessuna
-      modifica). **Testato su web** (2 righe con stesso `match_id`; `matches` finished).
-    - ✅ **C6** — **classifiche**: `user_stats` **estesa** (pareggiate, giocate_online,
-      win_rate, punti_totali) senza rompere il menu; create le viste **pubbliche**
-      `leaderboard_points` e `leaderboard_skill` (soglia da `app_config`). **UI:** modulo
-      `online/classifiche.ts` + `SchermataClassifiche` (medaglie/avatar/punti, riga
-      propria evidenziata) aperta dal menu con 🏆; **due tab Punti/Bravura** (bravura in UI FATTA, vedi sotto).
-      **Testato su web**.
-    - ✅ **C7** — **casi limite**: **chi lascia perde, l'altro vince**. In
-      `canaleStanza.ts` aggiunti messaggio `abbandono` + **Presence** (join/leave con
-      grazia ~6s); in `SchermataGiocoOnline` l'**uscita esplicita** (Indietro →
-      abbandono + riga `lost`) e la **disconnessione** confluiscono in "io vinco",
-      scrivendo/chiudendo (in abbandono può chiudere `matches` anche il guest). Limiti
-      v1 noti: chi crolla non scrive la riga `lost`; la Presence reagisce dopo ~10-20s.
-      **Testato su web** (uscita esplicita e disconnessione).
-    - ✅ **Lobby vera dal menu (1b)** — `SchermataLobby` (crea/entra col codice +
-      attesa avversario in Realtime + **ingresso automatico** in partita) al posto del
-      **banco di prova**, poi **banco rimosso** (`BancoProvaStanze` + innesti in
-      `SchermataMenu`/`SpotLex`). Ritocco additivo a `canaleStanza.annunciaIngresso`
-      (callback `onConfermato`). **Testato su web** (crea→entra→gioco automatico).
-    - ✅ **Pulizia/scadenza stanze (2c)** — residui dei test ripuliti; policy **DELETE**
-      allargata (`status<>'finished'` + 10 min); `pulisciStanzeVecchie` all'apertura
-      lobby; `annullaStanza` chiude la stanza a `finished`. **Testato** (Annulla +
-      scadenza forzata). **Con questo il filone C v1 è CHIUSO.**
-    - ✅ **Rivincita (online)** — a fine partita si può **chiedere/accettare/rifiutare**
-      la rivincita dal pop-up di esito. Nuovi eventi Realtime in `canaleStanza.ts`
-      (`rivincita-richiesta` / `rivincita-risposta` / `rivincita-via`); nuova
-      `creaRivincita` in `stanze.ts` (crea un **nuovo match** con parola nuova,
-      `status='playing'`, guest già noto — **solo l'host**, per RLS);
-      `SchermataGiocoOnline` orchestra il negoziato e **riavvia il round** (reset delle
-      guardie C5b/C7 + `key` che rimonta `SchermataGioco`; il canale resta aperto **una
-      sola volta** grazie a `handlersRef`, così cambiare round non rifà scattare
-      presence/handshake); `SchermataGioco` mostra i bottoni **🔁 Rivincita / ✓ Accetta /
-      Rifiuta**. Richieste incrociate → accordo automatico; se l'avversario esce durante
-      l'attesa, la **Presence** la tratta come rifiuto. **Testato su web** (accetta,
-      rifiuta, richieste incrociate).
-    - ✅ **Classifica bravura in UI — FATTO** — `SchermataClassifiche` ora ha **due tab
-      Punti/Bravura**. Nuova `leggiClassificaBravura` in `classifiche.ts` (vista
-      `leaderboard_skill`: `win_rate`, con soglia minima partite); riga bravura che
-      mostra la **% di vittorie** (win_rate normalizzato: se ≤1 ×100, così va bene sia
-      frazione che percentuale); cache per tab (si legge dal DB solo alla prima apertura
-      di ciascun tab). Nuove chiavi i18n: `tabPunti`, `tabBravura`, `percVittorie`.
-  - 🎨 **Temi e interfaccia (dopo il filone C)** — sistema di temi (`app/src/temi/`);
-    due temi: **Vetro** (glassmorphism scuro) e **Giallo** (chiaro flat). A tema:
-    menu, gioco (griglia/tastiera/coriandoli), login, impostazioni, loading.
-    ✅ **Schermate online + `Avatar` ora a tema — FATTO**: `SchermataLobby`,
-    `SchermataCodaCasuale` (riusa gli stili della lobby), `SchermataClassifiche`
-    (schermata + `.stili.ts`) usano tutte `useTema()` + `creaStili(tema)`;
-    `SchermataGiocoOnline` non ha stili propri (delega a `SchermataGioco`, già a
-    tema). `Avatar` migrato (opzione "leggera"): font e bordino dal tema
-    (`tema.font.bold`, `tema.palette.hair`); la tavolozza colori-persona resta
-    FISSA di proposito (colore "identità" stabile per nick) e le iniziali restano
-    bianche (stanno su una tinta satura, non su una superficie del tema).
-    *Persistenza — FATTA*: colonna `tema` su `profiles`, componente ponte `InizialiTema`
-    in `App.tsx` (stesso meccanismo della lingua); il tema scelto resta al riavvio.
-  - 🌍 **Multilingua (it/en) + rifiniture mobile (dopo i temi)** — l'app ora supporta
-    **più lingue** e la lingua scelta decide le parole del single player. Fatto:
-    - ✅ **Parole inglesi nel DB**: importate in `words` (`lang='en'`) 12.041 parole da
-      5 lettere e 21.441 da 6, con `is_solution` per **frequenza** (Zipf ≥ 3.5 →
-      1.769 e 2.039 bersagli). Import via CSV lasciando generare l'`id` (identity).
-    - ✅ **Sistema lingua**: `LinguaContext` (`app/src/lingua/`), montato in `App.tsx`;
-      selettore 🌐 in `SchermataImpostazioni` accanto al tema.
-    - ✅ **Dizionario per lingua**: split `dizionarioDati.it.ts` / `.en.ts` + indice
-      `dizionarioDati.ts` (`SOLUZIONI[lingua][lunghezza]`, `VALIDE[lingua][lunghezza]`);
-      `parolaValida`/`pescaParolaCasuale` ora prendono la **lingua**; `useGioco` la
-      legge da `useLingua()` e la passa. **Il single player cambia lingua correttamente.**
-    - ✅ **Bug registrazione risolto**: `AuthContext.registrati` aveva 5 argomenti
-      (`nick,nome,cognome,email,password`) ma la schermata ne passava 3 → `email`/
-      `password` finivano `undefined` e `.trim()` crashava ("Cannot read property 'trim'
-      of undefined"). Firma riportata a `registrati(nick, email, password)`.
-    - ✅ **Rifiniture mobile**: (a) i **pallini avversario** (online) uscivano dallo
-      schermo a sinistra → `SchermataGioco` riserva ora spazio anche per l'online (non
-      solo per il countdown esperto), con `Math.max` fra le due riserve. (b) Il **menu**
-      su schermi bassi tagliava i pulsanti in fondo (Sfida amico/Classifica/legenda) →
-      `SchermataMenu` ora è una **`ScrollView`** (`flexGrow:1`+`center`). (c) **Countdown**
-      nel tema Giallo: numero+anello passati a `accentoSoft` (ambra scuro leggibile su
-      fondo chiaro); l'**allarme** ora scatta negli **ultimi 5 secondi** con cerchietto
-      **rosso pieno + numero bianco**.
-    - ✅ **Lingua della sfida online — FATTO** (colonna `matches.lang`, chip in lobby,
-      `linguaForzata` propagata a `useGioco`, rivincita mantiene la lingua).
-    - ✅ **Preferenze lingua persistite sul profilo Supabase — FATTO** (colonne
-      `lingua_ui`/`lingua_gioco` su `profiles`; trigger aggiornato; `ProfiloContext`
-      legge e aggiorna; `InizialiLingue` in `App.tsx` inizializza i provider all'avvio;
-      `SchermataImpostazioni` salva al cambio; `SchermataAuth` raccoglie le preferenze
-      alla registrazione).
-    - ✅ **Sistema i18n per l'interfaccia — FATTO** (`app/src/i18n/`: cataloghi `it.ts`
-      ed `en.ts` completi, `LinguaUIContext` con `useT()`; tutte le schermate principali
-      convertite; l'interfaccia cambia lingua in tempo reale).
-    - ✅ **Bug `LEGENDA` — RISOLTO** (era `t()` a livello di modulo in `SchermataMenu.tsx`).
-    - ✅ **Persistenza del tema — FATTO**: colonna `profiles.tema` (default `'giallo'`),
-      `ProfiloContext.aggiornaTema`, componente ponte `InizialiTema` in `App.tsx`,
-      `SchermataImpostazioni` salva al cambio. Il tema scelto ora resta al riavvio.
-    - ✅ **Errori online tradotti — FATTO**: `stanze.ts` ritorna chiavi `ChiaveTesto`
-      invece di testo italiano cablato; `SchermataLobby`/`SchermataCodaCasuale`
-      traducono con `t(risultato.errore)`. ~17 nuove chiavi `err*` in `it.ts`/`en.ts`.
-    - ✅ **Selettore tema in registrazione — FATTO**: `SchermataAuth` ha un terzo
-      selettore (Vetro/Giallo) accanto a lingua gioco/app; `registrati()` accetta
-      `tema` e lo passa nei metadati Auth; trigger `handle_new_user` lo copia su
-      `profiles.tema`. Bordo visibile sui pulsanti attivi (`SchermataAuth.stili.ts`),
-      prima erano poco distinguibili dal testo semplice sul tema chiaro.
-    - ✅ **Lingua predefinita pre-login: inglese — FATTO**: `LINGUA_UI_DEFAULT` in
-      `LinguaUIContext.tsx` e il default equivalente in `LinguaContext.tsx` sono `'en'`;
-      `InizialiLingue`/`InizialiTema` in `App.tsx` spingono le preferenze del profilo
-      **solo con sessione attiva**, così non sovrascrivono più il default pre-login.
-    - ✅ **`modalitaLabel` nell'header gioco — FATTO**: ora usa
-      `t('labelPrincipiante')`/`t('labelEsperto')` invece di derivare la stringa dalla
-      modalità interna; anche "lettere" nella stessa riga passa ora da
-      `t('nLettere', { n: lunghezza })`.
-    - ✅ **Bottoni "Crea account"/"Entra" tradotti — FATTO**: ultime stringhe cablate
-      residue in `SchermataAuth.tsx`; nuove chiavi `creaAccountBtn`/`entraBtn`.
-    - ✅ **Rivincita — retry automatico FATTO**: `creaEAvviaRivincita` (lato host)
-      riprova fino a 3 volte (pausa 0,7s/1,4s) prima di arrendersi, ma solo per errori
-      potenzialmente transitori — non per `errLoggatoRivincita`/`errSoloHostRivincita`
-      (permessi, un retry non li risolve). Solo dopo aver esaurito i tentativi scatta
-      il rifiuto automatico verso l'avversario, come prima.
-    - ✅ **`console.log` di debug rimosso** — `SchermataGiocoOnline.tsx` non stampa
-      più la parola in chiaro.
-    - 🟡 **Da fare: scelta del font** in Impostazioni — caricare i `.ttf` alternativi
-      in `App.tsx` + override di `tema.font`.
-  - 🔮 Futuro: **online v2 (anti-cheat)** — spostare scelta parola + valutazione in
-    un'**Edge Function** (parola solo lato server) per rendere le classifiche
-    pubbliche non falsificabili. Struttura invariata rispetto alla v1. *In v2 la scelta
-    della parola e la validazione andranno rese **per lingua** (parametro `lang`).*
+- **Completare 7 → 6 tentativi:** `update game_settings set max_attempts = 6;` +
+  `CONFIG_DEFAULT` nel core (fallback offline).
+- **Chiavi i18n economia** da aggiungere in `it.ts`/`en.ts`: `monete`, `puntiOnline`,
+  `moneteInsufficienti`, `erroreIngressoOnline`.
+- **Bug `SchermataLobby.onCrea`:** `setRuolo('guest')` → deve essere `setRuolo('host')`.
+- **Fallback punti in `SchermataGiocoOnline`:** 10/0/5 → 10/−10/0.
+- **Verifica in app dell'economia** (chip saldo, pop-up premio, blocco < 20,
+  pagamento d'ingresso con due browser).
+- **Anti-cheat ingresso online:** spostare `paga_ingresso_online` dentro le RPC di
+  creazione/ingresso stanza; gestire il caso "pagamento fallito dopo la stretta di
+  mano" come abbandono. Valutare il costo anche per la **rivincita**.
+- **Affinamento bersagli del dizionario** (nomi propri/forestierismi).
+- **Classifica bravura**: soglia secca ora; valutare Elo/media pesata. Idee: classifiche
+  settimanali, per categoria (modalità × lunghezza × lingua).
+- **Stanze fantasma nella coda casuale**: mitigato (Passo 1); opzionale Passo 2.
+- **Scelta del font** in Impostazioni.
+- **Ordine di sviluppo** (storico): single player ✅ → Supabase ✅ → dizionario ✅ →
+  login Google + avatar ✅ (telefono/Facebook in sospeso) → online v1 ✅ (C1–C7, lobby,
+  pulizia, rivincita, coda, bravura in UI) → temi ✅ → multilingua ✅ → **economia
+  monete ✅ (2026-10-02, da verificare in app)** → font 🟡 → online v2 🔮.
 
 ---
 
 ## 16. Grafica e interfaccia (stato attuale)
 
-L'app ha un **sistema di temi**: tutti i colori/font/misure vivono in un oggetto
-`Tema` fornito da un provider, e i componenti li leggono con `useTema()` invece di
-importare costanti statiche. Ci sono **due temi**, scegliibili **a runtime** dal menu
-(pulsante **⚙️**) → **Impostazioni**:
+L'app ha un **sistema di temi**: colori/font/misure in un oggetto `Tema` fornito da un
+provider (`useTema()`). **Due temi** scegliibili a runtime (⚙️ → Impostazioni):
 
-- **Vetro** (default): *glassmorphism* scuro — sfondo teal-navy profondo, superfici
-  traslucide con bordo sottile, titolo serif con bagliore, accento **teal**. È
-  l'identità storica dell'app.
-- **Giallo**: tema **chiaro "flat/pieno"** — sfondo caldo crema, superfici piene con
-  bordo ambra + ombra morbida (il vetro su fondo chiaro sparirebbe), accento ambra.
+- **Vetro**: *glassmorphism* scuro, accento **teal**.
+- **Giallo** (default del provider): chiaro **flat/pieno**, accento ambra.
 
-In entrambi: celle **verde/arancione**, **grigio** per la lettera assente; la lettera
-è **bianca** sulle celle piene (valutate) e col **testo del tema** (scuro sul chiaro)
-su quelle non ancora valutate. Il gradiente si usa su sfondo e pulsanti d'accento.
+In entrambi: celle **verde/arancione/grigio**; lettera **bianca** sulle celle valutate.
+Architettura in `app/src/temi/` (`tipi.ts`, `Temavetro.ts`, `TemaGiallo.ts`,
+`TemaContext.tsx`); `theme.ts` = palette Vetro + funzioni pure + token; ogni schermata
+ha `*.stili.ts` con `creaStili(tema)`. **Tutte le schermate sono a tema**; `Avatar` con
+tavolozza colori-persona fissa e iniziali bianche. Tema persistito su `profiles.tema`.
 
-**Architettura dei temi** (cartella `app/src/temi/`):
-- `tipi.ts` — forma di un `Tema` (`palette`/`gradienti`/`font`/`misure`); le chiavi di
-  `palette` sono derivate da `keyof typeof C` (in `theme.ts`), così **ogni tema è
-  obbligato** a fornire gli stessi token → niente colori dimenticati.
-- `Temavetro.ts` — impacchetta i valori di `theme.ts` come tema "vetro".
-- `TemaGiallo.ts` — il tema chiaro; **tutti i suoi colori si affinano da qui** (un
-  file solo).
-- `TemaContext.tsx` — `TemaProvider` (montato **in cima** ad `App.tsx`) + gli hook
-  `useTema()` e `useControlliTema()` (tema attivo, elenco, `cambiaTema`).
+### Menu
 
-`theme.ts` resta la **palette del tema Vetro** + le funzioni pure (`ombra`,
-`bagliore`, `coloreDiSfondo`) + i **token** del sistema (colori prima cablati nei
-componenti, ora centralizzati). Ogni schermata ha un file `*.stili.ts` con
-`creaStili(tema)` (memoizzato su `tema`).
-
-**Coperto dal tema**: menu, gioco (griglia/tastiera/coriandoli), login, impostazioni,
-loading, **e le schermate online** (`SchermataLobby`, `SchermataCodaCasuale`,
-`SchermataClassifiche`; `SchermataGiocoOnline` si tinge per delega a `SchermataGioco`)
-**e il componente `Avatar`**. In pratica **tutte le schermate sono a tema**.
-`Avatar` usa font e bordino dal tema (`tema.font.bold`, `tema.palette.hair`) ma
-mantiene una **tavolozza colori-persona fissa** (colore "identità" stabile per nick,
-leggibile su entrambi i temi) con **iniziali bianche** (stanno su una tinta satura,
-non su una superficie del tema).
-
-**Persistenza — FATTA**: il tema scelto è salvato su `profiles.tema` e viene
-ripristinato al login (componente ponte `InizialiTema` in `App.tsx`); prima del login
-resta il default del provider (`'giallo'`).
+- Barra in alto: avatar + nick, ⚙️ Impostazioni, Esci.
+- Titolo serif con bagliore + tagline.
+- **Chip saldo** (2026-10-02): **🪙 monete** e **⭐ punti online**; valore in arancione
+  se negativo.
+- Card "Imposta la partita" (lunghezza, modalità, Gioca), contatori, **avviso**
+  (es. monete insufficienti), azioni **🎲 Gioca online / ⚔️ Sfida amico** con sotto
+  **🪙 20** (semitrasparenti e disattivate se monete < 20), 🏆 Classifica, legenda.
+- `ScrollView` (`flexGrow:1` + center): centrato se c'è spazio, scorre se no.
 
 ### Schermata di gioco
 
-- **Header** (ridisegnato): riga singola — indietro ← a sinistra; **SpotLex** con sotto
-  `● Principiante · 5 lettere · Italiano` (pallino di stato verde + nome lingua come testo);
-  a destra **pallini tentativi** (pieni = fatti, anello = corrente, vuoti = rimanenti) +
-  contatore **`X/max`** (es. `2/7`). La gomma ↻ è stata rimossa dall'header.
-  Componente `PalliniTentativi` in `SchermataGioco.tsx`.
-- **Griglia**: righe = `maxTentativi` (parametrico), celle a **tinta piena** con
-  angoli arrotondati; cella vuota con bordo; la **riga attiva** ha un bordo più
-  chiaro come indicatore.
-- **Countdown (solo esperto)**: badge circolare **a lato della riga attiva** (fuori
-  dal flow, quindi non sposta le celle centrate; scende con la riga). Conta i
-  secondi rimasti (default 25, valore preso da `game_settings`) e fa un piccolo "pop"
-  a ogni secondo. Numero e anello usano `accentoSoft` (nel Giallo: **ambra scuro**
-  leggibile sul fondo chiaro). Negli **ultimi 5 secondi** scatta l'**allarme**: il
-  cerchietto si **riempie di rosso** (`#FF3B30`) con **numero bianco**. In esperto la
-  griglia riserva spazio a destra così il badge non esce mai dallo schermo; in
-  principiante è assente.
-- **Tastiera** (QWERTY):
-  - tasti **non ancora usati → bianchi** (testo scuro);
-  - lettera **assente → grigio**; lettera **presente/corretta → arancione/verde** a
-    tinta piena;
-  - **invio = tasto "OK" in teal**; cancella = **"⌫"** grigio (l'etichetta "OK" è
-    quella del riferimento; rinominabile in "INVIO" se si preferisce);
-  - su **web** è attiva anche la **tastiera fisica**.
-  - colore dei tasti in **"best-of"** (verde > arancione > grigio); le righe perse
-    per timeout non colorano i tasti.
+- **Header**: indietro ←, **SpotLex** con `● Principiante · 5 lettere · Italiano`,
+  **pallini tentativi** + contatore **`X/max`** (con 6 tentativi: `2/6`).
+- **Griglia**: righe = `maxTentativi`; celle a tinta piena; riga attiva evidenziata.
+- **Countdown (solo esperto)**: badge a lato della riga attiva; allarme rosso negli
+  ultimi 5 secondi.
+- **Tastiera** QWERTY: tasti neutri bianchi, assente grigio, presente/corretta
+  arancione/verde, **OK teal**, ⌫; tastiera fisica su web; colori "best-of".
 
 ### Micro-animazioni e feedback
 
-- **Rivelazione a flip** in cascata quando si conferma una riga.
-- **Scossa** della riga su parola **incompleta/non valida** (con messaggio "pill").
-- **Pop** della cella all'inserimento della lettera.
+- **Flip** in cascata alla conferma, **scossa** su parola incompleta/non valida,
+  **pop** della cella.
 
 ### Fine partita
 
-- **Pop-up modale** che appare **dopo** la rivelazione della riga: **"Indovinata!"**
-  (oppure **"Peccato!"** + la parola) e pulsante **"↻ Nuova partita"** in teal.
-- **Coriandoli** leggeri alla vittoria.
+- **Pop-up modale** dopo la rivelazione: **"Indovinata!"** / **"Peccato!"** + la
+  parola; in single player mostra anche il **premio in monete** (**+N 🪙** verde,
+  **−N 🪙** arancione, 0 neutro); pulsante **"↻ Nuova partita"**.
+- Online: Hai vinto/perso/Pareggio + bottoni rivincita.
+- **Coriandoli** alla vittoria.
+
+### Accesso / registrazione
+
+- Card centrata con toggle Accedi/Registrati; in registrazione nick + tre selettori
+  (lingua gioco, lingua app, tema). **Scrollabile** (2026-10-02).
 
 ### Font e caricamento
 
-- **Poppins** incorporato nel progetto (`app/assets/fonts/*.ttf`, **nessun pacchetto
-  esterno**), caricato con `expo-font` in modo **non bloccante** (se non carica,
-  fallback al font di sistema).
-- **Schermata di caricamento** brandizzata mentre il font si prepara.
-- **Scelta del font (pianificata):** si vuole poterlo scegliere in Impostazioni
-  (accanto a lingua e tema). Serve caricare in `App.tsx` (`useFonts`) i `.ttf` dei
-  font alternativi e far **sovrascrivere** `tema.font` dalla scelta utente (piccolo
-  contesto/override che avvolge il tema). Non ancora implementato.
+- **Poppins** incorporato, caricato con `expo-font` in modo non bloccante.
+- Schermata di caricamento brandizzata.
+- **Scelta del font (pianificata)** in Impostazioni: caricare i `.ttf` alternativi in
+  `App.tsx` e sovrascrivere `tema.font`.
 
 ### Responsività e layout
 
-- Dimensione delle celle calcolata sul **minore** fra vincolo di **larghezza** e di
-  **altezza disponibile** → la griglia entra **sempre** insieme alla tastiera, su
-  qualsiasi schermo.
-- Impaginazione: **header in alto → blocco gioco centrato**. Griglia e tastiera stanno
-  nello **stesso contenitore centrato verticalmente** e ravvicinato (`justifyContent:
-  'center'` + `gap`), così sparisce il grande vuoto che prima restava tra griglia (in
-  alto) e tastiera (in fondo).
-- **Badge fuori dalla griglia (mobile)**: in **esperto** la griglia riserva spazio a
-  destra per il countdown; in **online** riserva spazio a **sinistra** per i **pallini
-  dell'avversario** (riserva di "colonne virtuali", `Math.max` fra le due). Corregge un
-  bug per cui su telefono il pallino **verde** usciva dal bordo sinistro.
-- **Menu scrollabile**: `SchermataMenu` è una `ScrollView` (`flexGrow:1` +
-  `justifyContent:'center'`): resta centrata quando c'è spazio, **scorre** quando non
-  ce n'è, così su schermi bassi non si perdono i pulsanti in fondo (Sfida amico,
-  Classifica, legenda) — bug corretto.
-- Contenuto **centrato e limitato in larghezza** su tablet/desktop; **target touch
-  generosi** (tasti più alti su telefono).
+- Dimensione celle = minore fra vincolo di larghezza e di altezza → griglia e tastiera
+  entrano sempre.
+- Griglia e tastiera nello stesso contenitore centrato verticalmente.
+- Riserva di "colonne virtuali" per countdown (esperto, destra) e pallini avversario
+  (online, sinistra), con `Math.max`.
+- **Menu e login scrollabili** su schermi bassi.
+- Contenuto centrato e limitato in larghezza su tablet/desktop; target touch generosi.
 
 ### Performance
 
-- Solo **`Animated` nativo** (niente Reanimated/Skia) + un unico modulo leggero
-  (**`expo-linear-gradient`**) per sfondo e pulsante.
-- Animazioni **one-shot** (nessun loop perenne), coriandoli limitati (~16
-  particelle). Pensato per **fascia media e web**.
+- Solo **`Animated` nativo** + `expo-linear-gradient`. Animazioni one-shot, coriandoli
+  limitati (~16 particelle).
 
 ### Dipendenze grafiche aggiunte
 
-- `expo-linear-gradient` (sfondo/pulsante), `expo-font` + **font Poppins locali**.
+- `expo-linear-gradient`, `expo-font` + **font Poppins locali**.

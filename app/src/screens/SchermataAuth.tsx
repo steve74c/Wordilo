@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   Text,
   TextInput,
   View,
@@ -121,111 +122,119 @@ export function SchermataAuth() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={stili.centro}
         >
-          <Text style={stili.titolo}>SpotLex</Text>
+          {/* ScrollView: la card di registrazione può essere più alta del display. */}
+          <ScrollView
+            style={stili.scroll}
+            contentContainerStyle={stili.scrollInner}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={stili.titolo}>SpotLex</Text>
 
-          <View style={[stili.card, ombra(0.4, 24, 12, 14)]}>
-            <View style={stili.toggle}>
-              <Pressable
-                onPress={() => cambiaModo('accedi')}
-                style={[stili.toggleBtn, !registra && stili.toggleAttivo]}
-              >
-                <Text style={[stili.toggleTesto, !registra && stili.toggleTestoAttivo]}>{t('accedi')}</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => cambiaModo('registrati')}
-                style={[stili.toggleBtn, registra && stili.toggleAttivo]}
-              >
-                <Text style={[stili.toggleTesto, registra && stili.toggleTestoAttivo]}>{t('registrati')}</Text>
-              </Pressable>
-            </View>
+            <View style={[stili.card, ombra(0.4, 24, 12, 14)]}>
+              <View style={stili.toggle}>
+                <Pressable
+                  onPress={() => cambiaModo('accedi')}
+                  style={[stili.toggleBtn, !registra && stili.toggleAttivo]}
+                >
+                  <Text style={[stili.toggleTesto, !registra && stili.toggleTestoAttivo]}>{t('accedi')}</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => cambiaModo('registrati')}
+                  style={[stili.toggleBtn, registra && stili.toggleAttivo]}
+                >
+                  <Text style={[stili.toggleTesto, registra && stili.toggleTestoAttivo]}>{t('registrati')}</Text>
+                </Pressable>
+              </View>
 
-            {registra && (
+              {registra && (
+                <TextInput
+                  style={stili.input}
+                  placeholder={t('nickname')}
+                  placeholderTextColor={tema.palette.testoTenue}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  maxLength={20}
+                  value={nick}
+                  onChangeText={setNick}
+                />
+              )}
+
+              {registra && (
+                <SelettoreLingua
+                  label={t('labelLinguaGioco')}
+                  opzioni={lingueDisponibili}
+                  valore={linguaGioco}
+                  onScegli={setLinguaGioco}
+                  stili={stili}
+                />
+              )}
+
+              {registra && (
+                <SelettoreLingua
+                  label={t('labelLinguaApp')}
+                  opzioni={lingueUIDisponibili}
+                  valore={linguaUI}
+                  onScegli={setLinguaUI}
+                  stili={stili}
+                />
+              )}
+
+              {registra && (
+                <SelettoreLingua
+                  label={t('sezioneTema')}
+                  opzioni={opzioniTemi}
+                  valore={temaScelto}
+                  onScegli={setTemaScelto}
+                  stili={stili}
+                />
+              )}
+
               <TextInput
                 style={stili.input}
-                placeholder={t('nickname')}
+                placeholder={t('emailPlaceholder')}
                 placeholderTextColor={tema.palette.testoTenue}
                 autoCapitalize="none"
                 autoCorrect={false}
-                maxLength={20}
-                value={nick}
-                onChangeText={setNick}
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
               />
-            )}
 
-            {registra && (
-              <SelettoreLingua
-                label={t('labelLinguaGioco')}
-                opzioni={lingueDisponibili}
-                valore={linguaGioco}
-                onScegli={setLinguaGioco}
-                stili={stili}
+              <TextInput
+                style={stili.input}
+                placeholder={t('passwordPlaceholder')}
+                placeholderTextColor={tema.palette.testoTenue}
+                secureTextEntry
+                autoCapitalize="none"
+                value={password}
+                onChangeText={setPassword}
+                onSubmitEditing={invia}
+                returnKeyType="go"
               />
-            )}
 
-            {registra && (
-              <SelettoreLingua
-                label={t('labelLinguaApp')}
-                opzioni={lingueUIDisponibili}
-                valore={linguaUI}
-                onScegli={setLinguaUI}
-                stili={stili}
-              />
-            )}
+              {errore && <Text style={stili.errore}>{errore}</Text>}
 
-            {registra && (
-              <SelettoreLingua
-                label={t('sezioneTema')}
-                opzioni={opzioniTemi}
-                valore={temaScelto}
-                onScegli={setTemaScelto}
-                stili={stili}
-              />
-            )}
-
-            <TextInput
-              style={stili.input}
-              placeholder={t('emailPlaceholder')}
-              placeholderTextColor={tema.palette.testoTenue}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-            />
-
-            <TextInput
-              style={stili.input}
-              placeholder={t('passwordPlaceholder')}
-              placeholderTextColor={tema.palette.testoTenue}
-              secureTextEntry
-              autoCapitalize="none"
-              value={password}
-              onChangeText={setPassword}
-              onSubmitEditing={invia}
-              returnKeyType="go"
-            />
-
-            {errore && <Text style={stili.errore}>{errore}</Text>}
-
-            <Pressable
-              onPress={invia}
-              disabled={busy}
-              style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.98 : 1 }], width: '100%' }]}
-            >
-              <LinearGradient
-                colors={tema.gradienti.accento}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[stili.bottone, ombra(0.35, 10, 5, 6), busy && { opacity: 0.7 }]}
+              <Pressable
+                onPress={invia}
+                disabled={busy}
+                style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.98 : 1 }], width: '100%' }]}
               >
-                {busy ? (
-                  <ActivityIndicator color={tema.palette.testoSuAccento} />
-                ) : (
-                  <Text style={stili.bottoneTesto}>{registra ? t('creaAccountBtn') : t('entraBtn')}</Text>
-                )}
-              </LinearGradient>
-            </Pressable>
-          </View>
+                <LinearGradient
+                  colors={tema.gradienti.accento}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[stili.bottone, ombra(0.35, 10, 5, 6), busy && { opacity: 0.7 }]}
+                >
+                  {busy ? (
+                    <ActivityIndicator color={tema.palette.testoSuAccento} />
+                  ) : (
+                    <Text style={stili.bottoneTesto}>{registra ? t('creaAccountBtn') : t('entraBtn')}</Text>
+                  )}
+                </LinearGradient>
+              </Pressable>
+            </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </LinearGradient>

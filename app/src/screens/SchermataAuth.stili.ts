@@ -6,7 +6,21 @@ export function creaStili(tema: Tema) {
   return StyleSheet.create({
     sfondo: { flex: 1 },
     safe: { flex: 1 },
-    centro: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+    // KeyboardAvoidingView: occupa tutto lo spazio, l'impaginazione sta nella ScrollView.
+    centro: { flex: 1 },
+    // Stile ESTERNO della ScrollView.
+    scroll: { flex: 1 },
+    // contentContainerStyle: `flexGrow: 1` + `justifyContent: 'center'` centra la
+    // card quando c'è spazio e la lascia SCORRERE quando è più alta del display
+    // (es. Registrati con nick + 3 selettori). Prima era una View centrata senza
+    // scroll: la parte alta/bassa della card veniva tagliata.
+    scrollInner: {
+      flexGrow: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+      paddingVertical: 32,
+    },
     titolo: {
       color: tema.palette.accentoSoft,
       fontSize: 40,
@@ -33,8 +47,8 @@ export function creaStili(tema: Tema) {
       padding: 4,
       marginBottom: 4,
     },
-	toggleBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
-    toggleAttivo: { backgroundColor: tema.palette.superficieAlta, borderColor: tema.palette.accento },  
+    toggleBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
+    toggleAttivo: { backgroundColor: tema.palette.superficieAlta, borderColor: tema.palette.accento },
     toggleTesto: { color: tema.palette.testoTenue, fontSize: 15, fontFamily: tema.font.medium, fontWeight: '600' },
     toggleTestoAttivo: { color: tema.palette.testo },
     campo: { gap: 6 },
@@ -54,8 +68,6 @@ export function creaStili(tema: Tema) {
     bottone: { width: '100%', paddingVertical: 15, borderRadius: 16, alignItems: 'center', marginTop: 4 },
     bottoneTesto: { color: tema.palette.testoSuAccento, fontSize: 16, fontFamily: tema.font.bold, fontWeight: '800' }, // era '#052722'
   });
-  
-    
 }
 
 export type StiliAuth = ReturnType<typeof creaStili>;

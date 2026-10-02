@@ -15,10 +15,10 @@ echo [4] npx expo start --tunnel
 echo [5] npx eas-cli build --platform android --profile preview
 echo [0] Esci
 echo.
-echo Hai 7 secondi per scegliere...
+echo Hai 10 secondi per scegliere...
 echo.
 
-choice /c 12340 /n /t 7 /d 2
+choice /c 123450 /n /t 10 /d 2
 
 
 if errorlevel 6 goto exit

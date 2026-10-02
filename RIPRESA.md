@@ -27,145 +27,94 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
   (abbandono/disconnessione = "chi lascia perde"). Dettagli completi in `SPECIFICA.md`.
 - **Temi e interfaccia**: sistema di temi (`app/src/temi/`), tema attivo via
   `TemaProvider`/`useTema`, scelto dal menu (**⚙️ → Impostazioni**). Due temi: **Vetro**
-  (glass scuro) e **Giallo** (chiaro flat, default del provider). A tema: menu, gioco,
-  login, impostazioni, loading, **e ora anche le schermate online** (Lobby, Coda
-  casuale, Classifiche; la partita online si tinge per delega a `SchermataGioco`)
-  **e il componente `Avatar`**. In pratica **tutte le schermate sono a tema**.
-  `Avatar` è stato migrato "leggero": font e bordino dal tema (`tema.font.bold`,
-  `tema.palette.hair`), tavolozza colori-persona **fissa** (colore "identità"
-  stabile per nick) e iniziali bianche (stanno su una tinta satura, non su una
-  superficie del tema). **Persistenza FATTA** (vedi sotto).
-- **Coda casuale (🎲 Gioca online):** seconda modalità online che **convive** con quella
-  col codice. Pulsanti rinominati: **🎲 Gioca online** (coda casuale) e **⚔️ Sfida amico**
-  (col codice). Un giocatore preme 🎲 e l'app lo accoppia automaticamente con un altro in
-  attesa che abbia le **stesse impostazioni** (modalità + lunghezza + lingua). **Provato
-  in app con due browser.** DB: colonna `is_public` in `matches`; Logica: `stanze.ts`
-  con `trovaOCreaStanzaPubblica`; UI: `SchermataCodaCasuale.tsx`.
-  **Anti-stanze-fantasma (Passo 1) FATTO:** se entro in una stanza il cui host è
-  sparito, allo scadere del timeout la **scarto** (lista locale passata come
-  `escludiIds` a `trovaOCreaStanzaPubblica`) e **riprovo** il matchmaking invece di
-  finire in errore (cap `MAX_RETRY`). Cura l'esperienza della vittima; la *nascita*
-  dei fantasmi non è ancora ridotta (vedi prossimi passi).
-- **Lingua della sfida ONLINE (multilingua ONLINE completo):**
-  la lingua è una **proprietà della sfida**, uguale per host e guest. Colonna `lang` in
-  `matches`; `linguaForzata` propagata fino a `useGioco`; chip 🇮🇹/🇬🇧 nella lobby;
-  la **rivincita mantiene la lingua**. **Provato in app.**
-- **Rivincita online:** a fine sfida pop-up con **🔁 Rivincita / ✓ Accetta / Rifiuta**.
-  Nuovo `matches` per ogni round; canale Realtime aperto una sola volta. **Provato su web.**
-  `creaEAvviaRivincita` (lato host) ora **riprova fino a 3 volte** prima di arrendersi
-  in caso di errore potenzialmente transitorio (dettagli sotto, sezione debito tecnico).
-  Il `console.log('[DEBUG parola]', …)` che stampava la parola in chiaro è stato
-  **commentato** in `SchermataGiocoOnline.tsx`.
-- **Rinomina pulsanti e nomi interni:**
-  - "Gioca veloce" → **"Gioca online"** (`onGiocaOnline`, `codaCasuale`, `SchermataCodaCasuale`)
-  - "Sfida online" → **"Sfida amico"** (`onSfidaAmico`)
-  - File rinominato: `SchermataCodaVeloce.tsx` → **`SchermataCodaCasuale.tsx`**
-- **Header della schermata di gioco ridisegnato** (come da figura di riferimento):
-  - Riga singola: indietro ← · **SpotLex** + `● Principiante · 5 lettere · Italiano` · pallini tentativi + contatore `2/7`
-  - **Pallini** colorati man mano che si fanno i tentativi (pieni = confermati, anello = corrente, vuoti = rimanenti)
-  - La **gomma** (↻ svuota riga) rimossa dall'header
-  - La **lingua** mostrata come testo (non emoji-bandiera, che su Windows appare come "it")
-  - Nuovo componente `PalliniTentativi` in `SchermataGioco.tsx`; stili in `SchermataGioco.stili.ts`
-  - `modalitaLabel` **tradotto**: ora usa `t('labelPrincipiante')`/`t('labelEsperto')`
-    invece di derivare la stringa a mano (`charAt(0).toUpperCase()...`), che in
-    inglese mostrava ancora "Principiante"/"Esperto". Anche "lettere" nella riga
-    sotto il titolo ora passa da `t('nLettere', { n: lunghezza })`.
-- **Tessere decorative rimosse dal menu** ("IMPOSTA LA PARTITA" rimane, ora **centrata**;
-  componente `AnteprimaTessere` rimosso da `SchermataMenu.tsx`)
-- **Preferenze lingua E TEMA sul profilo Supabase (architettura completa):**
-  - DB: colonne `lingua_ui`, `lingua_gioco` (default `'it'`) e **`tema`** (default
-    `'giallo'`, check `'giallo'|'vetro'`) su `profiles`; trigger `handle_new_user`
-    aggiornato per copiarle tutte e tre dai metadati alla registrazione, sia
-    nell'`insert` sia nell'`on conflict do update`.
-    **SQL:** `migrazione_lingue_profilo.sql` (lingue) + `migrazione_tema_profilo.sql`
-    (tema — da eseguire in Supabase SQL Editor).
-  - `AuthContext.registrati(nick, email, password, linguaGioco, linguaUI, tema)` — le
-    tre preferenze vanno nei metadati di Auth al signup.
-  - `ProfiloContext`: legge `lingua_ui`/`lingua_gioco`/`tema` dal profilo, espone
-    `aggiornaLingue(linguaUI, linguaGioco)` e **`aggiornaTema(tema)`** per il
-    salvataggio dal menu Impostazioni.
-  - `App.tsx`: componenti ponte `InizialiLingue` e **`InizialiTema`** che, **solo se
-    c'è una sessione attiva** (`sessione &&`, altrimenti sovrascrivevano il default
-    pre-login), leggono le preferenze dal profilo e le spingono nei provider
-    (`cambiaLingua` + `cambiaLinguaUI` + `cambiaTema`).
-  - `SchermataImpostazioni`: al cambio lingua chiama `aggiornaLingue` → salva sul DB;
-    al cambio tema chiama **`onCambiaTema`** (wrapper che fa `cambiaTema` + `aggiornaTema`)
-    — attenzione, il bug iniziale era che il bottone chiamava ancora `cambiaTema`
-    diretto, bypassando il salvataggio: risolto.
-  - `SchermataAuth`: **tre** selettori in fase di registrazione (lingua gioco, lingua
-    app, tema — quest'ultimo con le stesse etichette di Impostazioni, 🪟 Vetro/☀️ Giallo).
-    Bordo colorato aggiunto ai pulsanti attivi (`toggleAttivo` in
-    `SchermataAuth.stili.ts`) perché sul tema chiaro erano poco distinguibili da
-    testo semplice.
-- **Sistema i18n per la lingua dell'interfaccia (`LinguaUIContext`):**
-  - Cartella `app/src/i18n/` con tre file: `it.ts` (catalogo italiano completo,
-    ~100 chiavi, fonte di verità), `en.ts` (catalogo inglese completo), `LinguaUIContext.tsx`
-    (provider con `cambiaLinguaUI`, hook `useT()` per i testi, fallback all'italiano).
-  - `LinguaUIProvider` montato in `App.tsx` tra `TemaProvider` e `LinguaProvider`.
-  - **Tutte le schermate convertite a `t()`:** `SchermataImpostazioni`, `SchermataMenu`,
-    `SchermataGioco`, `SchermataAuth`, `SchermataClassifiche`, `SchermataLobby`,
-    `SchermataCodaCasuale`. Nessuna stringa UI cablata residua in quelle schermate —
-    inclusi i bottoni "Crea account"/"Entra" in `SchermataAuth` (nuove chiavi
-    `creaAccountBtn`/`entraBtn`) e "lettere" nell'header di gioco (`SchermataGioco`
-    ora usa `t('nLettere', { n: lunghezza })` invece di concatenare a mano).
-  - **`SchermataGiocoOnline.tsx`** non ha testi UI propri (delega a `SchermataGioco`),
-    non è stata toccata.
-  - **`app/src/online/stanze.ts` ora localizzato**: `RisultatoStanza.errore` /
-    `RisultatoCoda.errore` sono **chiavi `ChiaveTesto`**, non testo italiano cablato.
-    `stanze.ts` resta un file puro (niente `useT()`, non è un componente React): la
-    traduzione avviene nelle schermate chiamanti con `t(risultato.errore)`
-    (`SchermataLobby`, `SchermataCodaCasuale`). ~17 nuove chiavi `err*` aggiunte a
-    `it.ts`/`en.ts`.
-  - **`LEGENDA` in `SchermataMenu.tsx` — bug RISOLTO** (era `t()` fuori da un
-    componente; spostata dentro, dopo `const t = useT()`).
-  - **Lingua predefinita PRIMA del login: inglese.** `LINGUA_UI_DEFAULT` in
-    `LinguaUIContext.tsx` = `'en'`; stesso default in `LinguaContext.tsx` (lingua del
-    gioco). Chi apre l'app senza essere loggato vede "Log in / Sign up", "Game
-    language", "App language", "🎨 Theme" in inglese. **Perché funziona ora e non
-    prima:** `InizialiLingue`/`InizialiTema` in `App.tsx` erano montati sempre (anche
-    pre-login) e, leggendo da `ProfiloContext` (che senza utente resta su `'it'`),
-    sovrascrivevano subito il default inglese. Fix: aggiunto il controllo `sessione &&`
-    in tutti gli `useEffect` dei due ponti, così scattano solo dopo il login — prima
-    del login resta il default del provider.
+  (glass scuro) e **Giallo** (chiaro flat, default del provider). **Tutte le schermate
+  sono a tema** (incluse online e `Avatar`). Tema e lingue **persistiti** su `profiles`.
+- **Coda casuale (🎲 Gioca online)** + **Sfida amico (⚔️, col codice)**, con retry
+  anti-stanze-fantasma (Passo 1), **lingua della sfida** (`matches.lang`), **rivincita**
+  (con retry automatico lato host).
+- **i18n completo** (`app/src/i18n/`, `useT()`), default pre-login **inglese**.
+- **Header di gioco** ridisegnato (pallini tentativi + contatore `X/max`).
+
+### ✅ Fatto nella sessione del 2026-10-02
+
+1. **Login/registrazione scrollabile.** `SchermataAuth` ora mette titolo + card in una
+   `ScrollView` (`flexGrow:1` + `justifyContent:'center'` nello stile `scrollInner`,
+   `keyboardShouldPersistTaps="handled"`), dentro il `KeyboardAvoidingView`. Prima la
+   card di registrazione (nick + 3 selettori) veniva tagliata su schermi bassi.
+2. **💰 Economia MONETE (partite da solo) — lato server.**
+   - **Regole:** vinta al tentativo 1..6 → principiante **100/70/50/30/0/0**, esperto
+     **200/150/100/60/0/0**; persa → **−20** (principiante) / **−40** (esperto).
+     Nuovo giocatore: **100 monete**. Le monete **possono andare in negativo**.
+   - **Giocare online costa 20 monete** (sia 🎲 Gioca online sia ⚔️ Sfida amico);
+     serve saldo **≥ 20**.
+   - **DB** (script `supabase_monete_punti.sql`, **eseguito**): colonna
+     `profiles.monete` (default 100) protetta dal trigger `_proteggi_monete` (l'app non
+     può modificarla, solo le funzioni); tabella storico **`movimenti_monete`** (RLS:
+     ognuno legge i propri); funzioni RPC **`registra_partita_solo(p_modalita,
+     p_vinta, p_tentativi)`** (→ `{premio, saldo}`, anti-spam 5s) e
+     **`paga_ingresso_online(p_match_id)`** (idempotente: si paga una volta per partita).
+   - **App:** nuovo modulo `app/src/economia/economia.ts` (`registraPartitaSolo`,
+     `pagaIngressoOnline`, hook `useSaldo()`, costante `COSTO_ONLINE = 20`).
+     `SchermataGioco` registra la partita **una sola volta** a fine partita (solo
+     single player, guardia `moneteRegistrate` che si azzera con "Nuova partita") e
+     mostra nel pop-up **+70 🪙** (verde) / **−20 🪙** (arancione).
+     `SpotLex.tsx` scala le 20 monete **all'ingresso in partita** (`entraInPartitaOnline`,
+     dopo la stretta di mano); se fallisce torna al menu con un avviso.
+     `SchermataMenu` mostra due chip **🪙 monete · ⭐ punti** e **disattiva** i pulsanti
+     online (con "🪙 20" sotto) se le monete sono < 20.
+3. **Punti ONLINE cambiati:** vinta **+10**, persa **−10**, pareggio **0** (prima
+   10/0/5). Stessa regola per coda casuale e sfida amico. Valori in
+   `game_settings.points_win/lose/draw` (aggiornati dallo script). Il sistema punti
+   online **esistente** resta quello (righe `games` + `leaderboard_points`).
+4. **Tentativi: da 7 a 6** (deciso). Va applicato in `game_settings.max_attempts` e
+   nel default del core (vedi "Cosa manca").
+
+### Dove si cambiano i valori (promemoria)
+
+- **Monete per tentativo / sconfitta:** dentro la funzione SQL `registra_partita_solo`
+  (array `v_base`, `v_esperto`, variabili `v_persa_base`, `v_persa_esperto`). Si
+  modifica rieseguendo **solo** il blocco `create or replace function ...` nel SQL
+  Editor (query salvata in Supabase).
+- **Costo online (20):** funzione `paga_ingresso_online` **e** `COSTO_ONLINE` in
+  `economia.ts` (tenerli uguali).
+- **Monete iniziali (100):** `default 100` della colonna **e** funzione `_proteggi_monete`.
+- **Punti online:** Table Editor → `game_settings`.
+- **Saldo di un giocatore:** Table Editor → `profiles.monete` (dalla dashboard si può;
+  la correzione manuale non compare in `movimenti_monete`).
 
 ## Cosa manca / prossimi passi (in ordine consigliato)
 
-1. **Scelta del font** in Impostazioni (accanto a lingua e tema).
-2. **Coda casuale — ridurre la nascita dei fantasmi (opzionale, Passo 2)**: il retry
-   del Passo 1 cura la vittima ma i fantasmi nascono ancora. Idee: chiudere la stanza
-   dell'host su chiusura scheda web (`beforeunload` → `annullaStanza`, best-effort)
-   e/o accorciare il timeout della **sola** coda (~5s) per rendere il retry più rapido.
-
-> ✅ **Fatto in questa sessione:** *Temi sulle schermate online + `Avatar`.* Alla
-> verifica, Lobby/Coda casuale/Classifiche/GiocoOnline erano **già a tema** (la
-> specifica era rimasta indietro): restava solo `Avatar`, ora migrato. Con questo
-> il sistema temi copre **tutte** le schermate.
->
-> ✅ **Fatto in questa sessione (2):** *Coda casuale — retry anti-stanze-fantasma
-> (Passo 1).* Se il guest entra in una stanza con host sparito, non va più in errore:
-> scarta la stanza e riprova (`escludiIds` + `MAX_RETRY`). File toccati: `stanze.ts`
-> (nuovo param `escludiIds`) e `SchermataCodaCasuale.tsx`. Resta opzionale il Passo 2
-> (ridurre la nascita dei fantasmi).
->
-> ✅ **Fatto in questa sessione (3):** *Classifica bravura in UI.* `SchermataClassifiche`
-> ora ha **due tab Punti/Bravura**. Nuova `leggiClassificaBravura` (vista
-> `leaderboard_skill`: `win_rate` + soglia minima partite); riga bravura con **% di
-> vittorie** (win_rate normalizzato: se ≤1 ×100); cache per tab. File toccati:
-> `classifiche.ts`, `SchermataClassifiche.tsx`, `SchermataClassifiche.stili.ts` (+ chiavi
-> i18n `tabPunti`/`tabBravura`/`percVittorie` in `it.ts`/`en.ts`).
+1. **Completare il passaggio a 6 tentativi:** `update game_settings set max_attempts = 6;`
+   + aggiornare il default in `@SpotLex/core` (`CONFIG_DEFAULT`, usato come fallback
+   offline). Serve vedere `hooks/useGioco.ts` / il config del core.
+2. **Chiavi i18n nuove** da aggiungere in `it.ts`/`en.ts`: `monete`, `puntiOnline`,
+   `moneteInsufficienti` (es. "Servono 20 monete per giocare online"),
+   `erroreIngressoOnline`.
+3. **Bug in `SchermataLobby.onCrea`:** dopo `creaStanza` fa `setRuolo('guest')`, deve
+   essere **`setRuolo('host')`** (copia-incolla da `onEntra`) — altrimenti chi crea la
+   stanza non vede il proprio codice. **Da correggere/verificare.**
+4. **Fallback punti online** in `SchermataGiocoOnline` (C5b): legge `game_settings` con
+   fallback **10/0/5** → aggiornarlo a **10/−10/0**.
+5. **Verifica in app** dell'economia: menu (chip saldo), pop-up premio, blocco sotto 20,
+   pagamento all'ingresso (due browser).
+6. **Scelta del font** in Impostazioni (accanto a lingua e tema).
+7. **Coda casuale — Passo 2 (opzionale):** ridurre la nascita delle stanze fantasma
+   (`beforeunload` → `annullaStanza`, timeout coda ~5s).
 
 ## Punti dove si può migliorare (debito tecnico / idee)
 
-- **Rivincita — retry automatico FATTO**: `creaEAvviaRivincita` in
-  `SchermataGiocoOnline.tsx` ora riprova fino a **3 volte** (pausa crescente
-  0,7s/1,4s) prima di arrendersi, ma **solo** per errori potenzialmente transitori
-  (rete/parola/insert) — non per `errLoggatoRivincita`/`errSoloHostRivincita`
-  (errori di permessi, un retry non li risolverebbe). Solo dopo aver esaurito i
-  tentativi scatta il rifiuto automatico verso l'avversario, come prima.
-- **Affinamento bersagli del dizionario**: riallineare l'italiano con `wordfreq`
-  (stesso metodo usato per l'inglese); ripulire nomi propri/forestierismi. *Non
-  ancora affrontato.*
-- **Online v2 (anti-cheat)**: spostare scelta parola + valutazione in un'Edge Function.
+- **Anti-cheat monete:** oggi il pagamento d'ingresso è chiamato dal **client**
+  (`SpotLex.tsx`); un client modificato potrebbe saltarlo. Più robusto: spostare
+  `paga_ingresso_online` **dentro** le RPC/insert di creazione/ingresso stanza.
+  Anche l'esito single player è dichiarato dal client (limite intrinseco del single
+  player offline-first; mitigato da anti-spam 5s e validazione tentativi 1..6).
+- **Pagamento fallito dopo la stretta di mano:** il giocatore torna al menu ma
+  l'avversario resta nella partita (raro: il menu blocca già sotto 20). Gestirlo come
+  abbandono.
+- **Affinamento bersagli del dizionario** (italiano con `wordfreq`).
+- **Online v2 (anti-cheat):** scelta parola + valutazione in un'Edge Function.
+- **Aggiornamento Expo** disponibile (57.0.23 → 57.0.26): farlo a parte con
+  `npx expo install --fix` quando tutto funziona.
 
 ## Stack e convenzioni da rispettare
 
@@ -173,40 +122,38 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
 - **Backend**: Supabase (Auth, Postgres, Realtime, Storage, Edge Functions).
 - **Nomi in italiano** nel codice — mantieni lo stile esistente.
 - **Il `core` resta puro**: niente effetti/React. La lingua viaggia come parametro.
-- **Due lingue indipendenti:**
-  - `LinguaProvider` / `useLingua()` → lingua del **gioco** (parole, dizionario)
-  - `LinguaUIProvider` / `useT()` → lingua dell'**interfaccia** (testi UI)
-  - Entrambe salvate su `profiles` (`lingua_gioco`, `lingua_ui`); lette all'avvio
-    da `ProfiloContext` e spinte nei provider da `InizialiLingue` in `App.tsx`
-    (solo con sessione attiva). **Default pre-login: `'en'`** per entrambe.
-- **Tema** salvato su `profiles.tema` (default `'giallo'`); spinto da `InizialiTema`
-  in `App.tsx` (stesso meccanismo delle lingue, gemello di `InizialiLingue`).
-- **`useT()` dentro i componenti, mai a livello di modulo** — `t()` è un hook React.
-- **File "puri" (non componenti React, es. `stanze.ts`) non traducono da soli**:
-  ritornano una **chiave** `ChiaveTesto`; la traduzione avviene nel chiamante con
-  `t(chiave)`. Pattern da riusare per eventuali altri file di logica online/dati.
+- **Due lingue indipendenti:** `LinguaProvider`/`useLingua()` (gioco) e
+  `LinguaUIProvider`/`useT()` (interfaccia), salvate su `profiles`; default pre-login `'en'`.
+- **Tema** su `profiles.tema` (default `'giallo'`), spinto da `InizialiTema`.
+- **`useT()` e qualsiasi hook/chiamata che usa props o stato vanno DENTRO i
+  componenti**, mai a livello di modulo (oggi due crash per chiamate messe in cima al
+  file: `modalita is not defined`, `sfida is not defined`).
+- **File "puri"** (es. `stanze.ts`, `economia.ts`) non traducono: ritornano chiavi/codici.
+- **Monete e punti si calcolano sul server** (funzioni SQL `security definer`); l'app
+  invia solo l'esito. Le colonne di saldo non sono scrivibili dal client.
 - **Online v1 = parola sul client**; anti-cheat vero = v2.
-- **Due accoppiamenti online:** codice-stanza (`onSfidaAmico`) e coda casuale
-  (`onGiocaOnline`). Le stanze della coda hanno `matches.is_public = true`.
 - **Esito arbitrato dall'host**; chi lascia perde; rivincita = nuovo match creato
   sempre dall'host (RLS).
 - **Sicurezza**: chiave `anon` protetta da RLS; `service_role` mai nell'app.
+- **Nomi reali del DB:** tabella profili = **`profiles`** (non `profili`); partite =
+  `matches` (`host_id`, `guest_id`, `room_code`, `winner_id`, `is_draw`).
 
 ## Come voglio che lavoriamo (metodo)
 
 1. **Un (sotto-)passo alla volta.** Fai un pezzo, spiegami cosa fa e come provarlo,
    poi **aspetta la mia conferma** prima di andare avanti.
 2. **Non hai il codice nel tuo contesto.** Prima di modificare un file, **chiedimi di
-   incollartelo**. Consegnami **file completi "drop-in"** oppure modifiche puntuali.
+   incollartelo**. Consegnami **file completi "drop-in"** oppure modifiche puntuali,
+   dicendo **esattamente dove** vanno (dentro quale componente/funzione).
 3. **Verifica a ogni passo**: dimmi cosa devo vedere/controllare.
-4. **Spiega con parole semplici** le parti backend/SQL.
+4. **Spiega con parole semplici** le parti backend/SQL. Prima di scrivere SQL,
+   **verifica i nomi reali** di tabelle/colonne.
 5. Se qualcosa dà errore, te lo incollo e lo risolviamo prima di proseguire.
 
 ## Come iniziare
 
-Leggi la specifica, poi **riassumimi in poche righe dove siamo** (per confermare che
-il contesto è chiaro). I temi sono ora completi su **tutte** le schermate, quindi il
-prossimo punto naturale è la **scelta del font** in Impostazioni (oppure il Passo 2
-opzionale sulla coda casuale — ridurre la nascita dei fantasmi). Dimmi tu da dove
-ripartire, con lo stesso metodo: un sotto-passo alla volta, chiedendomi i file prima
-di modificarli.
+Leggi la specifica, poi **riassumimi in poche righe dove siamo**. Il prossimo punto
+naturale è **chiudere il passaggio a 6 tentativi** e le **chiavi i18n** delle monete,
+poi correggere il **bug `setRuolo` in `SchermataLobby`** e **verificare l'economia in
+app**. Dopo: scelta del font. Un sotto-passo alla volta, chiedendomi i file prima di
+modificarli.

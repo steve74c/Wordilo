@@ -13,30 +13,27 @@ import { useAuth } from '../auth/AuthContext';
 import { Avatar } from '../components/Avatar';
 import { useProfilo } from '../profilo/ProfiloContext';
 import { useT } from '../i18n/LinguaUIContext';
- 
+import { COSTO_ONLINE, useSaldo } from '../economia/economia';
+
 // -----------------------------------------------------------------------------
-// Prima "finestra": titolo serif con bagliore, card con anteprima tessere +
-// selezione lunghezza/modalità, pulsante Gioca, contatori (giocate/vinte/perse),
-// azioni online (Sfida amico + Classifica) e legenda. Nessuna logica di gioco.
-//
-// Lotto 2: migrata al sistema temi (useTema + creaStili) e aggiunto il pulsante
-// ⚙️ Impostazioni (accanto a Esci) che apre la scelta del tema.
+// Prima "finestra": titolo serif con bagliore, saldo (🪙 monete · ⭐ punti), card
+// con selezione lunghezza/modalità, pulsante Gioca, contatori, azioni online
+// (bloccate se monete < COSTO_ONLINE) e legenda. Nessuna logica di gioco.
 // -----------------------------------------------------------------------------
- 
+
 type Props = {
   onGioca: (modalita: Modalita, lunghezza: LunghezzaParola) => void;
-  onGiocaOnline?: (modalita: Modalita, lunghezza: LunghezzaParola) => void; // 🎲 coda casuale (trova avversario)
-  onSfidaAmico?: (modalita: Modalita, lunghezza: LunghezzaParola) => void; // (1b): apre la lobby (col codice)
+  onGiocaOnline?: (modalita: Modalita, lunghezza: LunghezzaParola) => void; // 🎲 coda casuale
+  onSfidaAmico?: (modalita: Modalita, lunghezza: LunghezzaParola) => void; // (1b): lobby col codice
   onClassifiche?: () => void;         // (C6): apre la schermata classifiche
-  onApriImpostazioni?: () => void;    // NEW (Lotto 2): apre le Impostazioni (tema)
+  onApriImpostazioni?: () => void;    // (Lotto 2): apre le Impostazioni (tema)
+  avviso?: string | null;             // es. "Monete insufficienti"
   lunghezzaIniziale?: LunghezzaParola;
   modalitaIniziale?: Modalita;
 };
- 
-const LUNGHEZZE: LunghezzaParola[] = [5, 6];
- 
 
- 
+const LUNGHEZZE: LunghezzaParola[] = [5, 6];
+
 // Pillola selezionabile: attiva = gradiente accento, inerte = superficie.
 function Pillola({
   label,
@@ -76,9 +73,7 @@ function Pillola({
     </Pressable>
   );
 }
- 
- 
- 
+
 // Contatore singolo in stile "badge".
 function CartaStat({
   numero,
@@ -101,38 +96,42 @@ function CartaStat({
     </View>
   );
 }
- 
+
 export function SchermataMenu({
   onGioca,
   onGiocaOnline,
   onSfidaAmico,
   onClassifiche,
   onApriImpostazioni,
+  avviso,
   lunghezzaIniziale = 5,
   modalitaIniziale = 'principiante',
 }: Props) {
   const tema = useTema();
   const t = useT();
   const LEGENDA: { colore: Colore; label: string }[] = [
-  { colore: 'green', label: t('legendaGiusta') },
-  { colore: 'orange', label: t('legendaSpostata') },
-  { colore: 'grey', label: t('legendaAssente') },
-	];
+    { colore: 'green', label: t('legendaGiusta') },
+    { colore: 'orange', label: t('legendaSpostata') },
+    { colore: 'grey', label: t('legendaAssente') },
+  ];
   const stili = useMemo(() => creaStili(tema), [tema]);
- 
+
   const [lunghezza, setLunghezza] = useState<LunghezzaParola>(lunghezzaIniziale);
   const [modalita, setModalita] = useState<Modalita>(modalitaIniziale);
   const { giocate, vinte, perse } = useStatistiche();
   const { sessione, esci } = useAuth();
   const { nick: nickProfilo, avatarUrl, nome, cognome, caricando, cambiaAvatar } = useProfilo();
-  // Il nick viene dal profilo (c'è per tutti, anche per gli utenti Google).
   const nickMeta = sessione?.user?.user_metadata?.nick as string | undefined;
   const nick = nickProfilo ?? nickMeta ?? t('giocatore');
- 
-  // Colore dello stato (legenda/pallini) dal tema attivo, non più statico.
+
+  // Saldo: il menu si rimonta a ogni ritorno, quindi si aggiorna da solo.
+  const { monete, punti } = useSaldo();
+  // Finché il saldo non è caricato non blocchiamo (il server controlla comunque).
+  const moneteScarse = monete !== null && monete < COSTO_ONLINE;
+
   const coloreStato = (c: Colore): string =>
     c === 'green' ? tema.palette.verde : c === 'orange' ? tema.palette.arancione : tema.palette.grigio;
- 
+
   return (
     <LinearGradient colors={tema.gradienti.sfondo} style={stili.sfondo}>
       <SafeAreaView style={stili.safe}>
@@ -150,7 +149,7 @@ export function SchermataMenu({
               <Text style={stili.salutoNick}>{nick}</Text>
             </Text>
           </View>
- 
+
           <View style={stili.destra}>
             {onApriImpostazioni && (
               <Pressable
@@ -170,7 +169,7 @@ export function SchermataMenu({
             </Pressable>
           </View>
         </View>
- 
+
         <ScrollView
           style={stili.contenuto}
           contentContainerStyle={stili.contenutoInner}
@@ -186,11 +185,27 @@ export function SchermataMenu({
               <View style={stili.divLinea} />
             </View>
           </View>
- 
+
+          {/* Saldo: 🪙 monete (da solo) · ⭐ punti (online) */}
+          <View style={stili.saldoRiga}>
+            <View style={stili.saldoChip}>
+              <Text style={[stili.saldoTesto, monete !== null && monete < 0 && stili.saldoNegativo]}>
+                🪙 {monete ?? '…'}
+              </Text>
+              <Text style={stili.saldoLabel}>{t('monete')}</Text>
+            </View>
+            <View style={stili.saldoChip}>
+              <Text style={[stili.saldoTesto, punti !== null && punti < 0 && stili.saldoNegativo]}>
+                ⭐ {punti ?? '…'}
+              </Text>
+              <Text style={stili.saldoLabel}>{t('puntiOnline')}</Text>
+            </View>
+          </View>
+
           {/* Card */}
           <View style={[stili.card, ombra(0.45, 26, 14, 12)]}>
             <Text style={[stili.eyebrow, { textAlign: 'center' }]}>{t('impostaPartita')}</Text>
- 
+
             <Text style={stili.etichetta}>{t('lunghezzaParola')}</Text>
             <View style={stili.riga}>
               {LUNGHEZZE.map((n) => (
@@ -204,7 +219,7 @@ export function SchermataMenu({
                 />
               ))}
             </View>
- 
+
             <Text style={[stili.etichetta, stili.etichettaSpazio]}>{t('modalita')}</Text>
             <View style={stili.riga}>
               <Pillola
@@ -222,7 +237,7 @@ export function SchermataMenu({
                 gradiente={tema.gradienti.accento}
               />
             </View>
- 
+
             <Pressable
               onPress={() => onGioca(modalita, lunghezza)}
               style={({ pressed }) => [stili.giocaWrap, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}
@@ -237,17 +252,20 @@ export function SchermataMenu({
               </LinearGradient>
             </Pressable>
           </View>
- 
+
           {/* Contatori */}
           <View style={stili.stats}>
             <CartaStat numero={giocate} label={t('giocate')} colore={tema.palette.accentoSoft} stili={stili} />
             <CartaStat numero={vinte} label={t('vinte')} colore={tema.palette.verde} stili={stili} />
             <CartaStat numero={perse} label={t('perse')} colore={tema.palette.arancione} stili={stili} />
           </View>
- 
-          {/* Azioni online (🎲 Gioca online = coda casuale · ⚔️ Sfida amico = col
-              codice) su una riga; 🏆 Classifica sulla sua. La modalità/lunghezza
-              scelte sopra valgono anche per l'online. */}
+
+          {/* Avviso (es. monete insufficienti o errore d'ingresso online) */}
+          {(avviso || moneteScarse) && (
+            <Text style={stili.avviso}>{avviso ?? t('moneteInsufficienti')}</Text>
+          )}
+
+          {/* Azioni online: costano COSTO_ONLINE monete, bloccate se non bastano. */}
           {(onGiocaOnline || onSfidaAmico || onClassifiche) && (
             <View style={stili.azioniGruppo}>
               {(onGiocaOnline || onSfidaAmico) && (
@@ -255,17 +273,29 @@ export function SchermataMenu({
                   {onGiocaOnline && (
                     <Pressable
                       onPress={() => onGiocaOnline(modalita, lunghezza)}
-                      style={({ pressed }) => [stili.azioneBtn, { opacity: pressed ? 0.8 : 1 }]}
+                      disabled={moneteScarse}
+                      style={({ pressed }) => [
+                        stili.azioneBtn,
+                        moneteScarse && stili.azioneDisabilitata,
+                        { opacity: moneteScarse ? 0.45 : pressed ? 0.8 : 1 },
+                      ]}
                     >
                       <Text style={stili.azioneTesto}>{t('giocaOnline')}</Text>
+                      <Text style={stili.azioneCosto}>🪙 {COSTO_ONLINE}</Text>
                     </Pressable>
                   )}
                   {onSfidaAmico && (
                     <Pressable
                       onPress={() => onSfidaAmico(modalita, lunghezza)}
-                      style={({ pressed }) => [stili.azioneBtn, { opacity: pressed ? 0.8 : 1 }]}
+                      disabled={moneteScarse}
+                      style={({ pressed }) => [
+                        stili.azioneBtn,
+                        moneteScarse && stili.azioneDisabilitata,
+                        { opacity: moneteScarse ? 0.45 : pressed ? 0.8 : 1 },
+                      ]}
                     >
                       <Text style={stili.azioneTesto}>{t('sfidaAmico')}</Text>
+                      <Text style={stili.azioneCosto}>🪙 {COSTO_ONLINE}</Text>
                     </Pressable>
                   )}
                 </View>
@@ -282,7 +312,7 @@ export function SchermataMenu({
               )}
             </View>
           )}
- 
+
           {/* Legenda */}
           <View style={stili.legenda}>
             {LEGENDA.map((v) => (
@@ -297,4 +327,3 @@ export function SchermataMenu({
     </LinearGradient>
   );
 }
- 

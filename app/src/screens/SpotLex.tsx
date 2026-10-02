@@ -9,10 +9,13 @@ import { SchermataCodaCasuale } from './SchermataCodaCasuale'; // 🎲 coda casu
 import { SchermataImpostazioni } from './SchermataImpostazioni'; // NEW (Lotto 2)
 import { SchermataGiocoOnline } from '../online/SchermataGiocoOnline';
 import type { Sfida } from '../online/stanze';
+import { pagaIngressoOnline } from '../economia/economia';
+import { useT } from '../i18n/LinguaUIContext';
 
 type Config = { modalita: Modalita; lunghezza: LunghezzaParola };
 
 export function SpotLex() {
+  const t = useT();
   const [config, setConfig] = useState<Config | null>(null);
   const [lobby, setLobby] = useState<Config | null>(null);            // (1b): lobby online (col codice)
   const [codaCasuale, setCodaCasuale] = useState<Config | null>(null);  // 🎲 coda casuale (Gioca online)
@@ -20,11 +23,25 @@ export function SpotLex() {
   const [vediClassifiche, setVediClassifiche] = useState(false);      // (C6)
   const [mostraImpostazioni, setMostraImpostazioni] = useState(false); // NEW (Lotto 2)
   const [mioUserId, setMioUserId] = useState<string | null>(null);    // (C6): evidenzia la mia riga
+  const [avviso, setAvviso] = useState<string | null>(null);          // messaggio mostrato nel menu
 
   // Chi sono (serve solo per evidenziare la propria riga in classifica).
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setMioUserId(data?.user?.id ?? null));
   }, []);
+
+  // Ingresso in una partita online (lobby o coda casuale): prima si pagano le
+  // 20 monete. Se il pagamento fallisce si torna al menu con un avviso.
+  const entraInPartitaOnline = async (sfida: Sfida, chiudi: () => void) => {
+    const r = await pagaIngressoOnline(sfida.id);
+    chiudi();
+    if (!r.ok) {
+      setAvviso(r.errore === 'MONETE_INSUFFICIENTI' ? t('moneteInsufficienti') : t('erroreIngressoOnline'));
+      return;
+    }
+    setAvviso(null);
+    setSfidaOnline(sfida);
+  };
 
   // NEW (Lotto 2): schermata Impostazioni (scelta tema) a tutto schermo.
   if (mostraImpostazioni) {
@@ -52,32 +69,25 @@ export function SpotLex() {
   }
 
   // (1b): lobby online (crea/entra + attesa avversario). Quando la stretta di
-  // mano è completa, passa la sfida al router → parte SchermataGiocoOnline.
+  // mano è completa, si pagano le monete e parte SchermataGiocoOnline.
   if (lobby) {
     return (
       <SchermataLobby
         modalita={lobby.modalita}
         lunghezza={lobby.lunghezza}
-        onEntraInPartita={(sfida) => {
-          setLobby(null);
-          setSfidaOnline(sfida);
-        }}
+        onEntraInPartita={(sfida) => entraInPartitaOnline(sfida, () => setLobby(null))}
         onIndietro={() => setLobby(null)}
       />
     );
   }
 
-  // 🎲 Coda casuale (Gioca online): matchmaking senza codice. Come la lobby,
-  // quando la stretta di mano è completa passa la sfida → SchermataGiocoOnline.
+  // 🎲 Coda casuale (Gioca online): matchmaking senza codice. Come la lobby.
   if (codaCasuale) {
     return (
       <SchermataCodaCasuale
         modalita={codaCasuale.modalita}
         lunghezza={codaCasuale.lunghezza}
-        onEntraInPartita={(sfida) => {
-          setCodaCasuale(null);
-          setSfidaOnline(sfida);
-        }}
+        onEntraInPartita={(sfida) => entraInPartitaOnline(sfida, () => setCodaCasuale(null))}
         onIndietro={() => setCodaCasuale(null)}
       />
     );
@@ -86,9 +96,19 @@ export function SpotLex() {
   if (!config) {
     return (
       <SchermataMenu
-        onGioca={(modalita, lunghezza) => setConfig({ modalita, lunghezza })}
-        onGiocaOnline={(modalita, lunghezza) => setCodaCasuale({ modalita, lunghezza })} // 🎲 coda casuale
-        onSfidaAmico={(modalita, lunghezza) => setLobby({ modalita, lunghezza })} // (1b) col codice
+        avviso={avviso}
+        onGioca={(modalita, lunghezza) => {
+          setAvviso(null);
+          setConfig({ modalita, lunghezza });
+        }}
+        onGiocaOnline={(modalita, lunghezza) => {
+          setAvviso(null);
+          setCodaCasuale({ modalita, lunghezza }); // 🎲 coda casuale
+        }}
+        onSfidaAmico={(modalita, lunghezza) => {
+          setAvviso(null);
+          setLobby({ modalita, lunghezza }); // (1b) col codice
+        }}
         onClassifiche={() => setVediClassifiche(true)}         // (C6)
         onApriImpostazioni={() => setMostraImpostazioni(true)} // NEW (Lotto 2)
       />

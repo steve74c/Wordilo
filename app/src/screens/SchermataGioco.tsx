@@ -24,12 +24,13 @@ import { creaStili } from './SchermataGioco.stili';
 import type { StiliGioco } from './SchermataGioco.stili';
 import { useControlliLingua } from '../lingua/LinguaContext';
 import { useT } from '../i18n/LinguaUIContext';
- 
+import { registraPartitaSolo } from '../economia/economia';
+
 type Props = {
   modalita?: Modalita;
   lunghezza?: LunghezzaParola;
   onIndietro?: () => void; // torna al menu
- 
+
   // --- Online (tutte opzionali: se assenti, è il single player di sempre) ---
   parolaForzata?: string;   // la parola condivisa della stanza
   linguaForzata?: CodiceLingua; // la lingua della sfida (valida i tentativi su questa)
@@ -38,16 +39,16 @@ type Props = {
   righeAvversario?: Record<number, { verdi: number; arancioni: number }>;      // online: pallini avversario
   onPartitaFinita?: (indovinato: boolean, tentativi: number) => void;          // online: ho finito
   esitoOnline?: 'vinta' | 'persa' | 'pareggio' | null;                         // online: verdetto condiviso (host)
- 
+
   // --- Rivincita (online) ---
   statoRivincita?: 'idle' | 'inviata' | 'ricevuta' | 'in-avvio' | 'rifiutata';
   onRichiediRivincita?: () => void;
   onAccettaRivincita?: () => void;
   onRifiutaRivincita?: () => void;
 };
- 
+
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
- 
+
 // Fila di pallini = tentativi. Pieni = tentativi già fatti; il tentativo corrente
 // (se la partita è in corso) ha un anello; i restanti sono vuoti.
 function PalliniTentativi({
@@ -79,7 +80,7 @@ function PalliniTentativi({
     </View>
   );
 }
- 
+
 export function SchermataGioco({
   modalita = 'principiante',
   lunghezza = 5,
@@ -98,8 +99,7 @@ export function SchermataGioco({
 }: Props) {
   const tema = useTema();
   const stili = useMemo(() => creaStili(tema), [tema]);
- 
- 
+
   // Lingua da mostrare nell'header: quella della SFIDA se online (linguaForzata),
   // altrimenti quella dell'app. Mostro il NOME (testo) e non l'emoji-bandiera,
   // perché le bandierine non vengono disegnate su tutte le piattaforme (es. Windows/web).
@@ -108,47 +108,44 @@ export function SchermataGioco({
   const t = useT();
   const nomeLingua =
     lingueDisponibili.find((l) => l.codice === linguaMostrata)?.nome ?? linguaMostrata.toUpperCase();
-	
-	
+
   const { registra } = useStatistiche();
   const { stato, problema, scossa, secondiRimasti, tastiera, digita, cancella, conferma, nuovaPartita } =
     useGioco(modalita, lunghezza, registra, parolaForzata, linguaForzata); // ← 4°: parola online · 5°: lingua della sfida
   const finita = stato.esito !== 'in_corso';
   const vinta = stato.esito === 'won';
- 
+
   // Online: la partita è "bloccata" se ho finito io OPPURE se è arrivato il verdetto
   // (es. l'avversario ha indovinato per primo mentre stavo ancora giocando).
   const bloccato = finita || (online && esitoOnline != null);
- 
+
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const righe = stato.maxTentativi;
- 
+
   const altezzaTasto = width < 600 ? 52 : 46;
   const keyboardH = altezzaTasto * 3 + 16;
- 
+
   const HEADER_H = 92;
   const AVVISO_H = 34;
   const CONTORNO_V = 28 + 24;
-  
+
   const altezzaUtile = height - insets.top - insets.bottom;
-  const spazioGriglia = Math.max(140, altezzaUtile - HEADER_H - AVVISO_H - keyboardH - CONTORNO_V); 
+  const spazioGriglia = Math.max(140, altezzaUtile - HEADER_H - AVVISO_H - keyboardH - CONTORNO_V);
 
   const gapRiga = 0.16;
   const latoAltezza = spazioGriglia / (righe + (righe - 1) * gapRiga);
   // Riserva di colonne "virtuali" per fare spazio ai badge che stanno FUORI
   // dalla griglia (la griglia è centrata): il countdown esperto a destra e —
-  // soprattutto su mobile — i pallini dell'avversario a sinistra. Senza riserva
-  // la griglia riempie lo schermo e i pallini (verde in testa) finivano tagliati
-  // fuori dal bordo. Uso il max, non la somma, così con esperto+online le celle
-  // non diventano minuscole: una riserva sufficiente copre entrambi i lati.
+  // soprattutto su mobile — i pallini dell'avversario a sinistra. Uso il max,
+  // non la somma, così con esperto+online le celle non diventano minuscole.
   const riservaEsperto = modalita === 'esperto' ? 2 : 0;
   const riservaOnline = online ? 3 : 0;
   const riserva = Math.max(riservaEsperto, riservaOnline);
   const latoLarghezza =
     (Math.min(width - 24, 470) - 6 * (lunghezza - 1)) / (lunghezza + riserva);
   const lato = clamp(Math.min(latoLarghezza, latoAltezza), 30, 64);
- 
+
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const onKey = (e: KeyboardEvent) => {
@@ -160,7 +157,7 @@ export function SchermataGioco({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [bloccato, conferma, cancella, digita]);
- 
+
   // Online: ogni volta che compare una NUOVA riga confermata, spedisci il suo
   // riepilogo (verdi/arancioni) al canale. Salta le righe perse per timeout.
   const righeInviate = useRef(0);
@@ -175,7 +172,7 @@ export function SchermataGioco({
     }
     righeInviate.current = stato.righe.length;
   }, [stato.righe, onRigaConfermata]);
- 
+
   // Online: appena la MIA partita finisce, avvisa il contenitore (una volta sola).
   const notificato = useRef(false);
   useEffect(() => {
@@ -185,12 +182,31 @@ export function SchermataGioco({
       onPartitaFinita(vinta, stato.righe.length);
     }
   }, [online, finita, vinta, onPartitaFinita, stato.righe.length]);
- 
+
+  // 🪙 MONETE (solo partite da solo): a fine partita registra l'esito su
+  // Supabase, che calcola il premio. La guardia evita doppie registrazioni; si
+  // azzera quando parte una "Nuova partita" (finita torna false).
+  const [premioMonete, setPremioMonete] = useState<number | null>(null);
+  const moneteRegistrate = useRef(false);
+  useEffect(() => {
+    if (online) return;
+    if (!finita) {
+      moneteRegistrate.current = false;
+      setPremioMonete(null);
+      return;
+    }
+    if (moneteRegistrate.current) return;
+    moneteRegistrate.current = true;
+    registraPartitaSolo(modalita, vinta, stato.righe.length).then((r) => {
+      if (r.ok) setPremioMonete(r.valore.premio);
+    });
+  }, [online, finita, vinta, modalita, stato.righe.length]);
+
   // Esito da mostrare nel pop-up: online = verdetto condiviso; altrimenti locale.
   const esitoFin: 'vinta' | 'persa' | 'pareggio' =
     online ? esitoOnline ?? 'persa' : vinta ? 'vinta' : 'persa';
   const haVinto = esitoFin === 'vinta';
- 
+
   // Quando aprire il pop-up: single → appena finisco; online → all'arrivo dell'esito.
   const prontoPopup = online ? esitoOnline != null : finita;
   const [popup, setPopup] = useState(false);
@@ -202,7 +218,7 @@ export function SchermataGioco({
     const t = setTimeout(() => setPopup(true), 780);
     return () => clearTimeout(t);
   }, [prontoPopup]);
- 
+
   const anim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (popup) {
@@ -210,7 +226,7 @@ export function SchermataGioco({
       Animated.spring(anim, { toValue: 1, friction: 7, tension: 70, useNativeDriver: true }).start();
     }
   }, [popup, anim]);
- 
+
   const avviso =
     online && bloccato && esitoOnline == null
       ? t('attesaAvversario')
@@ -219,15 +235,15 @@ export function SchermataGioco({
         : problema === 'non_valida'
           ? t('parolaNonValida')
           : null;
- 
+
   const cardScale = anim.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1] });
- 
+
   const tentativoCorrente = finita
     ? stato.righe.length
     : Math.min(stato.righe.length + 1, stato.maxTentativi);
- 
+
   const modalitaLabel = modalita === 'esperto' ? t('labelEsperto') : t('labelPrincipiante');
- 
+
   return (
     <LinearGradient colors={tema.gradienti.sfondo} style={stili.sfondo}>
       <SafeAreaView style={stili.safe}>
@@ -245,7 +261,7 @@ export function SchermataGioco({
             >
               <Text style={stili.tondoIcona}>←</Text>
             </Pressable>
- 
+
             <View style={stili.titoloGruppo}>
               <Text style={stili.titolo}>SpotLex</Text>
               <View style={stili.sottoRiga}>
@@ -255,7 +271,7 @@ export function SchermataGioco({
                 </Text>
               </View>
             </View>
- 
+
             <View style={stili.tentativiWrap}>
               <PalliniTentativi
                 totale={stato.maxTentativi}
@@ -268,7 +284,7 @@ export function SchermataGioco({
               </Text>
             </View>
           </View>
- 
+
           {/* LAYOUT: griglia e tastiera insieme, centrate e ravvicinate */}
           <View style={stili.gioco}>
             <View style={stili.zonaAvviso}>
@@ -278,7 +294,7 @@ export function SchermataGioco({
                 </View>
               )}
             </View>
- 
+
             <Griglia
               stato={stato}
               lato={lato}
@@ -286,7 +302,7 @@ export function SchermataGioco({
               secondiRimasti={secondiRimasti}
               righeAvversario={righeAvversario}
             />
- 
+
             <Tastiera
               colori={tastiera}
               onLettera={digita}
@@ -297,7 +313,7 @@ export function SchermataGioco({
             />
           </View>
         </View>
- 
+
         <Modal
           visible={popup}
           transparent
@@ -330,7 +346,19 @@ export function SchermataGioco({
                     ? t(stato.righe.length === 1 ? 'inNTentativo' : 'inNTentativi', { n: stato.righe.length })
                     : t('laParolaEra', { parola: stato.target })}
               </Text>
- 
+
+              {/* 🪙 Monete guadagnate/perse (solo partita da solo) */}
+              {!online && premioMonete !== null && (
+                <Text
+                  style={[
+                    stili.premioMonete,
+                    premioMonete > 0 ? stili.premioPositivo : premioMonete < 0 ? stili.premioNegativo : null,
+                  ]}
+                >
+                  {premioMonete > 0 ? `+${premioMonete}` : premioMonete} 🪙
+                </Text>
+              )}
+
               {/* Online: rivincita (richiedi / accetta / rifiuta). Single: rigioca. */}
               {online ? (
                 <>
@@ -349,15 +377,15 @@ export function SchermataGioco({
                       </LinearGradient>
                     </Pressable>
                   )}
- 
+
                   {statoRivincita === 'inviata' && (
                     <Text style={stili.esitoSub}>In attesa della risposta dell’avversario…</Text>
                   )}
- 
+
                   {statoRivincita === 'in-avvio' && (
                     <Text style={stili.esitoSub}>Avvio della rivincita…</Text>
                   )}
- 
+
                   {statoRivincita === 'ricevuta' && (
                     <>
                       <Text style={stili.esitoSub}>L’avversario chiede la rivincita</Text>
@@ -379,7 +407,7 @@ export function SchermataGioco({
                       </Pressable>
                     </>
                   )}
- 
+
                   {statoRivincita === 'rifiutata' && (
                     <Text style={stili.esitoSub}>Rivincita rifiutata.</Text>
                   )}
@@ -399,7 +427,7 @@ export function SchermataGioco({
                   </LinearGradient>
                 </Pressable>
               )}
- 
+
               {onIndietro && (
                 <Pressable onPress={onIndietro} hitSlop={8} style={stili.linkIndietro}>
                   <Text style={stili.linkIndietroTesto}>← Torna al menu</Text>
@@ -412,4 +440,3 @@ export function SchermataGioco({
     </LinearGradient>
   );
 }
- 

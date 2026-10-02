@@ -63,20 +63,14 @@ export function creaStili(tema: Tema) {
     },
     esciTesto: { color: P.testoTenue, fontSize: 14, fontFamily: F.medium, fontWeight: '600' },
 
-    // Contenitore scrollabile. Su schermi bassi il contenuto (card + contatori +
-    // azioni + legenda) non ci sta tutto: prima era una View centrata SENZA
-    // scroll, così le ultime voci (Sfida online, Classifica, legenda) finivano
-    // sotto il bordo e non si vedevano. Questo è lo stile ESTERNO della
-    // ScrollView; l'impaginazione interna sta in `contenutoInner`.
+    // Contenitore scrollabile (stile ESTERNO della ScrollView).
     contenuto: {
       flex: 1,
       width: '100%',
       maxWidth: 440,
       alignSelf: 'center',
     },
-    // contentContainerStyle della ScrollView: `flexGrow: 1` + `justifyContent:
-    // 'center'` centra il contenuto quando c'è spazio e lo lascia scorrere quando
-    // è troppo. Il padding verticale evita che l'ultima voce tocchi i bordi.
+    // contentContainerStyle: centra quando c'è spazio, scorre quando non basta.
     contenutoInner: {
       flexGrow: 1,
       paddingHorizontal: 22,
@@ -99,6 +93,32 @@ export function creaStili(tema: Tema) {
     divisore: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 2 },
     divLinea: { height: 1, width: 48, backgroundColor: P.accentoScuro, opacity: 0.6 },
     divRombo: { width: 8, height: 8, backgroundColor: P.accento, transform: [{ rotate: '45deg' }], opacity: 0.85 },
+
+    // Saldo: monete (da solo) + punti (online), due chip centrate.
+    saldoRiga: { flexDirection: 'row', justifyContent: 'center', gap: 10 },
+    saldoChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 999,
+      backgroundColor: P.superficie,
+      borderWidth: 1,
+      borderColor: P.hair,
+    },
+    saldoTesto: { color: P.testo, fontSize: 15, fontFamily: F.bold, fontWeight: '700' },
+    saldoNegativo: { color: P.arancione },
+    saldoLabel: { color: P.testoTenue, fontSize: 13, fontFamily: F.medium, fontWeight: '600' },
+
+    // Avviso (es. monete insufficienti per giocare online).
+    avviso: {
+      color: P.arancione,
+      fontSize: 14,
+      fontFamily: F.medium,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
 
     // Card
     card: {
@@ -123,13 +143,13 @@ export function creaStili(tema: Tema) {
       flex: 1,
       aspectRatio: 1,
       borderRadius: raggio,
-      backgroundColor: P.tesseraSfondo,   // era 'rgba(79,227,208,0.06)'
+      backgroundColor: P.tesseraSfondo,
       borderWidth: 1,
-      borderColor: P.tesseraBordo,        // era 'rgba(79,227,208,0.28)'
+      borderColor: P.tesseraBordo,
     },
     tesseraAccesa: {
-      backgroundColor: P.tesseraAccesaSfondo, // era 'rgba(79,227,208,0.16)'
-      borderColor: P.bordoAttivo,             // era 'rgba(120,236,220,0.55)' (= bordoAttivo)
+      backgroundColor: P.tesseraAccesaSfondo,
+      borderColor: P.bordoAttivo,
     },
 
     etichetta: {
@@ -147,11 +167,11 @@ export function creaStili(tema: Tema) {
     pillola: { borderRadius: raggio, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
     pillolaInerte: { backgroundColor: P.superficie, borderWidth: 1, borderColor: P.hair },
     pillolaTesto: { color: P.testo, fontSize: 15, fontFamily: F.medium, fontWeight: '600' },
-    pillolaTestoAttivo: { color: P.testoSuAccento, fontSize: 15, fontFamily: F.bold, fontWeight: '800' }, // era '#052722'
+    pillolaTestoAttivo: { color: P.testoSuAccento, fontSize: 15, fontFamily: F.bold, fontWeight: '800' },
 
     giocaWrap: { marginTop: 22 },
     gioca: { borderRadius: 16, paddingVertical: 17, alignItems: 'center', justifyContent: 'center' },
-    giocaTesto: { color: P.testoSuAccento, fontSize: 18, fontFamily: F.bold, fontWeight: '800', letterSpacing: 0.3 }, // era '#052722'
+    giocaTesto: { color: P.testoSuAccento, fontSize: 18, fontFamily: F.bold, fontWeight: '800', letterSpacing: 0.3 },
 
     // Contatori
     stats: { flexDirection: 'row', gap: 11 },
@@ -170,8 +190,7 @@ export function creaStili(tema: Tema) {
     statNum: { color: P.testo, fontSize: 20, fontFamily: F.black, fontWeight: '800' },
     statLab: { marginTop: 4, color: P.testoTenue, fontSize: 12, fontFamily: F.medium, fontWeight: '500' },
 
-    // Azioni online + Classifica. `azioniGruppo` impila due righe (online / classifica);
-    // `azioni` è la singola riga di pulsanti affiancati (ciascuno flex:1).
+    // Azioni online + Classifica.
     azioniGruppo: { gap: 11 },
     azioni: { flexDirection: 'row', gap: 11 },
     azioneBtn: {
@@ -184,7 +203,9 @@ export function creaStili(tema: Tema) {
       paddingVertical: 13,
       alignItems: 'center',
     },
+    azioneDisabilitata: { opacity: 0.45 },
     azioneTesto: { color: P.testo, fontSize: 15, fontFamily: F.bold, fontWeight: '700' },
+    azioneCosto: { marginTop: 2, color: P.testoTenue, fontSize: 12, fontFamily: F.medium, fontWeight: '500' },
 
     legenda: { flexDirection: 'row', justifyContent: 'center', gap: 20 },
     legendaItem: { flexDirection: 'row', alignItems: 'center', gap: 7 },

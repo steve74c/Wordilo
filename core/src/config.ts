@@ -9,6 +9,6 @@ import type { ConfigGioco } from './types';
  * "ponte" finché non colleghiamo Supabase.
  */
 export const CONFIG_DEFAULT: ConfigGioco = {
-  principiante: { maxTentativi: 7, secondiPerTentativo: null },
-  esperto: { maxTentativi: 7, secondiPerTentativo: 25 },
+  principiante: { maxTentativi: 6, secondiPerTentativo: null },
+  esperto: { maxTentativi: 6, secondiPerTentativo: 30 },
 };
