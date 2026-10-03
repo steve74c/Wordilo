@@ -38,12 +38,14 @@ import {
   pulisciStanzeVecchie,
   type ModalitaOnline,
   type Sfida,
+  type FormatoSfida,
 } from '../online/stanze';
 import { apriCanaleStanza, type ConnessioneStanza } from '../online/canaleStanza';
 
 type Props = {
   modalita: Modalita;          // dalle pillole del menu
   lunghezza: LunghezzaParola;  // dalle pillole del menu
+  formato: FormatoSfida;       // dalle pillole del menu: singola o meglio di 3
   onEntraInPartita: (sfida: Sfida) => void;
   onIndietro: () => void;
 };
@@ -60,7 +62,7 @@ const MAX_RETRY = 3;
 
 type Ruolo = 'host' | 'guest';
 
-export function SchermataCodaCasuale({ modalita, lunghezza, onEntraInPartita, onIndietro }: Props) {
+export function SchermataCodaCasuale({ modalita, lunghezza, formato, onEntraInPartita, onIndietro }: Props) {
   const tema = useTema();
   const t = useT();
   const styles = useMemo(() => creaStili(tema), [tema]);
@@ -93,6 +95,7 @@ export function SchermataCodaCasuale({ modalita, lunghezza, onEntraInPartita, on
       modalita as ModalitaOnline,
       lunghezza,
       linguaApp,
+      formato,
       Array.from(morteRef.current), // [FANTASMA] non ripescare stanze già scartate
     );
     if (!r.ok) {
@@ -102,7 +105,7 @@ export function SchermataCodaCasuale({ modalita, lunghezza, onEntraInPartita, on
     setRuolo(r.ruolo);  // 'host' (attendo) oppure 'guest' (ho trovato, entro)
     setSfida(r.sfida);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modalita, lunghezza, linguaApp]);
+  }, [modalita, lunghezza, linguaApp, formato]);
 
   // All'apertura, appena so chi sono: pulizia residui + matchmaking (una volta sola).
   useEffect(() => {
@@ -216,6 +219,7 @@ export function SchermataCodaCasuale({ modalita, lunghezza, onEntraInPartita, on
         <View style={styles.contenuto}>
           <Text style={styles.sottotitolo}>
             {modalita === 'esperto' ? t('labelEsperto') : t('labelPrincipiante')} · {lunghezza} {t('nLettere', { n: lunghezza }).replace(String(lunghezza) + ' ', '')}
+            {' · '}{formato === 3 ? t('formatoMeglio3') : t('formatoSingola')}
           </Text>
 
           {messaggio ? (

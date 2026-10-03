@@ -41,6 +41,15 @@ type Props = {
   esitoOnline?: 'vinta' | 'persa' | 'pareggio' | null;                         // online: verdetto condiviso (host)
   nickMio?: string | null;        // online: il MIO nick (riga "Tu vs Avversario")
   nickAvversario?: string | null; // online: nick dell'avversario (null = ancora in caricamento)
+  // online, solo AL MEGLIO DI 3: punteggio e stato della serie
+  serie?: {
+    partita: number;
+    vinteIo: number;
+    vinteAvv: number;
+    finita: boolean;
+    esito: 'vinta' | 'persa' | 'pareggio' | null;
+    abbandono: boolean;
+  };
 
   // --- Rivincita (online) ---
   statoRivincita?: 'idle' | 'inviata' | 'ricevuta' | 'in-avvio' | 'rifiutata';
@@ -96,6 +105,7 @@ export function SchermataGioco({
   esitoOnline,
   nickMio,
   nickAvversario,
+  serie,
   statoRivincita = 'idle',
   onRichiediRivincita,
   onAccettaRivincita,
@@ -210,7 +220,13 @@ export function SchermataGioco({
   // Esito da mostrare nel pop-up: online = verdetto condiviso; altrimenti locale.
   const esitoFin: 'vinta' | 'persa' | 'pareggio' =
     online ? esitoOnline ?? 'persa' : vinta ? 'vinta' : 'persa';
-  const haVinto = esitoFin === 'vinta';
+
+  // [SERIE] Nel pop-up: a serie finita conta l'esito della SERIE; a metà serie
+  // quello della partita appena giocata (e il pop-up annuncia la successiva).
+  const serieFinita = !!serie?.finita && serie.esito != null;
+  const metaSerie = !!serie && !serieFinita;
+  const esitoPopup = serieFinita ? serie!.esito! : esitoFin;
+  const haVinto = esitoPopup === 'vinta';
 
   // Quando aprire il pop-up: single → appena finisco; online → all'arrivo dell'esito.
   const prontoPopup = online ? esitoOnline != null : finita;
@@ -273,6 +289,7 @@ export function SchermataGioco({
                 <View style={stili.puntoStato} />
                 <Text style={stili.sottotitolo} numberOfLines={1}>
                   {modalitaLabel} · {t('nLettere', { n: lunghezza })} · {nomeLingua}
+                  {serie ? ` · ${t('partitaNdi3', { n: serie.partita })}` : ''}
                 </Text>
               </View>
             </View>
@@ -296,7 +313,10 @@ export function SchermataGioco({
               <Text style={stili.rigaSfidaNick} numberOfLines={1}>
                 {nickMio || t('tuVs')}
               </Text>
-              <Text style={stili.rigaSfidaVs}>VS</Text>
+              {/* Al meglio di 3: al posto di "VS" il punteggio della serie */}
+              <Text style={stili.rigaSfidaVs}>
+                {serie ? `${serie.vinteIo} – ${serie.vinteAvv}` : 'VS'}
+              </Text>
               <Text style={stili.rigaSfidaNick} numberOfLines={1}>
                 {nickAvversario || t('avversario')}
               </Text>
@@ -341,9 +361,21 @@ export function SchermataGioco({
           <View style={stili.scrim}>
             <Coriandoli attivo={haVinto} />
             <Animated.View style={[stili.card, ombra(0.45, 26, 14, 16), { transform: [{ scale: cardScale }] }]}>
-              <Text style={stili.emoji}>{haVinto ? '🎉' : esitoFin === 'pareggio' ? '🤝' : '😕'}</Text>
+              <Text style={stili.emoji}>{haVinto ? '🎉' : esitoPopup === 'pareggio' ? '🤝' : '😕'}</Text>
               <Text style={stili.esitoTitolo}>
-                {online
+                {serieFinita
+                  ? haVinto
+                    ? t('serieHaiVinto')
+                    : esitoPopup === 'pareggio'
+                      ? t('seriePareggio')
+                      : t('serieHaiPerso')
+                  : metaSerie
+                    ? esitoFin === 'vinta'
+                      ? t('roundVinto')
+                      : esitoFin === 'pareggio'
+                        ? t('roundPari')
+                        : t('roundPerso')
+                  : online
                   ? haVinto
                     ? t('esitoHaiVinto')
                     : esitoFin === 'pareggio'
@@ -354,8 +386,10 @@ export function SchermataGioco({
                     : t('esitoPeccato')}
               </Text>
               <Text style={stili.esitoSub}>
-                {online
-                  ? haVinto
+                {serie?.abbandono && serieFinita && haVinto
+                  ? t('serieAbbandono')
+                  : online
+                  ? esitoFin === 'vinta'
                     ? t(stato.righe.length === 1 ? 'inNTentativo' : 'inNTentativi', { n: stato.righe.length })
                     : esitoFin === 'pareggio'
                       ? t('nessunoIndovinato', { parola: stato.target })
@@ -364,6 +398,14 @@ export function SchermataGioco({
                     ? t(stato.righe.length === 1 ? 'inNTentativo' : 'inNTentativi', { n: stato.righe.length })
                     : t('laParolaEra', { parola: stato.target })}
               </Text>
+
+              {/* [SERIE] Punteggio della serie e, a metà serie, l'annuncio della prossima */}
+              {serie && (
+                <Text style={[stili.esitoSub, { fontWeight: '700' }]}>
+                  {t('serieRisultato', { io: serie.vinteIo, avv: serie.vinteAvv })}
+                </Text>
+              )}
+              {metaSerie && <Text style={stili.esitoSub}>{t('prossimaPartita')}</Text>}
 
               {/* 🪙 Monete guadagnate/perse (solo partita da solo) */}
               {!online && premioMonete !== null && (
@@ -378,7 +420,7 @@ export function SchermataGioco({
               )}
 
               {/* Online: rivincita (richiedi / accetta / rifiuta). Single: rigioca. */}
-              {online ? (
+              {metaSerie ? null : online ? (
                 <>
                   {statoRivincita === 'idle' && (
                     <Pressable
@@ -448,7 +490,9 @@ export function SchermataGioco({
 
               {onIndietro && (
                 <Pressable onPress={onIndietro} hitSlop={8} style={stili.linkIndietro}>
-                  <Text style={stili.linkIndietroTesto}>← Torna al menu</Text>
+                  <Text style={stili.linkIndietroTesto}>
+                    {metaSerie ? t('abbandonaSerie') : '← Torna al menu'}
+                  </Text>
                 </Pressable>
               )}
             </Animated.View>

@@ -36,6 +36,9 @@ export type ModalitaOnline = 'principiante' | 'esperto';
 // del core. Essendo una semplice unione di stringhe resta compatibile con gli altri.
 export type LinguaSfida = 'it' | 'en';
 
+// Formato della sfida: 1 = partita singola, 3 = al meglio di 3 (chi ne vince 2).
+export type FormatoSfida = 1 | 3;
+
 // Cos'è una "sfida" dal punto di vista dell'app, una volta creata o entrati.
 // La `parola` è già normalizzata (accenti rimossi, maiuscola) e pronta per il core.
 export type Sfida = {
@@ -48,7 +51,27 @@ export type Sfida = {
   hostId: string;
   guestId: string | null;
   stato: 'waiting' | 'playing' | 'finished';
+  formato: FormatoSfida; // 1 = singola, 3 = al meglio di 3
+  serieId: string;       // id del PRIMO match della serie (per la singola = id)
 };
+
+// Riga di `matches` (+ testo della parola) → Sfida. Una sola traduzione per tutti.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function daRiga(r: any, parola: string): Sfida {
+  return {
+    id: r.id,
+    codice: r.room_code,
+    modalita: r.mode,
+    lunghezza: r.word_length,
+    lingua: r.lang,
+    parola,
+    hostId: r.host_id,
+    guestId: r.guest_id,
+    stato: r.status,
+    formato: r.formato === 3 ? 3 : 1,
+    serieId: r.serie_id ?? r.id, // il primo match della serie ha serie_id = null
+  };
+}
 
 // `errore` è una CHIAVE (es. 'errLoggatoCrea'), non più un testo pronto: va
 // tradotta a schermo con `t(errore)`.
@@ -98,6 +121,7 @@ export async function creaStanza(
   modalita: ModalitaOnline,
   lunghezza: LunghezzaParola,
   lingua: LinguaSfida = 'it',
+  formato: FormatoSfida = 1,
 ): Promise<RisultatoStanza> {
   // 1) Chi sono io? (serve host_id, e conferma che siamo loggati)
   const { data: auth } = await supabase.auth.getUser();
@@ -121,6 +145,7 @@ export async function creaStanza(
         lang: lingua,          // ← lingua della sfida salvata nel DB
         host_id: utente.id,
         status: 'waiting',
+        formato,               // ← singola o al meglio di 3 (il guest lo eredita)
       })
       .select()
       .single();
@@ -128,17 +153,7 @@ export async function creaStanza(
     if (!error && data) {
       return {
         ok: true,
-        sfida: {
-          id: data.id,
-          codice: data.room_code,
-          modalita: data.mode,
-          lunghezza: data.word_length,
-          lingua: data.lang,      // ← riletta dalla riga appena salvata
-          parola: parola.testo,
-          hostId: data.host_id,
-          guestId: data.guest_id,
-          stato: data.status,
-        },
+        sfida: daRiga(data, parola.testo),
       };
     }
     // Codice duplicato (violazione unique) → riprova con un altro. Altri errori: esci.
@@ -202,17 +217,7 @@ export async function entraInStanza(codiceGrezzo: string): Promise<RisultatoStan
 
   return {
     ok: true,
-    sfida: {
-      id: aggiornata.id,
-      codice: aggiornata.room_code,
-      modalita: aggiornata.mode,
-      lunghezza: aggiornata.word_length,
-      lingua: aggiornata.lang,      // ← lingua ereditata dalla stanza dell'host
-      parola: normalizzaParola(parolaRow.word),
-      hostId: aggiornata.host_id,
-      guestId: aggiornata.guest_id,
-      stato: aggiornata.status,
-    },
+    sfida: daRiga(aggiornata, normalizzaParola(parolaRow.word)),
   };
 }
 
@@ -272,7 +277,10 @@ export async function annullaStanza(idSfida: string): Promise<void> {
  * quindi questa funzione è pensata per essere chiamata dall'host. Se la chiama un
  * altro, esce con un errore leggibile.
  */
-export async function creaRivincita(precedente: Sfida): Promise<RisultatoStanza> {
+export async function creaRivincita(
+  precedente: Sfida,
+  prossimaInSerie = false, // true = partita successiva della STESSA serie al meglio di 3
+): Promise<RisultatoStanza> {
   const { data: auth } = await supabase.auth.getUser();
   const utente = auth?.user;
   if (!utente) return { ok: false, errore: 'errLoggatoRivincita' };
@@ -298,6 +306,10 @@ export async function creaRivincita(precedente: Sfida): Promise<RisultatoStanza>
         host_id: utente.id,
         guest_id: precedente.guestId, // già noto: partita a due, nessun handshake
         status: 'playing',            // parte subito
+        formato: precedente.formato,  // la rivincita mantiene il formato
+        // Partita successiva della serie → si aggancia al primo match; rivincita →
+        // nuova serie (serie_id null: questo match ne diventa la "scheda").
+        serie_id: prossimaInSerie ? precedente.serieId : null,
       })
       .select()
       .single();
@@ -305,17 +317,7 @@ export async function creaRivincita(precedente: Sfida): Promise<RisultatoStanza>
     if (!error && data) {
       return {
         ok: true,
-        sfida: {
-          id: data.id,
-          codice: data.room_code,
-          modalita: data.mode,
-          lunghezza: data.word_length,
-          lingua: data.lang,
-          parola: parola.testo,
-          hostId: data.host_id,
-          guestId: data.guest_id,
-          stato: data.status,
-        },
+        sfida: daRiga(data, parola.testo),
       };
     }
     // Codice duplicato (unique) → riprova; altri errori → esci.
@@ -352,13 +354,14 @@ export type RisultatoCoda =
  * `guest_id IS NULL` sull'update fa vincere uno solo; l'altro ricade sul candidato
  * successivo o crea la sua.
  *
- * "Compatibile" = stessa modalità, lunghezza e lingua (la scelta fatta dall'utente
+ * "Compatibile" = stessa modalità, lunghezza, lingua e formato (la scelta fatta dall'utente
  * nel menu). Le stanze proprie sono escluse (non gioco contro me stesso).
  */
 export async function trovaOCreaStanzaPubblica(
   modalita: ModalitaOnline,
   lunghezza: LunghezzaParola,
   lingua: LinguaSfida,
+  formato: FormatoSfida,
   escludiIds: string[] = [],
 ): Promise<RisultatoCoda> {
   // 1) Chi sono io?
@@ -377,6 +380,7 @@ export async function trovaOCreaStanzaPubblica(
     .eq('mode', modalita)
     .eq('word_length', lunghezza)
     .eq('lang', lingua)
+    .eq('formato', formato)  // singola con singola, meglio di 3 con meglio di 3
     .neq('host_id', utente.id)
     .order('created_at', { ascending: true })
     .limit(10);
@@ -411,17 +415,7 @@ export async function trovaOCreaStanzaPubblica(
     return {
       ok: true,
       ruolo: 'guest',
-      sfida: {
-        id: aggiornata.id,
-        codice: aggiornata.room_code,
-        modalita: aggiornata.mode,
-        lunghezza: aggiornata.word_length,
-        lingua: aggiornata.lang,
-        parola: normalizzaParola(parolaRow.word),
-        hostId: aggiornata.host_id,
-        guestId: aggiornata.guest_id,
-        stato: aggiornata.status,
-      },
+      sfida: daRiga(aggiornata, normalizzaParola(parolaRow.word)),
     };
   }
 
@@ -443,6 +437,7 @@ export async function trovaOCreaStanzaPubblica(
         host_id: utente.id,
         status: 'waiting',
         is_public: true,       // ← la sola differenza dalla stanza col codice
+        formato,
       })
       .select()
       .single();
@@ -451,17 +446,7 @@ export async function trovaOCreaStanzaPubblica(
       return {
         ok: true,
         ruolo: 'host',
-        sfida: {
-          id: data.id,
-          codice: data.room_code,
-          modalita: data.mode,
-          lunghezza: data.word_length,
-          lingua: data.lang,
-          parola: parola.testo,
-          hostId: data.host_id,
-          guestId: data.guest_id,
-          stato: data.status,
-        },
+        sfida: daRiga(data, parola.testo),
       };
     }
     if (error && error.code !== '23505') {

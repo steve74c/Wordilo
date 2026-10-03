@@ -140,7 +140,7 @@ export const it = {
   // — Monete e punti —
   monete: 'Monete',
   puntiOnline: 'Punti online',
-  moneteInsufficienti: 'Servono 20 monete per giocare online',
+  moneteInsufficienti: 'Servono 200 monete per giocare online',
   erroreIngressoOnline: 'Non è stato possibile entrare in partita. Riprova.',
   tabTitolo: '🪙 Monete e ⭐ punti',
   tabSezioneSolo: 'Da solo · monete per tentativo',
@@ -151,6 +151,23 @@ export const it = {
   tabVittoria: 'Vittoria',
   tabPareggio: 'Pareggio',
   tabSconfitta: 'Sconfitta',
+  tabNotaSerie: 'Al meglio di 3: monete e punti una sola volta, a fine serie.',
+
+  // — Sfida al meglio di 3 —
+  formatoSfida: 'Sfida online',
+  formatoSingola: 'Singola',
+  formatoMeglio3: 'Meglio di 3',
+  partitaNdi3: 'Partita {n} di 3',
+  serieHaiVinto: 'Hai vinto la serie!',
+  serieHaiPerso: 'Hai perso la serie',
+  seriePareggio: 'Serie in pareggio!',
+  roundVinto: 'Partita vinta!',
+  roundPerso: 'Partita persa',
+  roundPari: 'Partita pari',
+  serieRisultato: 'Serie: {io} – {avv}',
+  prossimaPartita: 'La prossima partita parte tra pochi secondi…',
+  serieAbbandono: 'L’avversario ha abbandonato la serie.',
+  abbandonaSerie: '← Abbandona la serie (perdi)',
 
   // — Aggiornamento app —
   aggObbligatorioTitolo: 'Aggiornamento necessario',

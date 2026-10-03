@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Colore, LunghezzaParola, Modalita } from '@SpotLex/core';
+import type { FormatoSfida } from '../online/stanze';
 import { ombra } from '../theme';
 import { useTema } from '../temi/TemaContext';
 import type { Gradiente } from '../temi/tipi';
@@ -31,8 +32,8 @@ import {
 
 type Props = {
   onGioca: (modalita: Modalita, lunghezza: LunghezzaParola) => void;
-  onGiocaOnline?: (modalita: Modalita, lunghezza: LunghezzaParola) => void; // 🎲 coda casuale
-  onSfidaAmico?: (modalita: Modalita, lunghezza: LunghezzaParola) => void; // (1b): lobby col codice
+  onGiocaOnline?: (modalita: Modalita, lunghezza: LunghezzaParola, formato: FormatoSfida) => void; // 🎲 coda casuale
+  onSfidaAmico?: (modalita: Modalita, lunghezza: LunghezzaParola, formato: FormatoSfida) => void; // (1b): lobby col codice
   onClassifiche?: () => void;         // (C6): apre la schermata classifiche
   onApriImpostazioni?: () => void;    // (Lotto 2): apre le Impostazioni (tema)
   avviso?: string | null;             // es. "Monete insufficienti"
@@ -197,6 +198,9 @@ function TabellaPunteggi({ modalita, stili }: { modalita: Modalita; stili: Stili
         {cella(MONETE_SFIDA.persa, false)}
         {cella(PUNTI_ONLINE.persa, false)}
       </View>
+      <Text style={[stili.legendaTesto, { textAlign: 'center', marginTop: 8 }]}>
+        {t('tabNotaSerie')}
+      </Text>
     </View>
   );
 }
@@ -222,6 +226,7 @@ export function SchermataMenu({
 
   const [lunghezza, setLunghezza] = useState<LunghezzaParola>(lunghezzaIniziale);
   const [modalita, setModalita] = useState<Modalita>(modalitaIniziale);
+  const [formato, setFormato] = useState<FormatoSfida>(1); // sfide: singola o meglio di 3
   const { giocate, vinte, perse } = useStatistiche();
   const [tabellaAperta, setTabellaAperta] = useState(false); // tabella monete/punti
   const { sessione, esci } = useAuth();
@@ -373,11 +378,33 @@ export function SchermataMenu({
           {/* Azioni online: costano COSTO_ONLINE monete, bloccate se non bastano. */}
           {(onGiocaOnline || onSfidaAmico || onClassifiche) && (
             <View style={stili.azioniGruppo}>
+              {/* Formato delle sfide online: singola o al meglio di 3 */}
+              {(onGiocaOnline || onSfidaAmico) && (
+                <>
+                  <Text style={stili.etichetta}>{t('formatoSfida')}</Text>
+                  <View style={stili.riga}>
+                    <Pillola
+                      label={t('formatoSingola')}
+                      attivo={formato === 1}
+                      onPress={() => setFormato(1)}
+                      stili={stili}
+                      gradiente={tema.gradienti.accento}
+                    />
+                    <Pillola
+                      label={t('formatoMeglio3')}
+                      attivo={formato === 3}
+                      onPress={() => setFormato(3)}
+                      stili={stili}
+                      gradiente={tema.gradienti.accento}
+                    />
+                  </View>
+                </>
+              )}
               {(onGiocaOnline || onSfidaAmico) && (
                 <View style={stili.azioni}>
                   {onGiocaOnline && (
                     <Pressable
-                      onPress={() => onGiocaOnline(modalita, lunghezza)}
+                      onPress={() => onGiocaOnline(modalita, lunghezza, formato)}
                       disabled={moneteScarse}
                       style={({ pressed }) => [
                         stili.azioneBtn,
@@ -391,7 +418,7 @@ export function SchermataMenu({
                   )}
                   {onSfidaAmico && (
                     <Pressable
-                      onPress={() => onSfidaAmico(modalita, lunghezza)}
+                      onPress={() => onSfidaAmico(modalita, lunghezza, formato)}
                       disabled={moneteScarse}
                       style={({ pressed }) => [
                         stili.azioneBtn,

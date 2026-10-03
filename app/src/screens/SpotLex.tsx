@@ -8,17 +8,18 @@ import { SchermataLobby } from './SchermataLobby';
 import { SchermataCodaCasuale } from './SchermataCodaCasuale'; // 🎲 coda casuale (Gioca online)
 import { SchermataImpostazioni } from './SchermataImpostazioni'; // NEW (Lotto 2)
 import { SchermataGiocoOnline } from '../online/SchermataGiocoOnline';
-import type { Sfida } from '../online/stanze';
+import type { FormatoSfida, Sfida } from '../online/stanze';
 import { pagaIngressoOnline } from '../economia/economia';
 import { useT } from '../i18n/LinguaUIContext';
 
 type Config = { modalita: Modalita; lunghezza: LunghezzaParola };
+type ConfigOnline = Config & { formato: FormatoSfida };
 
 export function SpotLex() {
   const t = useT();
   const [config, setConfig] = useState<Config | null>(null);
-  const [lobby, setLobby] = useState<Config | null>(null);            // (1b): lobby online (col codice)
-  const [codaCasuale, setCodaCasuale] = useState<Config | null>(null);  // 🎲 coda casuale (Gioca online)
+  const [lobby, setLobby] = useState<ConfigOnline | null>(null);            // (1b): lobby online (col codice)
+  const [codaCasuale, setCodaCasuale] = useState<ConfigOnline | null>(null);  // 🎲 coda casuale (Gioca online)
   const [sfidaOnline, setSfidaOnline] = useState<Sfida | null>(null); // (D3)
   const [vediClassifiche, setVediClassifiche] = useState(false);      // (C6)
   const [mostraImpostazioni, setMostraImpostazioni] = useState(false); // NEW (Lotto 2)
@@ -31,7 +32,7 @@ export function SpotLex() {
   }, []);
 
   // Ingresso in una partita online (lobby o coda casuale): prima si pagano le
-  // 20 monete. Se il pagamento fallisce si torna al menu con un avviso.
+  // monete d'ingresso (una volta sola, anche per una serie al meglio di 3). Se il pagamento fallisce si torna al menu con un avviso.
   const entraInPartitaOnline = async (sfida: Sfida, chiudi: () => void) => {
     const r = await pagaIngressoOnline(sfida.id);
     chiudi();
@@ -75,6 +76,7 @@ export function SpotLex() {
       <SchermataLobby
         modalita={lobby.modalita}
         lunghezza={lobby.lunghezza}
+        formato={lobby.formato}
         onEntraInPartita={(sfida) => entraInPartitaOnline(sfida, () => setLobby(null))}
         onIndietro={() => setLobby(null)}
       />
@@ -87,6 +89,7 @@ export function SpotLex() {
       <SchermataCodaCasuale
         modalita={codaCasuale.modalita}
         lunghezza={codaCasuale.lunghezza}
+        formato={codaCasuale.formato}
         onEntraInPartita={(sfida) => entraInPartitaOnline(sfida, () => setCodaCasuale(null))}
         onIndietro={() => setCodaCasuale(null)}
       />
@@ -101,13 +104,13 @@ export function SpotLex() {
           setAvviso(null);
           setConfig({ modalita, lunghezza });
         }}
-        onGiocaOnline={(modalita, lunghezza) => {
+        onGiocaOnline={(modalita, lunghezza, formato) => {
           setAvviso(null);
-          setCodaCasuale({ modalita, lunghezza }); // 🎲 coda casuale
+          setCodaCasuale({ modalita, lunghezza, formato }); // 🎲 coda casuale
         }}
-        onSfidaAmico={(modalita, lunghezza) => {
+        onSfidaAmico={(modalita, lunghezza, formato) => {
           setAvviso(null);
-          setLobby({ modalita, lunghezza }); // (1b) col codice
+          setLobby({ modalita, lunghezza, formato }); // (1b) col codice
         }}
         onClassifiche={() => setVediClassifiche(true)}         // (C6)
         onApriImpostazioni={() => setMostraImpostazioni(true)} // NEW (Lotto 2)

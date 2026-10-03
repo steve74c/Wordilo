@@ -141,7 +141,7 @@ export const en: Partial<Record<ChiaveTesto, string>> = {
   // — Coins and points —
   monete: 'Coins',
   puntiOnline: 'Online points',
-  moneteInsufficienti: 'You need 20 coins to play online',
+  moneteInsufficienti: 'You need 200 coins to play online',
   erroreIngressoOnline: 'Could not join the match. Please try again.',
   tabTitolo: '🪙 Coins and ⭐ points',
   tabSezioneSolo: 'Solo · coins per attempt',
@@ -152,6 +152,23 @@ export const en: Partial<Record<ChiaveTesto, string>> = {
   tabVittoria: 'Win',
   tabPareggio: 'Draw',
   tabSconfitta: 'Loss',
+  tabNotaSerie: 'Best of 3: coins and points only once, at the end of the series.',
+
+  // — Best of 3 —
+  formatoSfida: 'Online challenge',
+  formatoSingola: 'Single',
+  formatoMeglio3: 'Best of 3',
+  partitaNdi3: 'Game {n} of 3',
+  serieHaiVinto: 'You won the series!',
+  serieHaiPerso: 'You lost the series',
+  seriePareggio: 'Series drawn!',
+  roundVinto: 'Game won!',
+  roundPerso: 'Game lost',
+  roundPari: 'Game drawn',
+  serieRisultato: 'Series: {io} – {avv}',
+  prossimaPartita: 'The next game starts in a few seconds…',
+  serieAbbandono: 'Your opponent left the series.',
+  abbandonaSerie: '← Leave the series (you lose)',
 
   // — App update —
   aggObbligatorioTitolo: 'Update required',

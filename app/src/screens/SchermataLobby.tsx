@@ -42,12 +42,14 @@ import {
   pulisciStanzeVecchie,
   type ModalitaOnline,
   type Sfida,
+  type FormatoSfida,
 } from '../online/stanze';
 import { apriCanaleStanza, type ConnessioneStanza } from '../online/canaleStanza';
 
 type Props = {
   modalita: Modalita;          // dalle pillole del menu
   lunghezza: LunghezzaParola;  // dalle pillole del menu
+  formato: FormatoSfida;       // dalle pillole del menu: singola o meglio di 3
   onEntraInPartita: (sfida: Sfida) => void;
   onIndietro: () => void;
 };
@@ -61,7 +63,7 @@ const GUEST_TIMEOUT_MS = 8000;
 
 type Ruolo = 'host' | 'guest';
 
-export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndietro }: Props) {
+export function SchermataLobby({ modalita, lunghezza, formato, onEntraInPartita, onIndietro }: Props) {
   const tema = useTema();
   const t = useT();
   const styles = useMemo(() => creaStili(tema), [tema]);
@@ -155,7 +157,7 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
     setMessaggio(null);
     try {
       // Passiamo la lingua scelta dall'host: diventa la lingua della sfida.
-      const r = await creaStanza(modalita as ModalitaOnline, lunghezza, linguaSfida);
+      const r = await creaStanza(modalita as ModalitaOnline, lunghezza, linguaSfida, formato);
       if (r.ok) {
         setRuolo('host'); // chi crea la stanza è l'HOST: vede il codice e aspetta il guest
         setSfida(r.sfida); // stanza 'waiting', con la lingua scelta qui
@@ -222,6 +224,7 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
         <View style={styles.contenuto}>
           <Text style={styles.sottotitolo}>
             {modalita === 'esperto' ? t('labelEsperto') : t('labelPrincipiante')} · {lunghezza} {t('nLettere', { n: lunghezza }).replace(String(lunghezza) + ' ', '')}
+            {' · '}{formato === 3 ? t('formatoMeglio3') : t('formatoSingola')}
           </Text>
 
           {/* SCELTA: né sfida attiva né messaggio bloccante */}

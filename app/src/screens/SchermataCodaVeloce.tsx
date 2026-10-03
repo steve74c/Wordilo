@@ -78,7 +78,7 @@ export function SchermataCodaVeloce({ modalita, lunghezza, onEntraInPartita, onI
     pulisciStanzeVecchie(); // best-effort: rimuove mie vecchie stanze non finite
 
     (async () => {
-      const r = await trovaOCreaStanzaPubblica(modalita as ModalitaOnline, lunghezza, linguaApp);
+      const r = await trovaOCreaStanzaPubblica(modalita as ModalitaOnline, lunghezza, linguaApp, 1);
       if (!r.ok) {
         setMessaggio(r.errore);
         return;

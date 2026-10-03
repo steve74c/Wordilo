@@ -14,6 +14,17 @@
 //   • Solo l'host può creare (lo impone la RLS: insert se host_id = auth.uid()),
 //     perciò la creazione è sempre instradata a lui.
 //
+// AL MEGLIO DI 3 (sfida.formato === 3):
+//   • Ogni partita della serie è un match a sé; finita una partita (e se la serie
+//     non è decisa) l'HOST crea da solo la successiva dopo PAUSA_TRA_PARTITE e la
+//     diffonde con lo stesso messaggio della rivincita (`rivincita-via`).
+//   • Entrambi tengono il punteggio della serie dagli esiti ufficiali dell'host.
+//   • Serie decisa = qualcuno arriva a 2 vittorie, oppure 3 partite giocate
+//     (a parità di vittorie è pareggio), oppure un abbandono (chi lascia perde).
+//   • A fine serie: UNA riga in games (punti e statistiche una volta sola) e la
+//     "scheda" della serie (primo match) passa a serie_finita: il trigger del DB
+//     accredita le monete una volta sola.
+//
 // NB tecnica: il canale Realtime resta aperto UNA volta sola per tutta la vita
 // del contenitore (dipende solo da mioId + codice della PROP `sfida`, che non
 // cambia). Gli handler del canale leggono sempre la versione più recente delle
@@ -50,6 +61,28 @@ type Props = {
   onIndietro?: () => void;
 };
 
+// Stato della serie al meglio di 3 (per la singola resta inutilizzato).
+export type InfoSerie = {
+  partita: number;          // partita in corso: 1, 2 o 3
+  vinteIo: number;
+  vinteAvv: number;
+  finita: boolean;
+  esito: EsitoOnline | null; // esito della SERIE (solo quando finita)
+  abbandono: boolean;       // finita perché uno dei due ha lasciato
+};
+
+const SERIE_NUOVA: InfoSerie = {
+  partita: 1,
+  vinteIo: 0,
+  vinteAvv: 0,
+  finita: false,
+  esito: null,
+  abbandono: false,
+};
+
+// Pausa fra una partita e la successiva della serie (il pop-up resta visibile).
+const PAUSA_TRA_PARTITE = 4000;
+
 // Punti di ripiego se game_settings non risponde: stessi valori della tabella del menu.
 const PUNTI_FALLBACK: Record<EsitoOnline, number> = PUNTI_ONLINE;
 
@@ -85,6 +118,27 @@ export function SchermataGiocoOnline({ sfida, onIndietro }: Props) {
   const tentativiLive = useRef(0);
   // [C7] true quando il round è finito per abbandono/disconnessione dell'altro.
   const perAbbandono = useRef(false);
+
+  // [SERIE] Punteggio della serie (state per la UI + ref per gli handler) e guardie
+  // che valgono per TUTTA la serie (non si azzerano fra una partita e l'altra).
+  const [serie, setSerie] = useState<InfoSerie>(SERIE_NUOVA);
+  const serieRef = useRef<InfoSerie>(SERIE_NUOVA);
+  const scritturaSerie = useRef(false);   // riga games della serie già scritta
+  const chiusuraSerie = useRef(false);    // scheda della serie già chiusa
+  const tentativiSerie = useRef(0);       // somma dei tentativi delle partite
+  const timerProssima = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const aggiornaSerie = useCallback((nuova: InfoSerie) => {
+    serieRef.current = nuova;
+    setSerie(nuova);
+  }, []);
+
+  const fermaTimerProssima = useCallback(() => {
+    if (timerProssima.current) {
+      clearTimeout(timerProssima.current);
+      timerProssima.current = null;
+    }
+  }, []);
 
   // Stato dell'arbitrato (lo usa solo l'HOST), azzerato a ogni round.
   const arbitro = useRef<{
@@ -174,12 +228,10 @@ export function SchermataGiocoOnline({ sfida, onIndietro }: Props) {
     [sonoHost, sfidaCorrente.id],
   );
 
-  // [C5b] Scrive la MIA riga in games (una sola volta per round). Punti da
-  // game_settings (con fallback PUNTI_ONLINE). `tentativiOverride` serve all'abbandono.
-  const scriviRigaGioco = useCallback(
-    async (mio: EsitoOnline, tentativiOverride?: number) => {
-      if (scritturaFatta.current) return; // già scritta
-      scritturaFatta.current = true;      // blocco sincrono immediato
+  // [C5b] Inserisce la MIA riga in games. Punti da game_settings (con fallback
+  // PUNTI_ONLINE). Le guardie "una volta sola" stanno nei due chiamanti qui sotto.
+  const inserisciRigaGames = useCallback(
+    async (mio: EsitoOnline, matchId: string, tentativi: number) => {
       if (!mioId) return;
 
       let punti = PUNTI_FALLBACK[mio];
@@ -201,11 +253,9 @@ export function SchermataGiocoOnline({ sfida, onIndietro }: Props) {
         // rete assente o vista non leggibile: resta il fallback
       }
 
-      const tentativi = tentativiOverride ?? tentativiFinali.current ?? tentativiLive.current;
-
       const { error } = await supabase.from('games').insert({
         user_id: mioId,
-        match_id: sfidaCorrente.id,
+        match_id: matchId,
         mode: 'online',
         word_length: sfidaCorrente.lunghezza,
         result: RESULT_DB[mio],
@@ -216,8 +266,57 @@ export function SchermataGiocoOnline({ sfida, onIndietro }: Props) {
         console.warn('[C5b] riga games non salvata:', error.message);
       }
     },
-    [mioId, sfidaCorrente.id, sfidaCorrente.modalita, sfidaCorrente.lunghezza],
+    [mioId, sfidaCorrente.modalita, sfidaCorrente.lunghezza],
   );
+
+  // Sfida SINGOLA: la mia riga del round (una volta sola per round).
+  // `tentativiOverride` serve all'abbandono.
+  const scriviRigaGioco = useCallback(
+    async (mio: EsitoOnline, tentativiOverride?: number) => {
+      if (scritturaFatta.current) return; // già scritta
+      scritturaFatta.current = true;      // blocco sincrono immediato
+      const tentativi = tentativiOverride ?? tentativiFinali.current ?? tentativiLive.current;
+      await inserisciRigaGames(mio, sfidaCorrente.id, tentativi);
+    },
+    [inserisciRigaGames, sfidaCorrente.id],
+  );
+
+  // [SERIE] Chiude la serie (una volta sola): la MIA riga in games con l'esito
+  // della serie (agganciata al primo match) e la "scheda" della serie su matches
+  // → il trigger del DB accredita le monete. La scheda la scrive l'host; in caso
+  // di abbandono anche chi resta e chi se ne va (`forza`): valori identici, e il
+  // trigger accredita comunque una volta sola.
+  const chiudiSerie = useCallback(
+    (esitoSerie: EsitoOnline, forza = false) => {
+      const idSerie = sfidaRef.current.serieId;
+      if (!scritturaSerie.current) {
+        scritturaSerie.current = true;
+        const tentativi = tentativiSerie.current || tentativiLive.current;
+        void inserisciRigaGames(esitoSerie, idSerie, tentativi);
+      }
+      if (chiusuraSerie.current) return;
+      if (!sonoHost && !forza && !perAbbandono.current) return;
+      chiusuraSerie.current = true;
+      const vincitore =
+        esitoSerie === 'vinta' ? mioId : esitoSerie === 'persa' ? idAvversario : null;
+      void supabase
+        .from('matches')
+        .update({
+          serie_finita: true,
+          serie_vincitore: vincitore,
+          serie_pareggio: esitoSerie === 'pareggio',
+        })
+        .eq('id', idSerie)
+        .then(({ error }) => {
+          if (error) console.warn('[SERIE] chiusura serie non riuscita:', error.message);
+        });
+    },
+    [inserisciRigaGames, sonoHost, mioId, idAvversario],
+  );
+
+  // [SERIE] Riferimento alla funzione che crea la partita successiva (definita più
+  // sotto, dopo avviaNuovoRound): così applicaEsito può programmarla.
+  const avviaProssimaRef = useRef<() => Promise<void>>(async () => {});
 
   // Applica un verdetto e lo traduce dal MIO punto di vista.
   const applicaEsito = useCallback(
@@ -228,12 +327,49 @@ export function SchermataGiocoOnline({ sfida, onIndietro }: Props) {
         : deciso.winnerId === mioId
           ? 'vinta'
           : 'persa';
+      // Segno SUBITO l'esito (non aspetto il render): l'host può rimandare lo
+      // stesso verdetto più volte e la serie non deve contarlo due volte.
+      esitoRef.current = mio;
       setEsito(mio);
       fermaReinvio();
-      void scriviRigaGioco(mio);  // [C5b] scrittura esito (guardia interna)
       void chiudiMatch(deciso);   // [C5b/C7] chiusura matches (guardia interna)
+
+      if (sfidaRef.current.formato !== 3) {
+        void scriviRigaGioco(mio);  // [C5b] scrittura esito (guardia interna)
+        return;
+      }
+
+      // [SERIE] Aggiorno il punteggio e decido se la serie è finita.
+      tentativiSerie.current += tentativiFinali.current ?? tentativiLive.current;
+      const s = serieRef.current;
+      if (s.finita) return;
+      const vinteIo = s.vinteIo + (mio === 'vinta' ? 1 : 0);
+      const vinteAvv = s.vinteAvv + (mio === 'persa' ? 1 : 0);
+      const abbandono = perAbbandono.current;
+      const finita = abbandono || vinteIo >= 2 || vinteAvv >= 2 || s.partita >= 3;
+      const esitoSerie: EsitoOnline | null = !finita
+        ? null
+        : abbandono
+          ? mio // chi resta ha vinto il round (e quindi la serie)
+          : vinteIo > vinteAvv
+            ? 'vinta'
+            : vinteIo < vinteAvv
+              ? 'persa'
+              : 'pareggio';
+      aggiornaSerie({ ...s, vinteIo, vinteAvv, finita, esito: esitoSerie, abbandono });
+
+      if (esitoSerie) {
+        chiudiSerie(esitoSerie);
+      } else if (sonoHost) {
+        // L'host prepara la partita successiva dopo una breve pausa.
+        fermaTimerProssima();
+        timerProssima.current = setTimeout(() => {
+          timerProssima.current = null;
+          void avviaProssimaRef.current();
+        }, PAUSA_TRA_PARTITE);
+      }
     },
-    [mioId, fermaReinvio, scriviRigaGioco, chiudiMatch],
+    [mioId, sonoHost, fermaReinvio, scriviRigaGioco, chiudiMatch, aggiornaSerie, chiudiSerie, fermaTimerProssima],
   );
 
   // ARBITRO (solo host): registra un finale; se può, decide e annuncia l'esito.
@@ -270,6 +406,18 @@ export function SchermataGiocoOnline({ sfida, onIndietro }: Props) {
       if (sfidaRef.current.id === nuova.id) return; // già su questo round
 
       fermaReinvio();
+      fermaTimerProssima();
+
+      // [SERIE] Stessa serie → partita successiva; serie diversa (rivincita) →
+      // si riparte da zero, guardie della serie comprese.
+      if (nuova.serieId === sfidaRef.current.serieId) {
+        aggiornaSerie({ ...serieRef.current, partita: serieRef.current.partita + 1 });
+      } else {
+        aggiornaSerie(SERIE_NUOVA);
+        scritturaSerie.current = false;
+        chiusuraSerie.current = false;
+        tentativiSerie.current = 0;
+      }
 
       // Azzero le guardie/stato del round precedente.
       esitoRef.current = null;
@@ -288,8 +436,24 @@ export function SchermataGiocoOnline({ sfida, onIndietro }: Props) {
       setSfidaCorrente(nuova);
       setRoundKey((k) => k + 1); // rimonta SchermataGioco → useGioco con la parola nuova
     },
-    [fermaReinvio],
+    [fermaReinvio, fermaTimerProssima, aggiornaSerie],
   );
+
+  // [SERIE] Solo l'HOST: crea la partita successiva della serie e la diffonde
+  // (stesso messaggio della rivincita). Qualche nuovo tentativo se la rete fa i capricci.
+  avviaProssimaRef.current = async () => {
+    for (let tentativo = 0; tentativo < 3; tentativo++) {
+      if (serieRef.current.finita) return; // nel frattempo qualcuno ha lasciato
+      const r = await creaRivincita(sfidaRef.current, true);
+      if (r.ok) {
+        connessione.current?.inviaRivincitaVia(r.sfida);
+        avviaNuovoRound(r.sfida);
+        return;
+      }
+      console.warn('[SERIE] creazione partita successiva fallita:', r.errore);
+      await new Promise((ok) => setTimeout(ok, 1500));
+    }
+  };
 
   // [RIVINCITA] Solo l'HOST: crea il match della rivincita e lo diffonde.
   const creaEAvviaRivincita = useCallback(async () => {
@@ -329,6 +493,15 @@ export function SchermataGiocoOnline({ sfida, onIndietro }: Props) {
     applicaEsito({ winnerId: e.winnerId ?? null, pareggio: !!e.pareggio });
   };
   handlersRef.current.onAssente = (_motivo) => {
+    // [SERIE] L'avversario se ne va FRA due partite di una serie non ancora decisa:
+    // ha abbandonato la serie → la vinco io.
+    if (esitoRef.current && sfidaRef.current.formato === 3 && !serieRef.current.finita) {
+      fermaTimerProssima();
+      perAbbandono.current = true;
+      aggiornaSerie({ ...serieRef.current, finita: true, esito: 'vinta', abbandono: true });
+      chiudiSerie('vinta', true);
+      return;
+    }
     // Se il round è già deciso e c'era un negoziato di rivincita aperto,
     // l'uscita dell'avversario equivale a un rifiuto/annullamento.
     if (esitoRef.current) {
@@ -388,6 +561,7 @@ export function SchermataGiocoOnline({ sfida, onIndietro }: Props) {
     connessione.current = conn;
     return () => {
       fermaReinvio();
+      fermaTimerProssima();
       conn.chiudi();
       connessione.current = null;
     };
@@ -426,6 +600,15 @@ export function SchermataGiocoOnline({ sfida, onIndietro }: Props) {
   // Se il round è deciso ma c'era un negoziato di rivincita aperto, avviso
   // l'avversario che la rivincita è saltata.
   const gestisciIndietro = useCallback(() => {
+    // [SERIE] Lasciare una serie non ancora decisa (anche fra due partite) = perderla.
+    if (sfidaRef.current.formato === 3 && !serieRef.current.finita) {
+      fermaTimerProssima();
+      connessione.current?.inviaAbbandono();
+      aggiornaSerie({ ...serieRef.current, finita: true, esito: 'persa', abbandono: true });
+      chiudiSerie('persa', true);
+      onIndietro?.();
+      return;
+    }
     if (!esitoRef.current) {
       connessione.current?.inviaAbbandono();
       void scriviRigaGioco('persa'); // la mia riga "lost" (guardia interna)
@@ -433,7 +616,7 @@ export function SchermataGiocoOnline({ sfida, onIndietro }: Props) {
       connessione.current?.inviaRivincitaRisposta(false);
     }
     onIndietro?.();
-  }, [onIndietro, scriviRigaGioco]);
+  }, [onIndietro, scriviRigaGioco, fermaTimerProssima, aggiornaSerie, chiudiSerie]);
 
   // [RIVINCITA] Azioni del pop-up (passate a SchermataGioco).
   const chiediRivincita = useCallback(() => {
@@ -469,6 +652,7 @@ export function SchermataGiocoOnline({ sfida, onIndietro }: Props) {
       esitoOnline={esito}
       nickMio={nickMio}
       nickAvversario={nickAvversario}
+      serie={sfidaCorrente.formato === 3 ? serie : undefined}
       onIndietro={gestisciIndietro}
       statoRivincita={statoRivincita}
       onRichiediRivincita={chiediRivincita}
