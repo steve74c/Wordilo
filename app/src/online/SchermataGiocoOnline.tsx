@@ -22,6 +22,7 @@
 // -----------------------------------------------------------------------------
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { PUNTI_ONLINE } from '../economia/economia';
 import { SchermataGioco } from '../screens/SchermataGioco';
 import {
   apriCanaleStanza,
@@ -49,8 +50,8 @@ type Props = {
   onIndietro?: () => void;
 };
 
-// Punti di ripiego se game_settings non risponde (spec §6: 10 / 0 / 5).
-const PUNTI_FALLBACK: Record<EsitoOnline, number> = { vinta: 10, persa: 0, pareggio: 5 };
+// Punti di ripiego se game_settings non risponde: stessi valori della tabella del menu.
+const PUNTI_FALLBACK: Record<EsitoOnline, number> = PUNTI_ONLINE;
 
 // Traduce l'esito "mio" nei valori della colonna games.result.
 const RESULT_DB: Record<EsitoOnline, 'won' | 'lost' | 'draw'> = {
@@ -174,7 +175,7 @@ export function SchermataGiocoOnline({ sfida, onIndietro }: Props) {
   );
 
   // [C5b] Scrive la MIA riga in games (una sola volta per round). Punti da
-  // game_settings (con fallback 10/0/5). `tentativiOverride` serve all'abbandono.
+  // game_settings (con fallback PUNTI_ONLINE). `tentativiOverride` serve all'abbandono.
   const scriviRigaGioco = useCallback(
     async (mio: EsitoOnline, tentativiOverride?: number) => {
       if (scritturaFatta.current) return; // già scritta

@@ -45,9 +45,10 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
 2. **💰 Economia MONETE (partite da solo) — lato server.**
    - **Regole:** vinta al tentativo 1..6 → principiante **100/70/50/30/0/0**, esperto
      **200/150/100/60/0/0**; persa → **−20** (principiante) / **−40** (esperto).
-     Nuovo giocatore: **100 monete**. Le monete **possono andare in negativo**.
+     *(Valori superati: vedi economia v2 del 2026-10-03.)*
+     Nuovo giocatore: **100 monete** *(1000 dal 2026-10-03)*. Le monete **possono andare in negativo**.
    - **Giocare online costa 20 monete** (sia 🎲 Gioca online sia ⚔️ Sfida amico);
-     serve saldo **≥ 20**.
+     serve saldo **≥ 20**. *(200 dal 2026-10-03.)*
    - **DB** (script `supabase_monete_punti.sql`, **eseguito**): colonna
      `profiles.monete` (default 100) protetta dal trigger `_proteggi_monete` (l'app non
      può modificarla, solo le funzioni); tabella storico **`movimenti_monete`** (RLS:
@@ -64,7 +65,7 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
      `SchermataMenu` mostra due chip **🪙 monete · ⭐ punti** e **disattiva** i pulsanti
      online (con "🪙 20" sotto) se le monete sono < 20.
 3. **Punti ONLINE cambiati:** vinta **+10**, persa **−10**, pareggio **0** (prima
-   10/0/5). Stessa regola per coda casuale e sfida amico. Valori in
+   10/0/5). *(Il 2026-10-03 passati per poche ore a +25/−25/+10 e poi tornati a +10/−10/0.)* Stessa regola per coda casuale e sfida amico. Valori in
    `game_settings.points_win/lose/draw` (aggiornati dallo script). Il sistema punti
    online **esistente** resta quello (righe `games` + `leaderboard_points`).
 4. **Tentativi: da 7 a 6** (deciso). Va applicato in `game_settings.max_attempts` e
@@ -87,18 +88,57 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
      usate come ripiego finché il nick non è caricato. (`tu` esisteva già: è il "(tu)"
      delle classifiche.)
 
+2. **Punteggi ritoccati** (mattina; **superato dal punto 3**):
+   - Monete vinta al 5° tentativo: principiante **10**, esperto **20** (prima 0);
+     il 6° tentativo resta **0**. Tabella completa: principiante **100/70/50/30/10/0**, esperto
+     **200/150/100/60/20/0**; persa invariata (−20/−40).
+   - Punti online: vittoria **+25**, sconfitta **−25**, pareggio **+10 a testa**
+     (ingresso sempre 20 monete). Fallback nell'app (`PUNTI_FALLBACK` in
+     `SchermataGiocoOnline.tsx`) allineato a **25/−25/10**.
+   - **Tabella monete/punti nel menu** (`TabellaPunteggi` in `SchermataMenu.tsx`, in
+     fondo sotto la legenda, si apre toccando il titolo). Legge le costanti
+     `MONETE_VITTORIA`, `MONETE_SCONFITTA`, `PUNTI_ONLINE` di `economia.ts`, che sono
+     una **copia** dei valori del server: aggiornate ai nuovi numeri (serve ricompilare).
+
+3. **💰 Economia v2** (sera del 2026-10-03, script **`supabase_economia_v2.sql`**,
+   da eseguire nel SQL Editor; sostituisce `supabase_punteggi_2026-10-03.sql`, eliminato):
+   - **Da solo:** principiante **2000/700/500/300/100/0**, esperto
+     **3000/1500/1000/600/200/0**; persa **−200** / **−400**.
+   - **Sfide online:** ingresso **200 monete**; a fine partita **monete +250 / −250 /
+     +100** (pareggio, a testa), che si **sommano** all'ingresso (vinci +50 netto, perdi
+     −450, pareggio −100); **punti +10 / −10 / 0**.
+   - Le monete dell'esito le assegna un **trigger sul DB** (`monete_esito_online` su
+     `matches`, funzione `_monete_esito_online`, nuovo tipo `esito_online` in
+     `movimenti_monete`): niente da chiamare dall'app; vale anche per abbandono e
+     rivincita (la rivincita però non paga l'ingresso). Stanza annullata = 0.
+   - `registra_partita_solo` e `paga_ingresso_online` **riscritte da capo** nello
+     script (valori segnati con ✏️). Nuovi giocatori: **1000 monete** (saldi esistenti
+     invariati: chi ha meno di 200 deve prima vincere da solo).
+   - **App:** `economia.ts` (`COSTO_ONLINE = 200`, `MONETE_VITTORIA`,
+     `MONETE_SCONFITTA`, nuova `MONETE_SFIDA`, `PUNTI_ONLINE`); tabella in fondo al menu
+     con la sezione sfide a due colonne **🪙 / ⭐**; `PUNTI_FALLBACK` di
+     `SchermataGiocoOnline` ora è `PUNTI_ONLINE` (una sola fonte).
+
 ### Dove si cambiano i valori (promemoria)
 
-- **Monete per tentativo / sconfitta:** dentro la funzione SQL `registra_partita_solo`
-  (array `v_base`, `v_esperto`, variabili `v_persa_base`, `v_persa_esperto`). Si
-  modifica rieseguendo **solo** il blocco `create or replace function ...` nel SQL
-  Editor (query salvata in Supabase).
-- **Costo online (20):** funzione `paga_ingresso_online` **e** `COSTO_ONLINE` in
-  `economia.ts` (tenerli uguali).
-- **Monete iniziali (100):** `default 100` della colonna **e** funzione `_proteggi_monete`.
-- **Punti online:** Table Editor → `game_settings`.
-- **Saldo di un giocatore:** Table Editor → `profiles.monete` (dalla dashboard si può;
-  la correzione manuale non compare in `movimenti_monete`).
+- **Monete partita da solo:** funzione SQL `registra_partita_solo` (array `v_base`,
+  `v_esperto` — sempre **6 numeri** —; variabili `v_persa_base`, `v_persa_esperto`).
+- **Costo d'ingresso online (200):** funzione `paga_ingresso_online` (`v_costo`).
+- **Monete a fine sfida (+250/−250/+100):** funzione `_monete_esito_online`
+  (`v_vittoria`, `v_sconfitta`, `v_pareggio`).
+- **Monete iniziali (1000):** `default` della colonna `profiles.monete` **e** funzione
+  `_proteggi_monete`.
+- **Punti classifica online (+10/−10/0):** Table Editor → `game_settings`
+  (`points_win/lose/draw`).
+- Le funzioni si cambiano rieseguendo il loro blocco `create ... function` (o tutto
+  `supabase_economia_v2.sql`, che si può rieseguire) nel SQL Editor: effetto immediato,
+  senza aggiornare l'app. I valori sono segnati con ✏️ nello script.
+- **Tabella del menu e pulsanti:** `COSTO_ONLINE`, `MONETE_VITTORIA`,
+  `MONETE_SCONFITTA`, `MONETE_SFIDA`, `PUNTI_ONLINE` in `economia.ts` sono solo una
+  **copia per la visualizzazione**: se cambi i valori sul server, aggiornali anche lì
+  (e ricompila l'app).
+- **Saldo di un giocatore:** Table Editor → `profiles.monete` (correzione manuale
+  consentita dalla dashboard, non registrata in `movimenti_monete`).
 
 ## Cosa manca / prossimi passi (in ordine consigliato)
 
@@ -106,19 +146,21 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
    + aggiornare il default in `@SpotLex/core` (`CONFIG_DEFAULT`, usato come fallback
    offline). Serve vedere `hooks/useGioco.ts` / il config del core.
 2. **Chiavi i18n nuove** da aggiungere in `it.ts`/`en.ts`: `monete`, `puntiOnline`,
-   `moneteInsufficienti` (es. "Servono 20 monete per giocare online"),
+   `moneteInsufficienti` (es. "Servono 200 monete per giocare online" — se esiste già
+   con "20", aggiornarla),
    `erroreIngressoOnline`.
 3. **Bug in `SchermataLobby.onCrea`:** dopo `creaStanza` fa `setRuolo('guest')`, deve
    essere **`setRuolo('host')`** (copia-incolla da `onEntra`) — altrimenti chi crea la
    stanza non vede il proprio codice. **Da correggere/verificare.**
-4. **Fallback punti online** in `SchermataGiocoOnline` (C5b): legge `game_settings` con
-   fallback **10/0/5** → aggiornarlo a **10/−10/0**.
-5. **Verifica in app** dell'economia: menu (chip saldo), pop-up premio, blocco sotto 20,
+4. **Eseguire `supabase_economia_v2.sql`** su Supabase e ricompilare l'app.
+5. **(Idea) Monete dell'esito nel pop-up della sfida** (+250/−250/+100): oggi il saldo
+   si vede aggiornato solo tornando al menu.
+6. **Verifica in app** dell'economia: menu (chip saldo, tabella), pop-up premio, blocco sotto 200,
    pagamento all'ingresso (due browser).
-6. **Scelta del font** in Impostazioni (accanto a lingua e tema).
-7. **Coda casuale — Passo 2 (opzionale):** ridurre la nascita delle stanze fantasma
+7. **Scelta del font** in Impostazioni (accanto a lingua e tema).
+8. **Coda casuale — Passo 2 (opzionale):** ridurre la nascita delle stanze fantasma
    (`beforeunload` → `annullaStanza`, timeout coda ~5s).
-8. **(Idea) Nick dell'avversario anche nel pop-up di rivincita:** "Marco chiede la
+9. **(Idea) Nick dell'avversario anche nel pop-up di rivincita:** "Marco chiede la
    rivincita" invece di "L'avversario chiede la rivincita" (il nick è già disponibile
    in `SchermataGiocoOnline`). I testi della rivincita sono ancora cablati in italiano
    in `SchermataGioco.tsx`: conviene portarli in i18n nello stesso passo.

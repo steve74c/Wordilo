@@ -13,12 +13,20 @@ import { useAuth } from '../auth/AuthContext';
 import { Avatar } from '../components/Avatar';
 import { useProfilo } from '../profilo/ProfiloContext';
 import { useT } from '../i18n/LinguaUIContext';
-import { COSTO_ONLINE, useSaldo } from '../economia/economia';
+import {
+  COSTO_ONLINE,
+  MONETE_SCONFITTA,
+  MONETE_SFIDA,
+  MONETE_VITTORIA,
+  PUNTI_ONLINE,
+  useSaldo,
+} from '../economia/economia';
 
 // -----------------------------------------------------------------------------
 // Prima "finestra": titolo serif con bagliore, saldo (🪙 monete · ⭐ punti), card
 // con selezione lunghezza/modalità, pulsante Gioca, contatori, azioni online
-// (bloccate se monete < COSTO_ONLINE) e legenda. Nessuna logica di gioco.
+// (bloccate se monete < COSTO_ONLINE), legenda e tabella monete/punti (apribile).
+// Nessuna logica di gioco.
 // -----------------------------------------------------------------------------
 
 type Props = {
@@ -97,6 +105,102 @@ function CartaStat({
   );
 }
 
+// Formatta un premio col segno: +70, −20, 0 (meno tipografico, come nei pop-up).
+function conSegno(n: number): string {
+  if (n > 0) return `+${n}`;
+  if (n < 0) return `−${Math.abs(n)}`;
+  return '0';
+}
+
+// Tabella "quanto si guadagna": monete da solo (per tentativo e modalità) e, per
+// le sfide online, monete (🪙) e punti classifica (⭐) per ogni esito.
+// Solo visualizzazione: i valori arrivano da economia.ts (copia del server).
+// Nella parte "da solo" la colonna della modalità scelta nel menu è evidenziata.
+function TabellaPunteggi({ modalita, stili }: { modalita: Modalita; stili: StiliMenu }) {
+  const tema = useTema();
+  const t = useT();
+  const colore = (n: number) =>
+    n > 0 ? tema.palette.verde : n < 0 ? tema.palette.arancione : tema.palette.testoTenue;
+
+  // Cella vuota (es. l'ingresso non dà punti): solo un trattino tenue.
+  const vuota = () => (
+    <Text style={[stili.tabCella, stili.tabNumero, { color: tema.palette.testoTenue }]}>—</Text>
+  );
+
+  const cella = (n: number, attiva: boolean, suffisso = '') => (
+    <Text
+      style={[
+        stili.tabCella,
+        stili.tabNumero,
+        attiva && stili.tabCellaAttiva,
+        { color: colore(n) },
+      ]}
+    >
+      {conSegno(n)}
+      {suffisso}
+    </Text>
+  );
+
+  const princ = modalita === 'principiante';
+  const esp = modalita === 'esperto';
+
+  return (
+    <View style={stili.tabCorpo}>
+      {/* — Da solo: monete — */}
+      <Text style={stili.tabSezione}>{t('tabSezioneSolo')}</Text>
+      <View style={[stili.tabRiga, stili.tabRigaTitoli]}>
+        <Text style={[stili.tabCella, stili.tabPrima, stili.tabTitolo]}>{t('tabTentativo')}</Text>
+        <Text style={[stili.tabCella, stili.tabTitolo, princ && stili.tabTitoloAttivo]}>
+          {t('labelPrincipiante')}
+        </Text>
+        <Text style={[stili.tabCella, stili.tabTitolo, esp && stili.tabTitoloAttivo]}>
+          {t('labelEsperto')}
+        </Text>
+      </View>
+      {MONETE_VITTORIA.principiante.map((_, i) => (
+        <View key={i} style={stili.tabRiga}>
+          <Text style={[stili.tabCella, stili.tabPrima]}>{i + 1}</Text>
+          {cella(MONETE_VITTORIA.principiante[i], princ, ' 🪙')}
+          {cella(MONETE_VITTORIA.esperto[i], esp, ' 🪙')}
+        </View>
+      ))}
+      <View style={[stili.tabRiga, stili.tabRigaUltima]}>
+        <Text style={[stili.tabCella, stili.tabPrima]}>{t('tabNonIndovinata')}</Text>
+        {cella(MONETE_SCONFITTA.principiante, princ, ' 🪙')}
+        {cella(MONETE_SCONFITTA.esperto, esp, ' 🪙')}
+      </View>
+
+      {/* — Online: monete e punti (uguali per tutte le modalità) — */}
+      <Text style={[stili.tabSezione, stili.tabSezioneSpazio]}>{t('tabSezioneOnline')}</Text>
+      <View style={[stili.tabRiga, stili.tabRigaTitoli]}>
+        <Text style={[stili.tabCella, stili.tabPrima, stili.tabTitolo]} />
+        <Text style={[stili.tabCella, stili.tabTitolo]}>🪙</Text>
+        <Text style={[stili.tabCella, stili.tabTitolo]}>⭐</Text>
+      </View>
+      <View style={stili.tabRiga}>
+        <Text style={[stili.tabCella, stili.tabPrima]}>{t('tabIngresso')}</Text>
+        {cella(-COSTO_ONLINE, false)}
+        {vuota()}
+      </View>
+      <View style={stili.tabRiga}>
+        <Text style={[stili.tabCella, stili.tabPrima]}>{t('tabVittoria')}</Text>
+        {cella(MONETE_SFIDA.vinta, false)}
+        {cella(PUNTI_ONLINE.vinta, false)}
+      </View>
+      <View style={stili.tabRiga}>
+        <Text style={[stili.tabCella, stili.tabPrima]}>{t('tabPareggio')}</Text>
+        {cella(MONETE_SFIDA.pareggio, false)}
+        {cella(PUNTI_ONLINE.pareggio, false)}
+      </View>
+      <View style={[stili.tabRiga, stili.tabRigaUltima]}>
+        <Text style={[stili.tabCella, stili.tabPrima]}>{t('tabSconfitta')}</Text>
+        {cella(MONETE_SFIDA.persa, false)}
+        {cella(PUNTI_ONLINE.persa, false)}
+      </View>
+    </View>
+  );
+}
+
 export function SchermataMenu({
   onGioca,
   onGiocaOnline,
@@ -119,6 +223,7 @@ export function SchermataMenu({
   const [lunghezza, setLunghezza] = useState<LunghezzaParola>(lunghezzaIniziale);
   const [modalita, setModalita] = useState<Modalita>(modalitaIniziale);
   const { giocate, vinte, perse } = useStatistiche();
+  const [tabellaAperta, setTabellaAperta] = useState(false); // tabella monete/punti
   const { sessione, esci } = useAuth();
   const { nick: nickProfilo, avatarUrl, nome, cognome, caricando, cambiaAvatar } = useProfilo();
   const nickMeta = sessione?.user?.user_metadata?.nick as string | undefined;
@@ -321,6 +426,19 @@ export function SchermataMenu({
                 <Text style={stili.legendaTesto}>{v.label}</Text>
               </View>
             ))}
+          </View>
+
+          {/* Tabella monete/punti: chiusa di default, si apre toccando il titolo */}
+          <View style={stili.tabCard}>
+            <Pressable
+              onPress={() => setTabellaAperta((a) => !a)}
+              hitSlop={6}
+              style={({ pressed }) => [stili.tabIntestazione, { opacity: pressed ? 0.7 : 1 }]}
+            >
+              <Text style={stili.tabIntestazioneTesto}>{t('tabTitolo')}</Text>
+              <Text style={stili.tabFreccia}>{tabellaAperta ? '▴' : '▾'}</Text>
+            </Pressable>
+            {tabellaAperta && <TabellaPunteggi modalita={modalita} stili={stili} />}
           </View>
         </ScrollView>
       </SafeAreaView>

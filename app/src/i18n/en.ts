@@ -138,6 +138,21 @@ export const en: Partial<Record<ChiaveTesto, string>> = {
   tabBravura: 'Skill',
   percVittorie: 'win rate',
 
+  // — Coins and points —
+  monete: 'Coins',
+  puntiOnline: 'Online points',
+  moneteInsufficienti: 'You need 20 coins to play online',
+  erroreIngressoOnline: 'Could not join the match. Please try again.',
+  tabTitolo: '🪙 Coins and ⭐ points',
+  tabSezioneSolo: 'Solo · coins per attempt',
+  tabSezioneOnline: 'Online · random match and friend challenge',
+  tabTentativo: 'Attempt',
+  tabNonIndovinata: 'Not guessed',
+  tabIngresso: 'Entry',
+  tabVittoria: 'Win',
+  tabPareggio: 'Draw',
+  tabSconfitta: 'Loss',
+
   // — App update —
   aggObbligatorioTitolo: 'Update required',
   aggObbligatorioTesto: 'A new version of SpotLex is out. Update the app to keep playing.',

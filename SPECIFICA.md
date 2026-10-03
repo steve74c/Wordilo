@@ -4,7 +4,7 @@
 > vuole costruire, con quali scelte tecniche e con quale modello dati. Va tenuto
 > aggiornato a ogni decisione presa.
 
-**Stato:** in sviluppo attivo. Single player completo, online v1 completo e chiuso, sistema temi (Vetro/Giallo) **con persistenza sul profilo** e **applicato a tutte le schermate** (incluse online + `Avatar`), multilingua it/en completo (gioco + interfaccia, incluso l'header di gioco e i bottoni auth, nessuna stringa cablata nota residua). Pulsanti online rinominati (**🎲 Gioca online** = coda casuale, **⚔️ Sfida amico** = col codice). Header di gioco ridisegnato con pallini-tentativi. Preferenze lingua **e tema** salvate sul profilo Supabase. Sistema i18n (`app/src/i18n/`) con `useT()` attivo in tutte le schermate principali **e nei messaggi d'errore di `stanze.ts`** (che ritorna chiavi `ChiaveTesto`, non testo cablato). Registrazione: selettori lingua gioco/app **e tema**. Lingua predefinita **prima del login: inglese** (UI e gioco); dopo il login prevale sempre la preferenza salvata sul profilo. Rivincita online con **retry automatico**. Coda casuale con **retry anti-stanze-fantasma**. Classifiche: **due tab Punti/Bravura**. **Novità 2026-10-02:** **economia MONETE** per il single player (calcolate lato server, costo **20 monete** per giocare online), **punti online 10/−10/0**, tentativi **da 7 a 6** (deciso, da completare), **login/registrazione scrollabile**. **Novità 2026-10-03:** in sfida online, riga **"Tu VS Avversario"** con i nick dei giocatori. **Ultimo aggiornamento:** 2026-10-03
+**Stato:** in sviluppo attivo. Single player completo, online v1 completo e chiuso, sistema temi (Vetro/Giallo) **con persistenza sul profilo** e **applicato a tutte le schermate** (incluse online + `Avatar`), multilingua it/en completo (gioco + interfaccia, incluso l'header di gioco e i bottoni auth, nessuna stringa cablata nota residua). Pulsanti online rinominati (**🎲 Gioca online** = coda casuale, **⚔️ Sfida amico** = col codice). Header di gioco ridisegnato con pallini-tentativi. Preferenze lingua **e tema** salvate sul profilo Supabase. Sistema i18n (`app/src/i18n/`) con `useT()` attivo in tutte le schermate principali **e nei messaggi d'errore di `stanze.ts`** (che ritorna chiavi `ChiaveTesto`, non testo cablato). Registrazione: selettori lingua gioco/app **e tema**. Lingua predefinita **prima del login: inglese** (UI e gioco); dopo il login prevale sempre la preferenza salvata sul profilo. Rivincita online con **retry automatico**. Coda casuale con **retry anti-stanze-fantasma**. Classifiche: **due tab Punti/Bravura**. **Novità 2026-10-02:** **economia MONETE** per il single player (calcolate lato server, costo **20 monete** per giocare online), **punti online 10/−10/0**, tentativi **da 7 a 6** (deciso, da completare), **login/registrazione scrollabile**. **Novità 2026-10-03:** **economia v2** — monete da solo ×10 circa (principiante 2000…0, esperto 3000…0, persa −200/−400), ingresso online **200 monete**, **le sfide danno anche monete** (+250/−250/+100, assegnate da un trigger del DB), punti online **+10/−10/0**, nuovi giocatori con **1000 monete**; **tabella monete/punti apribile in fondo al menu**; in sfida online, riga **"Tu VS Avversario"** con i nick dei giocatori. **Ultimo aggiornamento:** 2026-10-03
 
 ---
 
@@ -78,13 +78,13 @@ over-the-air del codice JS senza ripassare dagli store.
   src/components/Avatar.tsx    avatar tondo: foto (avatarUrl) o iniziali su sfondo colorato
   src/hooks/useGioco.ts        ponte React ↔ motore core (+ timer esperto)
   src/stats/statistiche.tsx    statistiche per-utente dal DB (games + vista user_stats)
-  src/economia/economia.ts     💰 MONETE: registraPartitaSolo (RPC registra_partita_solo → {premio, saldo}), pagaIngressoOnline (RPC paga_ingresso_online), hook useSaldo() (monete da profiles + punti da user_stats.punti_totali), costante COSTO_ONLINE = 20; file puro (ritorna codici errore, es. 'MONETE_INSUFFICIENTI')
+  src/economia/economia.ts     💰 MONETE: registraPartitaSolo (RPC registra_partita_solo → {premio, saldo}), pagaIngressoOnline (RPC paga_ingresso_online), hook useSaldo() (monete da profiles + punti da user_stats.punti_totali), costanti COSTO_ONLINE = 200, MONETE_VITTORIA, MONETE_SCONFITTA, MONETE_SFIDA, PUNTI_ONLINE (copia dei valori del server: tabella del menu, pulsanti, e PUNTI_ONLINE come ripiego dei punti online); file puro (ritorna codici errore, es. 'MONETE_INSUFFICIENTI')
   src/components/Griglia.tsx   griglia di celle colorate (+ countdown esperto, + pallini avversario online a sinistra riga)
   src/components/Tastiera.tsx  tastiera a schermo (neutri bianchi, OK teal)
   src/components/Coriandoli.tsx  particelle leggere per la vittoria
-  src/screens/SpotLex.tsx      router minimale menu ↔ partita ↔ classifiche ↔ lobby ↔ sfida online (senza librerie di navigazione); entraInPartitaOnline paga le 20 monete prima di aprire la sfida (lobby e coda), altrimenti torna al menu con `avviso`
+  src/screens/SpotLex.tsx      router minimale menu ↔ partita ↔ classifiche ↔ lobby ↔ sfida online (senza librerie di navigazione); entraInPartitaOnline paga le monete d'ingresso (COSTO_ONLINE) prima di aprire la sfida (lobby e coda), altrimenti torna al menu con `avviso`
   src/screens/SchermataAuth.tsx  accesso/registrazione (email/password); contenuto in una ScrollView (scrollInner: flexGrow 1 + center) dentro il KeyboardAvoidingView, così la card lunga di registrazione scorre
-  src/screens/SchermataMenu.tsx  saluto+logout, chip saldo 🪙 monete · ⭐ punti (useSaldo), scelta lunghezza/modalità, contatori, legenda, pulsanti 🎲 Gioca online + ⚔️ Sfida amico (con "🪙 20", disattivati se monete < 20) e 🏆 Classifica, + ⚙️ Impostazioni accanto a Esci; prop `avviso`; testi via useT()
+  src/screens/SchermataMenu.tsx  saluto+logout, chip saldo 🪙 monete · ⭐ punti (useSaldo), scelta lunghezza/modalità, contatori, legenda, pulsanti 🎲 Gioca online + ⚔️ Sfida amico (con "🪙 200", disattivati se monete < 200) e 🏆 Classifica, + ⚙️ Impostazioni accanto a Esci; in fondo, sotto la legenda, **tabella monete/punti** (`TabellaPunteggi`, chiusa di default; da solo: colonne principiante/esperto con quella scelta evidenziata; sfide: colonne 🪙 monete e ⭐ punti per ingresso/vittoria/pareggio/sconfitta); prop `avviso`; testi via useT()
   src/screens/SchermataClassifiche.tsx  schermata Classifiche (C6): DUE TAB (Punti/Bravura) — legge leaderboard_points e leaderboard_skill, lista con medaglie/avatar, evidenzia la propria riga, cache per tab [FILONE C]
   src/screens/SchermataLobby.tsx  lobby online (1b): crea/entra stanza col codice + attesa avversario in Realtime + INGRESSO AUTOMATICO in partita; Indietro dell'host → annullaStanza; all'apertura chiama pulisciStanzeVecchie (2c) [FILONE C] — ⚠️ bug noto: onCrea fa setRuolo('guest') invece di 'host'
   src/screens/SchermataCodaCasuale.tsx  coda casuale (🎲 Gioca online): trovaOCreaStanzaPubblica → host in attesa o guest che entra; retry anti-fantasma (escludiIds, MAX_RETRY) [CODA]
@@ -109,6 +109,7 @@ over-the-air del codice JS senza ripassare dagli store.
   metro.config.js              wiring monorepo (Metro vede /core)
 /backend     → Edge Functions / logica server per l'online (non ancora creata; serve solo alla v2 anti-cheat)
 supabase_monete_punti.sql → migrazione economia (colonna monete, trigger, movimenti_monete, RPC, punti online) — eseguita
+supabase_economia_v2.sql → economia v2 (2026-10-03): riscrive registra_partita_solo e paga_ingresso_online, aggiunge trigger monete_esito_online, punti 10/−10/0, monete iniziali 1000 — DA ESEGUIRE nel SQL Editor (rieseguibile)
 ```
 
 L'app importa il core come `@SpotLex/core`: l'alias è risolto sia da TypeScript
@@ -131,7 +132,7 @@ Registrazione e login tramite **Supabase Auth**:
 sessione). Alla registrazione si raccolgono **nick**, email/password e le tre
 preferenze (lingua gioco, lingua app, tema). Il **profilo** viene creato **in
 automatico** al primo accesso da un **trigger** sul database (`handle_new_user`),
-così esiste sempre; parte con **100 monete** (default della colonna). In sviluppo la
+così esiste sempre; parte con **1000 monete** (default della colonna; 100 fino al 2026-10-03). In sviluppo la
 **conferma via email è disattivata** (registrazione → subito dentro).
 
 La schermata di accesso/registrazione è **scrollabile** (`ScrollView` dentro il
@@ -201,12 +202,13 @@ I valori numerici qui sotto sono **default parametrizzabili lato server**.
 - Sfida tra **due giocatori** sulla **stessa parola target**.
 - Si sceglie se giocare in modalità **principiante o esperto** (ne eredita le
   regole: tentativi e/o timer).
-- **Costo d'ingresso: 20 monete** per partita (sia coda casuale sia sfida con
+- **Costo d'ingresso: 200 monete** per partita (sia coda casuale sia sfida con
   amico), pagate da **ciascun** giocatore quando la partita parte davvero (dopo la
-  stretta di mano: una stanza annullata non costa nulla). Serve un saldo **≥ 20**; nel
+  stretta di mano: una stanza annullata non costa nulla). Serve un saldo **≥ 200**; nel
   menu i pulsanti online sono disattivati se le monete non bastano. Il pagamento è
   **idempotente** (una sola volta per partita). Anche la **rivincita** è un nuovo match;
-  oggi il pagamento è agganciato all'ingresso da lobby/coda in `SpotLex.tsx`.
+  oggi il pagamento è agganciato all'ingresso da lobby/coda in `SpotLex.tsx`, quindi la
+  rivincita **non** paga l'ingresso (ma dà/toglie comunque le monete dell'esito).
 - **Accoppiamento: due modalità che convivono.**
   1. **Con un amico — codice-stanza** (⚔️ Sfida amico): un giocatore crea la stanza
      e riceve un codice breve da condividere; l'altro entra digitandolo.
@@ -247,38 +249,60 @@ I valori numerici qui sotto sono **default parametrizzabili lato server**.
 
 | Vinta al tentativo | 1 | 2 | 3 | 4 | 5 | 6 | Persa |
 |---|---|---|---|---|---|---|---|
-| Principiante | 100 | 70 | 50 | 30 | 0 | 0 | **−20** |
-| Esperto | 200 | 150 | 100 | 60 | 0 | 0 | **−40** |
+| Principiante | 2000 | 700 | 500 | 300 | 100 | 0 | **−200** |
+| Esperto | 3000 | 1500 | 1000 | 600 | 200 | 0 | **−400** |
 
-- **Saldo iniziale: 100 monete.** Le monete **possono andare in negativo**.
+- **Saldo iniziale: 1000 monete** (per i nuovi giocatori dal 2026-10-03; i saldi
+  esistenti non sono stati toccati). Le monete **possono andare in negativo**.
 - Il premio è **calcolato dal server** (funzione `registra_partita_solo`): l'app invia
   solo modalità, vinta/persa e numero di tentativi. Anti-spam: al massimo una partita
   registrata ogni 5 secondi; tentativi validati (1..6).
-- Il pop-up di fine partita mostra il premio (**+70 🪙** / **−20 🪙**).
+- Il pop-up di fine partita mostra il premio (**+700 🪙** / **−200 🪙**).
 
-### Online → **PUNTI**
+### Online → **MONETE + PUNTI**
 
-- Chi indovina per primo **vince**; l'altro **perde**.
+- Chi indovina per primo **vince**; l'altro **perde**. Chi abbandona **perde**.
 - Se **nessuno dei due** indovina entro i tentativi → **pareggio**.
-- Punti (parametrici, `game_settings`): **vittoria +10**, **sconfitta −10**,
-  **pareggio 0** (dal 2026-10-02; prima 10/0/5). **Stesse regole** per coda casuale e
-  sfida con amico.
-- I punti si accumulano **solo dall'online**; le monete **solo dal single player**
-  (l'online le **consuma**: 20 per partita).
+
+| Sfida online | 🪙 Monete | ⭐ Punti |
+|---|---|---|
+| Ingresso | **−200** | — |
+| Vittoria | **+250** | **+10** |
+| Pareggio | **+100** a testa | **0** |
+| Sconfitta | **−250** | **−10** |
+
+- Le monete dell'esito **si sommano** all'ingresso: vittoria = **+50** netto,
+  pareggio = **−100** netto, sconfitta = **−450** netto.
+- **Stesse regole** per coda casuale e sfida con amico.
+- Le **monete dell'esito** le assegna il **database** (trigger `monete_esito_online`
+  su `matches`) quando la partita passa a `finished` con un vincitore o un pareggio:
+  una sola volta per giocatore e partita. Stanza annullata = nessuna moneta.
+- I **punti** (parametrici, `game_settings`) restano quelli scritti in `games.points`
+  dal client a fine round. Storia: 10/0/5 → +10/−10/0 (2026-10-02) → +25/−25/+10
+  (mattina del 2026-10-03) → **+10/−10/0** (2026-10-03).
+- I punti si accumulano **solo dall'online**; le monete si guadagnano da solo **e**
+  nelle sfide.
 - La **rivincita** apre una **nuova partita = nuovo `matches`**: ogni round ha la
   sua riga in `games` e il proprio esito.
 
 ### Dove si cambiano i valori
 
-- **Monete per tentativo / sconfitta:** funzione SQL `registra_partita_solo`
-  (array `v_base`, `v_esperto`; variabili `v_persa_base`, `v_persa_esperto`). Si
-  cambia rieseguendo il solo blocco `create or replace function` nel SQL Editor
-  (effetto immediato, senza aggiornare l'app). Ogni array deve avere **6 numeri**.
-- **Costo online (20):** funzione `paga_ingresso_online` **e** `COSTO_ONLINE` in
-  `economia.ts` (il server decide; l'app lo usa solo per il menu) — tenerli allineati.
-- **Monete iniziali (100):** `default` della colonna `profiles.monete` **e** trigger
+- **Monete partita da solo:** funzione SQL `registra_partita_solo` (array `v_base`,
+  `v_esperto` — sempre **6 numeri** —; variabili `v_persa_base`, `v_persa_esperto`).
+- **Costo d'ingresso online (200):** funzione `paga_ingresso_online` (`v_costo`).
+- **Monete a fine sfida (+250/−250/+100):** funzione `_monete_esito_online`
+  (`v_vittoria`, `v_sconfitta`, `v_pareggio`).
+- **Monete iniziali (1000):** `default` della colonna `profiles.monete` **e** funzione
   `_proteggi_monete`.
-- **Punti online:** Table Editor → `game_settings` (`points_win/lose/draw`).
+- **Punti classifica online (+10/−10/0):** Table Editor → `game_settings`
+  (`points_win/lose/draw`).
+- Le funzioni si cambiano rieseguendo il loro blocco `create ... function` (o tutto
+  `supabase_economia_v2.sql`, che si può rieseguire) nel SQL Editor: effetto immediato,
+  senza aggiornare l'app. I valori sono segnati con ✏️ nello script.
+- **Tabella del menu e pulsanti:** `COSTO_ONLINE`, `MONETE_VITTORIA`,
+  `MONETE_SCONFITTA`, `MONETE_SFIDA`, `PUNTI_ONLINE` in `economia.ts` sono solo una
+  **copia per la visualizzazione**: se cambi i valori sul server, aggiornali anche lì
+  (e ricompila l'app).
 - **Saldo di un giocatore:** Table Editor → `profiles.monete` (correzione manuale
   consentita dalla dashboard, non registrata in `movimenti_monete`).
 
@@ -289,7 +313,7 @@ I valori numerici qui sotto sono **default parametrizzabili lato server**.
 Due classifiche **distinte**:
 
 1. **Classifica a punti** — somma dei punti guadagnati online (ora possono anche
-   scendere: −10 a sconfitta).
+   scendere: −25 a sconfitta).
 2. **Classifica per bravura** — ordinata sul **win-rate** (vittorie/partite).
 
 **Soglia minima** per la classifica bravura: almeno **N partite online** (default 10,
@@ -358,7 +382,7 @@ profiles
   lingua_ui    text not null default 'it'
   lingua_gioco text not null default 'it'
   tema         text not null default 'giallo' check (tema in ('giallo','vetro'))
-  monete       int  not null default 100     -- 💰 saldo monete (può essere negativo); NON scrivibile dal client
+  monete       int  not null default 1000    -- 💰 saldo monete (può essere negativo); NON scrivibile dal client
   created_at   timestamptz default now()
 
 -- 2. DIZIONARIO
@@ -422,19 +446,20 @@ games
 movimenti_monete
   id         bigint PK (identity)
   user_id    uuid → auth.users (on delete cascade)
-  tipo       text check in ('solo','ingresso_online')
-  importo    int                            -- es. +70, -20
-  match_id   uuid → matches (on delete set null)   -- solo per ingresso_online
-  dettagli   jsonb                          -- {modalita, vinta, tentativi} per 'solo'
+  tipo       text check in ('solo','ingresso_online','esito_online')
+  importo    int                            -- es. +700, -200, -200 (ingresso), +250
+  match_id   uuid → matches (on delete set null)   -- per ingresso_online ed esito_online
+  dettagli   jsonb                          -- {modalita, vinta, tentativi} per 'solo'; {esito} per 'esito_online'
   creato_il  timestamptz default now()
   -- indice UNICO (user_id, match_id) where tipo='ingresso_online' → si paga una volta per partita
+  -- indice UNICO movimenti_monete_esito_unico (user_id, match_id) where tipo='esito_online'
   -- RLS: select solo delle proprie righe; nessuna scrittura dal client
 ```
 
-### Funzioni e trigger dell'economia (2026-10-02)
+### Funzioni e trigger dell'economia (2026-10-02, v2 2026-10-03)
 
 - **`_proteggi_monete()`** — trigger `before insert or update` su `profiles`: se a
-  scrivere è il client (`anon`/`authenticated`), all'insert forza `monete = 100` e
+  scrivere è il client (`anon`/`authenticated`), all'insert forza `monete = 1000` e
   all'update **vieta** di cambiare `monete` (`SALDO_NON_MODIFICABILE`). Le funzioni
   `security definer` girano come proprietario e quindi possono aggiornarle.
 - **`registra_partita_solo(p_modalita, p_vinta, p_tentativi) → jsonb {premio, saldo}`**
@@ -442,8 +467,13 @@ movimenti_monete
   aggiorna `profiles.monete`. Errori: `NON_AUTENTICATO`, `MODALITA_NON_VALIDA`,
   `TENTATIVI_NON_VALIDI`, `TROPPO_VELOCE`.
 - **`paga_ingresso_online(p_match_id) → int saldo`** — verifica che l'utente sia
-  host/guest del match, idempotente, richiede saldo ≥ 20, scala 20. Errori:
-  `NON_PARTECIPANTE`, `MONETE_INSUFFICIENTI`.
+  host/guest del match, idempotente, richiede saldo ≥ 200, scala 200. Errori:
+  `NON_AUTENTICATO`, `NON_PARTECIPANTE`, `MONETE_INSUFFICIENTI`.
+- **`_monete_esito_online()`** + trigger **`monete_esito_online`** (`after update of
+  status` su `matches`, quando lo stato diventa `finished`): se c'è un vincitore o un
+  pareggio, scrive un movimento `esito_online` per host e guest (+250 / −250 / +100) e
+  aggiorna `profiles.monete`. Idempotente grazie all'indice unico. Non chiamabile dal
+  client.
 - `execute` revocato a `anon`/`public`, concesso solo ad `authenticated`.
 
 ### Storage
@@ -486,7 +516,9 @@ leaderboard_skill (view pubblica)
   stanze proprie non finite > 10 min) e colonne `lang`/`is_public`. **Economia monete**
   (migrazione `supabase_monete_punti.sql`): colonna `monete`, trigger
   `_proteggi_monete`, tabella `movimenti_monete`, RPC `registra_partita_solo` e
-  `paga_ingresso_online`, `game_settings` punti a 10/−10/0.
+  `paga_ingresso_online`, `game_settings` punti a 10/−10/0. **Economia v2** (`supabase_economia_v2.sql`):
+  funzioni riscritte con i nuovi valori, tipo `esito_online` + trigger
+  `monete_esito_online`, punti +10/−10/0, monete iniziali 1000.
 
 ---
 
@@ -499,13 +531,14 @@ leaderboard_skill (view pubblica)
 1. **Host crea** la stanza → `matches` con `room_code`, `guest_id` vuoto,
    `status = 'waiting'`.
 2. **Guest entra** col codice → si riempie `guest_id`, `status = 'playing'`.
-3. Stretta di mano Realtime (`guest-entrato`/`host-ok`); **ciascuno paga 20 monete**
+3. Stretta di mano Realtime (`guest-entrato`/`host-ok`); **ciascuno paga 200 monete**
    (`paga_ingresso_online`) ed entra in partita. In v2 il server assegna qui la parola
    e la valuta.
 4. Dopo ogni tentativo, ciascun client pubblica `{ riga, verdi, arancioni }`;
    l'avversario disegna i pallini.
 5. Fine sfida → `status = 'finished'` con `winner_id` oppure `is_draw = true`;
-   vengono scritte le due righe in `games` con `result` e `points` (+10/−10/0).
+   vengono scritte le due righe in `games` con `result` e `points` (+10/−10/0); il trigger su `matches` accredita le
+   monete dell'esito (+250/−250/+100).
 
 ---
 
@@ -563,11 +596,15 @@ resta puro. **Le monete non sono nel core**: le gestisce `app/src/economia/` + s
   **solo quel tentativo**.
 - Tutti i valori numerici chiave sono **parametrici lato server**.
 - **Single player: MONETE** (dal 2026-10-02; prima "nessun punteggio") —
-  100/70/50/30/0/0 e −20 (principiante), 200/150/100/60/0/0 e −40 (esperto); saldo
-  iniziale 100; può andare in negativo. Le monete servono per giocare online.
-- **Online: costo 20 monete a partita** per ciascun giocatore, coda casuale e amico
-  uguali; serve saldo ≥ 20.
-- **Punti online: +10 / −10 / 0** (dal 2026-10-02; prima 10/0/5), stesse regole per
+  2000/700/500/300/100/0 e −200 (principiante), 3000/1500/1000/600/200/0 e −400
+  (esperto) — economia v2 del 2026-10-03; saldo
+  iniziale 1000; può andare in negativo. Le monete servono per giocare online.
+- **Online: costo 200 monete a partita** per ciascun giocatore, coda casuale e amico
+  uguali; serve saldo ≥ 200.
+- **Le sfide danno anche monete** (2026-10-03): +250 / −250 / +100, sommate
+  all'ingresso, assegnate da un **trigger sul DB** (nessuna chiamata dal client, vale
+  anche per abbandono e rivincita).
+- **Punti online: +10 / −10 / 0** (2026-10-03; prima per poche ore +25/−25/+10), stesse regole per
   coda casuale e amico.
 - **Economia lato server:** monete calcolate da funzioni SQL `security definer`
   (`registra_partita_solo`, `paga_ingresso_online`); colonna saldo protetta da
@@ -599,7 +636,7 @@ resta puro. **Le monete non sono nel core**: le gestisce `app/src/economia/` + s
 - **Online v1 — parola dal DB** (`parola_casuale`), `useGioco` accetta `parolaForzata`,
   `SchermataGioco` con props online opzionali, contenitore `SchermataGiocoOnline`.
 - **Esito online arbitrato dall'host** (C5a); scrittura esito (C5b) con punti da
-  `game_settings` (⚠️ fallback in codice ancora 10/0/5 → aggiornare a 10/−10/0).
+  `game_settings` (fallback in codice = `PUNTI_ONLINE` di `economia.ts`).
 - **Classifiche (C6)**, **casi limite (C7)**, **lobby (1b)**, **pulizia stanze (2c)**,
   **rivincita**, **coda casuale** con retry anti-fantasma.
 - **Sistema temi (Vetro/Giallo)** con persistenza su `profiles.tema`.
@@ -620,8 +657,13 @@ resta puro. **Le monete non sono nel core**: le gestisce `app/src/economia/` + s
 - **Chiavi i18n economia** da aggiungere in `it.ts`/`en.ts`: `monete`, `puntiOnline`,
   `moneteInsufficienti`, `erroreIngressoOnline`.
 - **Bug `SchermataLobby.onCrea`:** `setRuolo('guest')` → deve essere `setRuolo('host')`.
-- **Fallback punti in `SchermataGiocoOnline`:** 10/0/5 → 10/−10/0.
-- **Verifica in app dell'economia** (chip saldo, pop-up premio, blocco < 20,
+- **Testo `moneteInsufficienti`** in `it.ts`/`en.ts`: se dice "20 monete", portarlo a
+  200 (o meglio usare `COSTO_ONLINE` come parametro).
+- **Monete dell'esito nel pop-up online** (idea): oggi il pop-up della sfida mostra
+  l'esito ma non +250/−250/+100; il saldo si aggiorna tornando al menu.
+- **Anti-cheat esito:** il vincitore lo scrive il client (host) in `matches`; con le
+  monete in palio conviene spostare la decisione sul server (v2 Edge Function).
+- **Verifica in app dell'economia** (chip saldo, pop-up premio, blocco < 200,
   pagamento d'ingresso con due browser).
 - **Anti-cheat ingresso online:** spostare `paga_ingresso_online` dentro le RPC di
   creazione/ingresso stanza; gestire il caso "pagamento fallito dopo la stretta di
@@ -660,7 +702,7 @@ tavolozza colori-persona fissa e iniziali bianche. Tema persistito su `profiles.
   se negativo.
 - Card "Imposta la partita" (lunghezza, modalità, Gioca), contatori, **avviso**
   (es. monete insufficienti), azioni **🎲 Gioca online / ⚔️ Sfida amico** con sotto
-  **🪙 20** (semitrasparenti e disattivate se monete < 20), 🏆 Classifica, legenda.
+  **🪙 200** (semitrasparenti e disattivate se monete < 200), 🏆 Classifica, legenda.
 - `ScrollView` (`flexGrow:1` + center): centrato se c'è spazio, scorre se no.
 
 ### Schermata di gioco

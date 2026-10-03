@@ -24,7 +24,7 @@ export async function controllaVersione(): Promise<EsitoVersione> {
 
   try {
     const richiesta = supabase
-      .from('app_config')
+      .from('app_versions')
       .select('min_version_code, latest_version_code, store_url')
       .eq('platform', PIATTAFORMA)
       .maybeSingle();
@@ -50,7 +50,7 @@ function urlStoreDiDefault(): string | null {
   if (PIATTAFORMA === 'android' && Application.applicationId) {
     return `market://details?id=${Application.applicationId}`;
   }
-  return null; // iOS: serve store_url nella tabella app_config
+  return null; // iOS: serve store_url nella tabella app_versions
 }
 
 /**

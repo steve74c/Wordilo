@@ -211,6 +211,68 @@ export function creaStili(tema: Tema) {
     legendaItem: { flexDirection: 'row', alignItems: 'center', gap: 7 },
     quadratino: { width: 14, height: 14, borderRadius: 4 },
     legendaTesto: { color: P.testoTenue, fontSize: 13, fontFamily: F.regular },
+
+    // Tabella monete/punti (sotto la legenda, apribile).
+    tabCard: {
+      backgroundColor: P.superficie,
+      borderColor: P.hair,
+      borderWidth: 1,
+      borderRadius: 18,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+    },
+    tabIntestazione: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    tabIntestazioneTesto: {
+      color: P.testoTenue,
+      fontSize: 12,
+      fontFamily: F.bold,
+      fontWeight: '700',
+      letterSpacing: 1.6,
+      textTransform: 'uppercase',
+    },
+    tabFreccia: { color: P.testoTenue, fontSize: 14, fontFamily: F.bold },
+    tabCorpo: { marginTop: 12 },
+    tabSezione: {
+      color: P.testo,
+      fontSize: 13,
+      fontFamily: F.bold,
+      fontWeight: '700',
+      marginBottom: 6,
+    },
+    tabSezioneSpazio: { marginTop: 16 },
+    tabRiga: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 5,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: P.hair,
+    },
+    tabRigaTitoli: { paddingBottom: 6 },
+    tabRigaUltima: { borderBottomWidth: 0 },
+    tabCella: {
+      flex: 1,
+      textAlign: 'center',
+      color: P.testo,
+      fontSize: 13,
+      fontFamily: F.regular,
+    },
+    tabPrima: { textAlign: 'left', color: P.testoTenue },
+    tabTitolo: {
+      color: P.testoTenue,
+      fontSize: 11,
+      fontFamily: F.bold,
+      fontWeight: '700',
+      letterSpacing: 0.8,
+      textTransform: 'uppercase',
+    },
+    tabTitoloAttivo: { color: P.testo },
+    tabNumero: { fontFamily: F.bold, fontWeight: '700' },
+    tabCellaAttiva: { fontSize: 14 },
   });
 }
 

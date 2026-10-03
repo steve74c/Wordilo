@@ -15,6 +15,12 @@ import { TemaProvider, useControlliTema } from './src/temi/TemaContext';
 import { LinguaProvider, useControlliLingua } from './src/lingua/LinguaContext';
 import { LinguaUIProvider, useControlliLinguaUI } from './src/i18n/LinguaUIContext';
 
+// Il profilo salva le lingue come testo libero: prima di usarle controlliamo
+// che siano una lingua supportata ('it' | 'en'), altrimenti le ignoriamo.
+function eCodiceLingua(valore: string | null | undefined): valore is 'it' | 'en' {
+  return valore === 'it' || valore === 'en';
+}
+
 // -----------------------------------------------------------------------------
 // InizialiLingue — bridge tra ProfiloContext e i due provider lingua.
 // Sta DENTRO tutti e tre i provider (profilo + lingua + linguaUI) e, non appena
@@ -28,11 +34,11 @@ function InizialiLingue() {
   const { cambiaLinguaUI } = useControlliLinguaUI();
 
   useEffect(() => {
-    if (sessione && linguaGioco) cambiaLingua(linguaGioco);
+    if (sessione && eCodiceLingua(linguaGioco)) cambiaLingua(linguaGioco);
   }, [sessione, linguaGioco]);
 
   useEffect(() => {
-    if (sessione && linguaUI) cambiaLinguaUI(linguaUI);
+    if (sessione && eCodiceLingua(linguaUI)) cambiaLinguaUI(linguaUI);
   }, [sessione, linguaUI]);
 
   return null;

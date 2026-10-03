@@ -157,8 +157,8 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
       // Passiamo la lingua scelta dall'host: diventa la lingua della sfida.
       const r = await creaStanza(modalita as ModalitaOnline, lunghezza, linguaSfida);
       if (r.ok) {
-        setRuolo('guest');
-        setSfida(r.sfida); // già 'playing', modalità/lunghezza/lingua ereditate dall'host
+        setRuolo('host'); // chi crea la stanza è l'HOST: vede il codice e aspetta il guest
+        setSfida(r.sfida); // stanza 'waiting', con la lingua scelta qui
       } else {
         setMessaggio(t(r.errore));
       }
@@ -181,7 +181,7 @@ export function SchermataLobby({ modalita, lunghezza, onEntraInPartita, onIndiet
         setRuolo('guest');
         setSfida(r.sfida); // già 'playing', modalità/lunghezza/lingua ereditate dall'host
       } else {
-        setMessaggio(r.errore);
+        setMessaggio(t(r.errore)); // r.errore è una chiave i18n: va tradotta
       }
     } finally {
       setOccupato(false);

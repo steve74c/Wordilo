@@ -137,6 +137,21 @@ export const it = {
   tabBravura: 'Bravura',
   percVittorie: 'di vittorie',
 
+  // — Monete e punti —
+  monete: 'Monete',
+  puntiOnline: 'Punti online',
+  moneteInsufficienti: 'Servono 20 monete per giocare online',
+  erroreIngressoOnline: 'Non è stato possibile entrare in partita. Riprova.',
+  tabTitolo: '🪙 Monete e ⭐ punti',
+  tabSezioneSolo: 'Da solo · monete per tentativo',
+  tabSezioneOnline: 'Online · coda casuale e sfida amico',
+  tabTentativo: 'Tentativo',
+  tabNonIndovinata: 'Non indovinata',
+  tabIngresso: 'Ingresso',
+  tabVittoria: 'Vittoria',
+  tabPareggio: 'Pareggio',
+  tabSconfitta: 'Sconfitta',
+
   // — Aggiornamento app —
   aggObbligatorioTitolo: 'Aggiornamento necessario',
   aggObbligatorioTesto: 'È uscita una nuova versione di SpotLex. Aggiorna l’app per continuare a giocare.',

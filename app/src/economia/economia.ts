@@ -4,13 +4,38 @@
 //
 // I PUNTI online restano quelli del sistema esistente (game_settings + matches,
 // sommati in user_stats.punti_totali): qui li leggiamo solo per mostrarli.
-// Tutti i calcoli delle monete avvengono su Supabase (supabase_monete_punti.sql).
+// Tutti i calcoli delle monete avvengono su Supabase (supabase_economia_v2.sql):
+// le costanti qui sotto sono solo una COPIA per la tabella del menu e per il
+// costo mostrato sui pulsanti. Se cambi i valori sul server, aggiornale qui.
+// I punti della classifica, invece, li legge SchermataGiocoOnline da
+// game_settings e usa PUNTI_ONLINE solo come ripiego.
 // -----------------------------------------------------------------------------
 import { useCallback, useEffect, useState } from 'react';
 import type { Modalita } from '@SpotLex/core';
 import { supabase } from '../lib/supabase';
 
-export const COSTO_ONLINE = 20;
+// --- Valori dell'economia (copia del server) ---------------------------------
+// Ingresso a ogni sfida online (funzione paga_ingresso_online).
+export const COSTO_ONLINE = 200;
+
+// Partita da solo vinta al tentativo 1..6 (funzione registra_partita_solo).
+export const MONETE_VITTORIA: Record<Modalita, number[]> = {
+  principiante: [2000, 700, 500, 300, 100, 0],
+  esperto: [3000, 1500, 1000, 600, 200, 0],
+};
+
+// Partita da solo non indovinata (funzione registra_partita_solo).
+export const MONETE_SCONFITTA: Record<Modalita, number> = {
+  principiante: -200,
+  esperto: -400,
+};
+
+// Sfida online: monete a fine partita, in aggiunta all'ingresso
+// (trigger monete_esito_online sulla tabella matches).
+export const MONETE_SFIDA = { vinta: 250, persa: -250, pareggio: 100 } as const;
+
+// Sfida online: punti in classifica (game_settings.points_win/lose/draw).
+export const PUNTI_ONLINE = { vinta: 10, persa: -10, pareggio: 0 } as const;
 
 type Esito<T> = { ok: true; valore: T } | { ok: false; errore: string };
 
@@ -42,7 +67,7 @@ export async function registraPartitaSolo(
   return { ok: true, valore: data as { premio: number; saldo: number } };
 }
 
-// --- Online: paga le 20 monete d'ingresso (ripetere non fa ripagare). --------
+// --- Online: paga le monete d'ingresso (ripetere non fa ripagare). -----------
 export async function pagaIngressoOnline(matchId: string): Promise<Esito<number>> {
   const { data, error } = await supabase.rpc('paga_ingresso_online', { p_match_id: matchId });
   if (error) return { ok: false, errore: codiceErrore(error.message) };
