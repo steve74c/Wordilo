@@ -168,6 +168,7 @@ export const it = {
   prossimaPartita: 'La prossima partita parte tra pochi secondi…',
   serieAbbandono: 'L’avversario ha abbandonato la serie.',
   abbandonaSerie: '← Abbandona la serie (perdi)',
+  avversarioUscito: 'L’avversario ha lasciato la partita.',
 
   // — Aggiornamento app —
   aggObbligatorioTitolo: 'Aggiornamento necessario',

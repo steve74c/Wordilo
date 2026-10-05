@@ -169,6 +169,7 @@ export const en: Partial<Record<ChiaveTesto, string>> = {
   prossimaPartita: 'The next game starts in a few seconds…',
   serieAbbandono: 'Your opponent left the series.',
   abbandonaSerie: '← Leave the series (you lose)',
+  avversarioUscito: 'Your opponent left the game.',
 
   // — App update —
   aggObbligatorioTitolo: 'Update required',

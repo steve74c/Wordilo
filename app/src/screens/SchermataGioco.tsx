@@ -485,9 +485,15 @@ export function SchermataGioco({
               </Text>
               <Text style={stili.esitoSub}>
                 {serie?.abbandono && serieFinita && haVinto
-                  ? t('serieAbbandono')
+                  ? vinta
+                    ? t('serieAbbandono')
+                    : `${t('serieAbbandono')} ${t('laParolaEra', { parola: stato.target })}`
                   : online
-                  ? esitoFin === 'vinta'
+                  ? esitoFin === 'vinta' && !vinta
+                    ? // Vinta online senza averla indovinata = l'avversario è uscito
+                      // o caduto (C7): la parola va comunque svelata.
+                      `${t('avversarioUscito')} ${t('laParolaEra', { parola: stato.target })}`
+                    : esitoFin === 'vinta'
                     ? t(stato.righe.length === 1 ? 'inNTentativo' : 'inNTentativi', { n: stato.righe.length })
                     : esitoFin === 'pareggio'
                       ? t('nessunoIndovinato', { parola: stato.target })
