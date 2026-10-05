@@ -19,4 +19,13 @@ export const fr: Partial<Record<ChiaveTesto, string>> = {
   // lunghezzaParola: 'Word length',
   // nLettere: '{n} letters',
   // impostaPartita: 'SET UP THE GAME',
+
+  // — Aides payantes —
+  aiutoLettera: 'Lettre',
+  aiutoTempo: '+{n}s',
+  aiutoConferma: 'Confirmer 🪙 {n} ?',
+  aiutoPagato: '−{n} 🪙 · solde {saldo}',
+  aiutoLimite: 'Aide déjà utilisée dans cette partie',
+  aiutoMoneteInsufficienti: 'Pas assez de pièces',
+  aiutoErrore: 'Achat échoué, réessaie',
 };

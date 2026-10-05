@@ -177,4 +177,13 @@ export const en: Partial<Record<ChiaveTesto, string>> = {
   aggDisponibileTesto: 'Update SpotLex to get the latest features and fixes.',
   aggAggiorna: 'Update',
   aggPiuTardi: 'Later',
+
+  // — Paid hints —
+  aiutoLettera: 'Letter',
+  aiutoTempo: '+{n}s',
+  aiutoConferma: 'Confirm 🪙 {n}?',
+  aiutoPagato: '−{n} 🪙 · balance {saldo}',
+  aiutoLimite: 'Hint already used in this game',
+  aiutoMoneteInsufficienti: 'Not enough coins',
+  aiutoErrore: 'Purchase failed, try again',
 };

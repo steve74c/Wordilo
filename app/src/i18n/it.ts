@@ -176,6 +176,15 @@ export const it = {
   aggDisponibileTesto: 'Aggiorna SpotLex per avere le ultime novità e correzioni.',
   aggAggiorna: 'Aggiorna',
   aggPiuTardi: 'Più tardi',
+
+  // — Aiuti a pagamento —
+  aiutoLettera: 'Lettera',
+  aiutoTempo: '+{n}s',
+  aiutoConferma: 'Conferma 🪙 {n}?',
+  aiutoPagato: '−{n} 🪙 · saldo {saldo}',
+  aiutoLimite: 'Aiuto già usato in questa partita',
+  aiutoMoneteInsufficienti: 'Monete insufficienti',
+  aiutoErrore: 'Acquisto non riuscito, riprova',
 } as const;
 
 export type ChiaveTesto = keyof typeof it;

@@ -158,6 +158,7 @@ export async function creaStanza(
     }
     // Codice duplicato (violazione unique) → riprova con un altro. Altri errori: esci.
     if (error && error.code !== '23505') {
+      console.warn('[stanze] creazione stanza fallita:', error.code, error.message);
       return { ok: false, errore: 'errCreaStanza' };
     }
   }
@@ -385,7 +386,10 @@ export async function trovaOCreaStanzaPubblica(
     .order('created_at', { ascending: true })
     .limit(10);
 
-  if (errCerca) return { ok: false, errore: 'errRicercaAvversario' };
+  if (errCerca) {
+    console.warn('[stanze] ricerca avversario fallita:', errCerca.code, errCerca.message);
+    return { ok: false, errore: 'errRicercaAvversario' };
+  }
 
   // 3) Se ci sono candidate, provo a ENTRARE nella prima ancora libera.
   //    L'update passa solo se guest_id è ANCORA vuoto: se qualcuno l'ha occupata
@@ -450,6 +454,7 @@ export async function trovaOCreaStanzaPubblica(
       };
     }
     if (error && error.code !== '23505') {
+      console.warn('[stanze] creazione stanza fallita:', error.code, error.message);
       return { ok: false, errore: 'errCreaStanza' };
     }
   }

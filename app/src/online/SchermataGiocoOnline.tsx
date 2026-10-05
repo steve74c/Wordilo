@@ -652,6 +652,7 @@ export function SchermataGiocoOnline({ sfida, onIndietro }: Props) {
       esitoOnline={esito}
       nickMio={nickMio}
       nickAvversario={nickAvversario}
+      matchId={sfidaCorrente.id}
       serie={sfidaCorrente.formato === 3 ? serie : undefined}
       onIndietro={gestisciIndietro}
       statoRivincita={statoRivincita}

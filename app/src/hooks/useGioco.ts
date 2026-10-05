@@ -76,6 +76,9 @@ export function useGioco(
   const [problema, setProblema] = useState<ProblemaConferma | null>(null);
   const [scossa, setScossa] = useState(0); // incrementa a ogni tentativo rifiutato
   const [secondiRimasti, setSecondiRimasti] = useState<number | null>(null); // countdown esperto
+  // Scadenza del tentativo corrente (ms). In un ref così l'aiuto "tempo extra"
+  // può spostarla in avanti senza far ripartire il countdown.
+  const scadenzaRef = useRef<number | null>(null);
 
   // Registra l'esito una volta sola per partita (guardia con ref).
   const registrato = useRef(false);
@@ -106,16 +109,17 @@ export function useGioco(
   useEffect(() => {
     const totale = stato.secondiPerTentativo;
     if (totale == null || stato.esito !== 'in_corso') {
+      scadenzaRef.current = null;
       setSecondiRimasti(null);
       return;
     }
 
     setSecondiRimasti(totale); // nuova riga → il countdown riparte da capo
-    const scadenza = Date.now() + totale * 1000;
+    scadenzaRef.current = Date.now() + totale * 1000;
     let scattato = false;
 
     const id = setInterval(() => {
-      const rimastiF = (scadenza - Date.now()) / 1000;
+      const rimastiF = ((scadenzaRef.current ?? Date.now()) - Date.now()) / 1000;
       const rimasti = Math.max(0, Math.ceil(rimastiF));
       // Aggiorna solo quando cambia il secondo intero: pochi re-render, conta 10→1.
       setSecondiRimasti((prev) => (prev === rimasti ? prev : rimasti));
@@ -159,6 +163,15 @@ export function useGioco(
     });
   }, [linguaEffettiva]);
 
+  // Aiuto "tempo extra": allunga SOLO il tentativo in corso.
+  // Ritorna false se non c'è un countdown attivo (principiante, partita finita).
+  const aggiungiSecondi = useCallback((secondi: number): boolean => {
+    if (scadenzaRef.current == null || secondi <= 0) return false;
+    scadenzaRef.current += secondi * 1000;
+    setSecondiRimasti(Math.max(0, Math.ceil((scadenzaRef.current - Date.now()) / 1000)));
+    return true;
+  }, []);
+
   const nuovaPartita = useCallback(() => {
     setProblema(null);
     setStato(nuovoStato());
@@ -166,5 +179,5 @@ export function useGioco(
 
   const tastiera = useMemo(() => coloriTastiera(stato), [stato]);
 
-  return { stato, problema, scossa, secondiRimasti, tastiera, digita, cancella, svuotaRiga, conferma, nuovaPartita };
+  return { stato, problema, scossa, secondiRimasti, tastiera, digita, cancella, svuotaRiga, conferma, nuovaPartita, aggiungiSecondi };
 }

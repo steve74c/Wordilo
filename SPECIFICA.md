@@ -4,7 +4,7 @@
 > vuole costruire, con quali scelte tecniche e con quale modello dati. Va tenuto
 > aggiornato a ogni decisione presa.
 
-**Stato:** in sviluppo attivo. Single player completo, online v1 completo e chiuso, sistema temi (Vetro/Giallo) **con persistenza sul profilo** e **applicato a tutte le schermate** (incluse online + `Avatar`), multilingua it/en completo (gioco + interfaccia, incluso l'header di gioco e i bottoni auth, nessuna stringa cablata nota residua). Pulsanti online rinominati (**🎲 Gioca online** = coda casuale, **⚔️ Sfida amico** = col codice). Header di gioco ridisegnato con pallini-tentativi. Preferenze lingua **e tema** salvate sul profilo Supabase. Sistema i18n (`app/src/i18n/`) con `useT()` attivo in tutte le schermate principali **e nei messaggi d'errore di `stanze.ts`** (che ritorna chiavi `ChiaveTesto`, non testo cablato). Registrazione: selettori lingua gioco/app **e tema**. Lingua predefinita **prima del login: inglese** (UI e gioco); dopo il login prevale sempre la preferenza salvata sul profilo. Rivincita online con **retry automatico**. Coda casuale con **retry anti-stanze-fantasma**. Classifiche: **due tab Punti/Bravura**. **Novità 2026-10-02:** **economia MONETE** per il single player (calcolate lato server, costo **20 monete** per giocare online), **punti online 10/−10/0**, tentativi **da 7 a 6** (deciso, da completare), **login/registrazione scrollabile**. **Novità 2026-10-03:** **economia v2** — monete da solo ×10 circa (principiante 2000…0, esperto 3000…0, persa −200/−400), ingresso online **200 monete**, **le sfide danno anche monete** (+250/−250/+100, assegnate da un trigger del DB), punti online **+10/−10/0**, nuovi giocatori con **1000 monete**; **tabella monete/punti apribile in fondo al menu**; in sfida online, riga **"Tu VS Avversario"** con i nick dei giocatori. **Ultimo aggiornamento:** 2026-10-03
+**Stato:** in sviluppo attivo. Single player completo, online v1 completo e chiuso, sistema temi (Vetro/Giallo) **con persistenza sul profilo** e **applicato a tutte le schermate** (incluse online + `Avatar`), multilingua it/en completo (gioco + interfaccia, incluso l'header di gioco e i bottoni auth, nessuna stringa cablata nota residua). Pulsanti online rinominati (**🎲 Gioca online** = coda casuale, **⚔️ Sfida amico** = col codice). Header di gioco ridisegnato con pallini-tentativi. Preferenze lingua **e tema** salvate sul profilo Supabase. Sistema i18n (`app/src/i18n/`) con `useT()` attivo in tutte le schermate principali **e nei messaggi d'errore di `stanze.ts`** (che ritorna chiavi `ChiaveTesto`, non testo cablato). Registrazione: selettori lingua gioco/app **e tema**. Lingua predefinita **prima del login: inglese** (UI e gioco); dopo il login prevale sempre la preferenza salvata sul profilo. Rivincita online con **retry automatico**. Coda casuale con **retry anti-stanze-fantasma**. Classifiche: **due tab Punti/Bravura**. **Novità 2026-10-02:** **economia MONETE** per il single player (calcolate lato server, costo **20 monete** per giocare online), **punti online 10/−10/0**, tentativi **da 7 a 6** (deciso, da completare), **login/registrazione scrollabile**. **Novità 2026-10-03:** **economia v2** — monete da solo ×10 circa (principiante 2000…0, esperto 3000…0, persa −200/−400), ingresso online **200 monete**, **le sfide danno anche monete** (+250/−250/+100, assegnate da un trigger del DB), punti online **+10/−10/0**, nuovi giocatori con **1000 monete**; **tabella monete/punti apribile in fondo al menu**; in sfida online, riga **"Tu VS Avversario"** con i nick dei giocatori; nuova **sfida al meglio di 3** (🎲 e ⚔️, scelta nel menu). **Ultimo aggiornamento:** 2026-10-03
 
 ---
 
@@ -89,10 +89,10 @@ over-the-air del codice JS senza ripassare dagli store.
   src/screens/SchermataLobby.tsx  lobby online (1b): crea/entra stanza col codice + attesa avversario in Realtime + INGRESSO AUTOMATICO in partita; Indietro dell'host → annullaStanza; all'apertura chiama pulisciStanzeVecchie (2c) [FILONE C] — ⚠️ bug noto: onCrea fa setRuolo('guest') invece di 'host'
   src/screens/SchermataCodaCasuale.tsx  coda casuale (🎲 Gioca online): trovaOCreaStanzaPubblica → host in attesa o guest che entra; retry anti-fantasma (escludiIds, MAX_RETRY) [CODA]
   src/screens/SchermataGioco.tsx  props ONLINE opzionali (parolaForzata, online, onRigaConfermata, righeAvversario, onPartitaFinita, esitoOnline, nickMio, nickAvversario) + RIVINCITA; in single player a fine partita chiama registraPartitaSolo UNA volta (guardia moneteRegistrate, azzerata da "Nuova partita") e mostra il premio nel pop-up (+N 🪙 verde / −N 🪙 arancione)
-  src/online/stanze.ts         creaStanza/entraInStanza/annullaStanza/pulisciStanzeVecchie/creaRivincita/trovaOCreaStanzaPubblica [FILONE C / CODA]
+  src/online/stanze.ts         creaStanza/entraInStanza/annullaStanza/pulisciStanzeVecchie/creaRivincita(precedente, prossimaInSerie)/trovaOCreaStanzaPubblica [FILONE C / CODA]; tipo FormatoSfida (1 | 3); Sfida ha formato + serieId; daRiga() traduce una riga di matches in Sfida
   src/online/canaleStanza.ts   canale Realtime broadcast: riepiloghi + ingresso guest + fine partita + abbandono/Presence (C7) + rivincita [FILONE C]
   src/online/classifiche.ts    leggiClassificaPunti + leggiClassificaBravura [FILONE C]
-  src/online/SchermataGiocoOnline.tsx  contenitore sfida online: canale, parola condivisa, pallini, arbitro dell'esito (host), scrittura esito (C5b), abbandono (C7), rivincita, nick avversario da profiles [FILONE C]
+  src/online/SchermataGiocoOnline.tsx  contenitore sfida online: canale, parola condivisa, pallini, arbitro dell'esito (host), scrittura esito (C5b), abbandono (C7), rivincita, nick avversario da profiles, **serie al meglio di 3** (punteggio, partita successiva creata dall'host, chiusura serie, abbandono) [FILONE C]
   src/LoadingScreen.tsx        schermata di caricamento brandizzata
   src/theme.ts                 palette del tema VETRO + token del sistema temi + funzioni pure (ombra/bagliore/coloreDiSfondo)
   src/temi/tipi.ts             forma di un Tema (palette/gradienti/font/misure); chiavi di palette da keyof typeof C
@@ -110,6 +110,7 @@ over-the-air del codice JS senza ripassare dagli store.
 /backend     → Edge Functions / logica server per l'online (non ancora creata; serve solo alla v2 anti-cheat)
 supabase_monete_punti.sql → migrazione economia (colonna monete, trigger, movimenti_monete, RPC, punti online) — eseguita
 supabase_economia_v2.sql → economia v2 (2026-10-03): riscrive registra_partita_solo e paga_ingresso_online, aggiunge trigger monete_esito_online, punti 10/−10/0, monete iniziali 1000 — DA ESEGUIRE nel SQL Editor (rieseguibile)
+supabase_serie_meglio3.sql → sfida al meglio di 3 (2026-10-03): colonne formato/serie_* su matches, trigger monete aggiornato (a fine serie) — DA ESEGUIRE DOPO economia v2 (rieseguibile)
 ```
 
 L'app importa il core come `@SpotLex/core`: l'alias è risolto sia da TypeScript
@@ -236,6 +237,23 @@ I valori numerici qui sotto sono **default parametrizzabili lato server**.
 - **Con chi sto giocando — FATTO (2026-10-03).** In partita, sotto l'header, la pillola
   **`mioNick VS nickAvversario`**. Il nick avversario si legge da `profiles.nick`
   (lettura pubblica); finché non arriva si mostra "Avversario".
+- **Sfida al meglio di 3 — FATTO (2026-10-03).** Nel menu, sopra 🎲/⚔️, la riga
+  **Sfida online: Singola / Meglio di 3** (vale per entrambi i pulsanti).
+  - Al massimo **3 partite**; chi ne vince **2** vince subito la serie.
+  - Partita in cui nessuno indovina = **pari**: dopo 3 partite vince chi ne ha vinte
+    di più (es. 1-0 + due pari = vittoria); a parità la serie è **pareggio**
+    (es. 1-1 + un pari).
+  - **Chi abbandona perde la serie**, anche se se ne va fra una partita e l'altra.
+  - **Monete e punti come la singola, ma una sola volta per serie** (ingresso 200 al
+    primo match, poi +250/+10, −250/−10 o +100/0 a fine serie). Nelle statistiche e
+    nella classifica bravura la serie conta **come una partita**.
+  - La coda casuale accoppia solo giocatori con **lo stesso formato**; nella sfida
+    amico il formato lo sceglie chi crea la stanza (il guest lo eredita).
+  - Ogni partita della serie è un nuovo `matches` creato **dall'host** dopo ~4 s
+    (stesso meccanismo della rivincita). Il punteggio della serie è nella riga
+    "Tu VS Avversario" (al posto di "VS") e nel pop-up; l'header mostra
+    "Partita N di 3". La **rivincita** a fine serie apre una **nuova serie** (senza
+    ingresso, come la rivincita singola).
 
 ---
 
@@ -284,6 +302,10 @@ I valori numerici qui sotto sono **default parametrizzabili lato server**.
   nelle sfide.
 - La **rivincita** apre una **nuova partita = nuovo `matches`**: ogni round ha la
   sua riga in `games` e il proprio esito.
+- **Al meglio di 3** (vedi §5.3): stessi valori, ma **una volta per serie**: l'ingresso
+  si paga al primo match, la riga in `games` (punti, statistiche) si scrive a fine
+  serie con `match_id` = primo match, e le monete dell'esito le accredita il trigger
+  quando la "scheda" della serie passa a `serie_finita`.
 
 ### Dove si cambiano i valori
 
@@ -423,6 +445,11 @@ matches
   is_draw       boolean default false
   lang          text default 'it'
   is_public     boolean not null default false
+  formato         smallint not null default 1   -- 1 = singola, 3 = al meglio di 3
+  serie_id        uuid → matches.id             -- null = singola o PRIMO match della serie ("scheda")
+  serie_finita    boolean not null default false -- solo sulla scheda: la serie è chiusa
+  serie_vincitore uuid → profiles.id             -- solo sulla scheda (null se pareggio)
+  serie_pareggio  boolean not null default false -- solo sulla scheda
   created_at    timestamptz
   finished_at   timestamptz
 
@@ -473,7 +500,9 @@ movimenti_monete
   status` su `matches`, quando lo stato diventa `finished`): se c'è un vincitore o un
   pareggio, scrive un movimento `esito_online` per host e guest (+250 / −250 / +100) e
   aggiorna `profiles.monete`. Idempotente grazie all'indice unico. Non chiamabile dal
-  client.
+  client. **Al meglio di 3** (`formato = 3`) non scatta a fine partita ma quando la
+  scheda della serie passa a `serie_finita` (usa `serie_vincitore`/`serie_pareggio`);
+  il trigger è `after update of status, serie_finita`.
 - `execute` revocato a `anon`/`public`, concesso solo ad `authenticated`.
 
 ### Storage
@@ -539,6 +568,13 @@ leaderboard_skill (view pubblica)
 5. Fine sfida → `status = 'finished'` con `winner_id` oppure `is_draw = true`;
    vengono scritte le due righe in `games` con `result` e `points` (+10/−10/0); il trigger su `matches` accredita le
    monete dell'esito (+250/−250/+100).
+6. **Al meglio di 3:** se la serie non è decisa, dopo ~4 s l'host crea il match
+   successivo (`creaRivincita(sfida, true)`: `serie_id` = primo match, stesso
+   formato) e lo diffonde con `rivincita-via`; nessuna riga in `games` fra una
+   partita e l'altra. A serie decisa: una riga in `games` per giocatore
+   (`match_id` = primo match) e l'host aggiorna la scheda (`serie_finita`,
+   `serie_vincitore`, `serie_pareggio`) → trigger monete. In caso di abbandono la
+   scheda la scrivono sia chi resta sia chi esce (stessi valori).
 
 ---
 
@@ -703,6 +739,8 @@ tavolozza colori-persona fissa e iniziali bianche. Tema persistito su `profiles.
 - Card "Imposta la partita" (lunghezza, modalità, Gioca), contatori, **avviso**
   (es. monete insufficienti), azioni **🎲 Gioca online / ⚔️ Sfida amico** con sotto
   **🪙 200** (semitrasparenti e disattivate se monete < 200), 🏆 Classifica, legenda.
+- Sopra i pulsanti online: **Sfida online — Singola / Meglio di 3** (pillole).
+- In fondo, tabella monete/punti apribile, con la nota sul meglio di 3.
 - `ScrollView` (`flexGrow:1` + center): centrato se c'è spazio, scorre se no.
 
 ### Schermata di gioco
@@ -728,6 +766,10 @@ tavolozza colori-persona fissa e iniziali bianche. Tema persistito su `profiles.
   parola; in single player mostra anche il **premio in monete** (**+N 🪙** verde,
   **−N 🪙** arancione, 0 neutro); pulsante **"↻ Nuova partita"**.
 - Online: Hai vinto/perso/Pareggio + bottoni rivincita.
+- Al meglio di 3, a metà serie: "Partita vinta/persa/pari", **Serie: X – Y**, "La
+  prossima partita parte tra pochi secondi…" e il link **"Abbandona la serie
+  (perdi)"**; a fine serie: "Hai vinto/perso la serie" o "Serie in pareggio!" +
+  rivincita.
 - **Coriandoli** alla vittoria.
 
 ### Accesso / registrazione

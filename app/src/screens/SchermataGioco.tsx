@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Modal,
@@ -10,8 +10,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { contaColori } from '@SpotLex/core';
-import type { LunghezzaParola, Modalita } from '@SpotLex/core';
+import { coloriConAiuti, contaColori, pescaAiuto } from '@SpotLex/core';
+import type { AiutoLettera, LunghezzaParola, Modalita } from '@SpotLex/core';
 import { useGioco } from '../hooks/useGioco';
 import { useStatistiche } from '../stats/statistiche';
 import type { CodiceLingua } from '../lingua/LinguaContext';
@@ -24,7 +24,10 @@ import { creaStili } from './SchermataGioco.stili';
 import type { StiliGioco } from './SchermataGioco.stili';
 import { useControlliLingua } from '../lingua/LinguaContext';
 import { useT } from '../i18n/LinguaUIContext';
-import { registraPartitaSolo } from '../economia/economia';
+import { registraPartitaSolo, useSaldo } from '../economia/economia';
+import { compraAiuto, nuovoIdPartita, useAiutiDisponibili } from '../economia/aiuti';
+import type { TipoAiuto } from '../economia/aiuti';
+import { BarraAiuti, BARRA_AIUTI_H, RigaAiuti, RIGA_AIUTI_H } from '../components/Aiuti';
 
 type Props = {
   modalita?: Modalita;
@@ -41,6 +44,7 @@ type Props = {
   esitoOnline?: 'vinta' | 'persa' | 'pareggio' | null;                         // online: verdetto condiviso (host)
   nickMio?: string | null;        // online: il MIO nick (riga "Tu vs Avversario")
   nickAvversario?: string | null; // online: nick dell'avversario (null = ancora in caricamento)
+  matchId?: string;               // online: id della sfida (per pagare gli aiuti)
   // online, solo AL MEGLIO DI 3: punteggio e stato della serie
   serie?: {
     partita: number;
@@ -105,6 +109,7 @@ export function SchermataGioco({
   esitoOnline,
   nickMio,
   nickAvversario,
+  matchId,
   serie,
   statoRivincita = 'idle',
   onRichiediRivincita,
@@ -124,7 +129,7 @@ export function SchermataGioco({
     lingueDisponibili.find((l) => l.codice === linguaMostrata)?.nome ?? linguaMostrata.toUpperCase();
 
   const { registra } = useStatistiche();
-  const { stato, problema, scossa, secondiRimasti, tastiera, digita, cancella, conferma, nuovaPartita } =
+  const { stato, problema, scossa, secondiRimasti, tastiera, digita, cancella, conferma, nuovaPartita, aggiungiSecondi } =
     useGioco(modalita, lunghezza, registra, parolaForzata, linguaForzata); // ← 4°: parola online · 5°: lingua della sfida
   const finita = stato.esito !== 'in_corso';
   const vinta = stato.esito === 'won';
@@ -145,8 +150,15 @@ export function SchermataGioco({
   const AVVISO_H = 34;
   const CONTORNO_V = 28 + 24;
 
+  // 🪙 AIUTI: quali si possono comprare qui (tabella `aiuti` su Supabase).
+  const aiutiConfig = useAiutiDisponibili(modalita, online);
+  const ciSonoLettere = aiutiConfig.some((a) => a.tipo !== 'tempo');
+  // Ogni riga in più ruba spazio alla griglia (+12 = gap del blocco `gioco`).
+  const AIUTI_H =
+    (aiutiConfig.length > 0 ? BARRA_AIUTI_H + 12 : 0) + (ciSonoLettere ? RIGA_AIUTI_H + 12 : 0);
+
   const altezzaUtile = height - insets.top - insets.bottom;
-  const spazioGriglia = Math.max(140, altezzaUtile - HEADER_H - AVVISO_H - keyboardH - CONTORNO_V);
+  const spazioGriglia = Math.max(140, altezzaUtile - HEADER_H - AVVISO_H - AIUTI_H - keyboardH - CONTORNO_V);
 
   const gapRiga = 0.16;
   const latoAltezza = spazioGriglia / (righe + (righe - 1) * gapRiga);
@@ -213,9 +225,81 @@ export function SchermataGioco({
     if (moneteRegistrate.current) return;
     moneteRegistrate.current = true;
     registraPartitaSolo(modalita, vinta, stato.righe.length).then((r) => {
-      if (r.ok) setPremioMonete(r.valore.premio);
+      if (r.ok) {
+        setPremioMonete(r.valore.premio);
+        setSaldoLocale(r.valore.saldo);
+      }
     });
   }, [online, finita, vinta, modalita, stato.righe.length]);
+
+  // ---------------------------------------------------------------------------
+  // 🪙 AIUTI a pagamento. Il server scala le monete e controlla il limite per
+  // partita (`idPartita`); qui scegliamo la lettera e la mostriamo.
+  // ---------------------------------------------------------------------------
+  const { monete } = useSaldo();
+  const [saldoLocale, setSaldoLocale] = useState<number | null>(null);
+  const saldo = saldoLocale ?? monete;
+
+  const [idPartita, setIdPartita] = useState(() => (online && matchId ? `online-${matchId}` : nuovoIdPartita()));
+  const [aiutiLettere, setAiutiLettere] = useState<AiutoLettera[]>([]);
+  const [aiutiUsati, setAiutiUsati] = useState<Partial<Record<TipoAiuto, number>>>({});
+  const [inAcquisto, setInAcquisto] = useState<TipoAiuto | null>(null);
+  const [avvisoAiuto, setAvvisoAiuto] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!avvisoAiuto) return;
+    const id = setTimeout(() => setAvvisoAiuto(null), 2500);
+    return () => clearTimeout(id);
+  }, [avvisoAiuto]);
+
+  const compra = useCallback(
+    async (tipo: TipoAiuto) => {
+      if (inAcquisto || bloccato) return;
+      const cfg = aiutiConfig.find((a) => a.tipo === tipo);
+      if (!cfg) return;
+      setInAcquisto(tipo);
+      const r = await compraAiuto(tipo, modalita, idPartita, online ? matchId : null);
+      setInAcquisto(null);
+
+      if (!r.ok) {
+        if (r.errore === 'LIMITE_AIUTO') {
+          setAiutiUsati((u) => ({ ...u, [tipo]: cfg.maxPerPartita }));
+          setAvvisoAiuto(t('aiutoLimite'));
+        } else if (r.errore === 'MONETE_INSUFFICIENTI') {
+          setAvvisoAiuto(t('aiutoMoneteInsufficienti'));
+        } else {
+          setAvvisoAiuto(t('aiutoErrore'));
+        }
+        return;
+      }
+
+      setSaldoLocale(r.valore.saldo);
+      setAiutiUsati((u) => ({ ...u, [tipo]: (u[tipo] ?? 0) + 1 }));
+      setAvvisoAiuto(t('aiutoPagato', { n: r.valore.costo, saldo: r.valore.saldo }));
+
+      if (tipo === 'tempo') {
+        aggiungiSecondi(r.valore.valore ?? cfg.valore ?? 20);
+      } else {
+        setAiutiLettere((prec) => {
+          const nuovo = pescaAiuto(stato.target, tipo, prec.map((a) => a.posizione));
+          return nuovo ? [...prec, nuovo] : prec;
+        });
+      }
+    },
+    [inAcquisto, bloccato, aiutiConfig, modalita, idPartita, online, matchId, t, aggiungiSecondi, stato.target],
+  );
+
+  // Tastiera: ai colori dei tentativi si aggiungono le lettere comprate.
+  const coloriTasti = useMemo(() => coloriConAiuti(tastiera, aiutiLettere), [tastiera, aiutiLettere]);
+
+  // "Nuova partita" (solo da solo): via gli aiuti, nuovo id per il limite.
+  const ricomincia = useCallback(() => {
+    setAiutiLettere([]);
+    setAiutiUsati({});
+    setAvvisoAiuto(null);
+    setIdPartita(nuovoIdPartita());
+    nuovaPartita();
+  }, [nuovaPartita]);
 
   // Esito da mostrare nel pop-up: online = verdetto condiviso; altrimenti locale.
   const esitoFin: 'vinta' | 'persa' | 'pareggio' =
@@ -255,7 +339,7 @@ export function SchermataGioco({
         ? t('parolaIncompleta')
         : problema === 'non_valida'
           ? t('parolaNonValida')
-          : null;
+          : avvisoAiuto;
 
   const cardScale = anim.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1] });
 
@@ -333,6 +417,8 @@ export function SchermataGioco({
               )}
             </View>
 
+            {ciSonoLettere && <RigaAiuti lunghezza={lunghezza} lato={lato} aiuti={aiutiLettere} />}
+
             <Griglia
               stato={stato}
               lato={lato}
@@ -341,8 +427,20 @@ export function SchermataGioco({
               righeAvversario={righeAvversario}
             />
 
+            {aiutiConfig.length > 0 && (
+              <BarraAiuti
+                aiuti={aiutiConfig}
+                usati={aiutiUsati}
+                saldo={saldo}
+                disabilitata={bloccato}
+                timerAttivo={secondiRimasti != null && secondiRimasti > 0}
+                inAcquisto={inAcquisto}
+                onCompra={compra}
+              />
+            )}
+
             <Tastiera
-              colori={tastiera}
+              colori={coloriTasti}
               onLettera={digita}
               onInvio={conferma}
               onCancella={cancella}
@@ -356,7 +454,7 @@ export function SchermataGioco({
           visible={popup}
           transparent
           animationType="fade"
-          onRequestClose={online ? onIndietro : nuovaPartita}
+          onRequestClose={online ? onIndietro : ricomincia}
         >
           <View style={stili.scrim}>
             <Coriandoli attivo={haVinto} />
@@ -474,7 +572,7 @@ export function SchermataGioco({
                 </>
               ) : (
                 <Pressable
-                  onPress={nuovaPartita}
+                  onPress={ricomincia}
                   style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.97 : 1 }], width: '100%' }]}
                 >
                   <LinearGradient

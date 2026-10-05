@@ -119,7 +119,31 @@ Supabase, quindi spiegami le cose in modo semplice e **procediamo un passo alla 
      con la sezione sfide a due colonne **🪙 / ⭐**; `PUNTI_FALLBACK` di
      `SchermataGiocoOnline` ora è `PUNTI_ONLINE` (una sola fonte).
 
+### ✅ Aiuti a pagamento (2026-10-03, sera tardi)
+
+- **Pulsanti nella partita** (sopra la tastiera): 🟧 **lettera in posizione non
+  corretta** (principiante 100, esperto 200), 🟩 **lettera in posizione corretta**
+  (150 / 300), ⏱️ **+20 secondi** al tentativo in corso (solo esperto, 350).
+  Primo tocco = "Conferma 🪙 N?", secondo tocco = acquisto.
+- **Si vedono** nella **riga aiuti** sopra la griglia (casella verde = lettera in
+  quella colonna; arancione = lettera presente ma NON in quella colonna) **e sulla
+  tastiera** (il colore non peggiora mai). La lettera è casuale, anche se già vista.
+- **Configurabili senza toccare il codice:** tabella **`aiuti`** su Supabase
+  (`costo`, `attivo`, `in_solo`, `in_online`, `max_per_partita`, `valore` = secondi,
+  `ordine`). Default: da solo **e** online, 1 volta per partita.
+- **Server:** RPC **`compra_aiuto(p_tipo, p_modalita, p_partita, p_match_id)`** scala
+  le monete, controlla limite e saldo (errori `LIMITE_AIUTO`,
+  `MONETE_INSUFFICIENTI`, `AIUTO_NON_DISPONIBILE`, `NON_PARTECIPANTE`), scrive
+  `movimenti_monete` con il nuovo tipo **`aiuto`**. Script:
+  **`supabase/migrations/20261004000000_aiuti.sql`** — DA ESEGUIRE (rieseguibile).
+- **File:** `core/src/aiuti.ts` (+ test), `app/src/economia/aiuti.ts`,
+  `app/src/components/Aiuti.tsx`, `useGioco` (`aggiungiSecondi`), `SchermataGioco`
+  (prop `matchId`), `SchermataGiocoOnline`, i18n it/en/fr.
+
 ### Dove si cambiano i valori (promemoria)
+
+- **Aiuti a pagamento (costi, dove valgono, quante volte, secondi):** Table Editor →
+  tabella **`aiuti`** (effetto al prossimo avvio dell'app).
 
 - **Monete partita da solo:** funzione SQL `registra_partita_solo` (array `v_base`,
   `v_esperto` — sempre **6 numeri** —; variabili `v_persa_base`, `v_persa_esperto`).
