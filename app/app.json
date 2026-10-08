@@ -18,7 +18,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.steve74c.app"
+      "package": "com.stefanocalderone.spotlex"
     },
     "web": {
       "favicon": "./assets/favicon.png"
