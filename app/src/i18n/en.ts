@@ -148,6 +148,7 @@ export const en: Partial<Record<ChiaveTesto, string>> = {
   errPasswordDiverse: "The two passwords don't match.",
   salvaPasswordBtn: 'Save password',
   passwordAggiornata: 'Password updated! Logging you in…',
+  confermaEmailInviata: 'We sent you an email: click the link to activate your account, then log in.',
 
   tabPunti: 'Points',
   tabBravura: 'Skill',

@@ -111,6 +111,7 @@ export function SchermataAuth() {
   const invia = async () => {
     if (busy) return;
     setErrore(null);
+    setAvviso(null);
 
     if (registra && nick.trim().length < 3) {
       setErrore(t('errNickCorto'));
@@ -126,11 +127,17 @@ export function SchermataAuth() {
     }
 
     setBusy(true);
-    const { errore: err } = registra
+    const res = registra
       ? await registrati(nick, email, password, linguaGioco, linguaUI, temaScelto)
       : await accedi(email, password);
     setBusy(false);
-    if (err) setErrore(err);
+    if (res.errore) setErrore(res.errore);
+    else if (res.daConfermare) {
+      // Account creato ma da attivare: torna su "Accedi" e spiega cosa fare.
+      setModo('accedi');
+      setPassword('');
+      setAvviso(t('confermaEmailInviata'));
+    }
   };
 
   return (
@@ -283,6 +290,7 @@ export function SchermataAuth() {
               )}
 
               {errore && <Text style={stili.errore}>{errore}</Text>}
+              {avviso && <Text style={stili.avviso}>{avviso}</Text>}
 
               <Pressable
                 onPress={invia}

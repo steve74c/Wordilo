@@ -19,7 +19,8 @@ import { supabase } from '../lib/supabase';
 // Necessario per chiudere correttamente la finestra di login su alcune piattaforme.
 WebBrowser.maybeCompleteAuthSession();
 
-type RisultatoAuth = { errore: string | null };
+// daConfermare = registrazione riuscita ma serve cliccare il link nella mail.
+type RisultatoAuth = { errore: string | null; daConfermare?: boolean };
 
 type ValoreAuth = {
   sessione: Session | null;
@@ -56,6 +57,8 @@ function traduciErrore(msg: string): string {
   // Il fallimento del trigger (nick duplicato o mancante) arriva così:
   if (m.includes('duplicate') || m.includes('database error'))
     return 'Questo nickname è già in uso: scegline un altro.';
+  if (m.includes('email not confirmed'))
+    return 'Devi prima confermare la tua email: controlla la posta (anche lo spam).';
   if (m.includes('should be different'))
     return 'La nuova password deve essere diversa da quella vecchia.';
   if (m.includes('rate limit') || m.includes('security purposes'))
@@ -125,10 +128,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     linguaUI: string = 'it',
     tema: string = 'giallo',
   ): Promise<RisultatoAuth> => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
+        // Il link di conferma riapre il sito (web) o l'app (telefono, deep link).
+        emailRedirectTo:
+          Platform.OS === 'web'
+            ? typeof window !== 'undefined' && window.location
+              ? window.location.origin
+              : undefined
+            : makeRedirectUri({ path: 'auth-callback' }),
         // Questi dati vengono letti dal trigger per creare la riga profiles.
         // (lingua_gioco / lingua_ui / tema: il trigger li copia nelle colonne
         //  del profilo — vedi migrazione SQL su handle_new_user.)
@@ -140,7 +150,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       },
     });
-    return { errore: error ? traduciErrore(error.message) : null };
+    if (error) return { errore: traduciErrore(error.message) };
+    // Con "Confirm email" attivo Supabase non apre la sessione: va confermata la mail.
+    return { errore: null, daConfermare: !data.session };
   };
 
   const accedi = async (email: string, password: string): Promise<RisultatoAuth> => {

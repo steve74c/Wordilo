@@ -147,6 +147,7 @@ export const it = {
   errPasswordDiverse: 'Le due password non coincidono.',
   salvaPasswordBtn: 'Salva password',
   passwordAggiornata: 'Password aggiornata! Stai entrando…',
+  confermaEmailInviata: "Ti abbiamo mandato una mail: clicca il link per attivare l'account, poi accedi.",
 
   tabPunti: 'Punti',
   tabBravura: 'Bravura',
