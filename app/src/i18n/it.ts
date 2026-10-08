@@ -133,6 +133,21 @@ export const it = {
   creaAccountBtn: 'Crea account',
   entraBtn: 'Entra',
 
+  // — Recupero password —
+  passwordDimenticata: 'Password dimenticata?',
+  recuperoTitolo: 'Recupera la password',
+  recuperoSpiega: "Inserisci l'email del tuo account: ti mandiamo un link per sceglierne una nuova.",
+  recuperoInviaBtn: 'Invia link',
+  recuperoInviato: "Fatto! Controlla la posta (anche lo spam) e apri il link dal telefono o dal PC su cui giochi.",
+  recuperoTornaLogin: '← Torna al login',
+  errSoloEmail: 'Inserisci la tua email.',
+  nuovaPasswordTitolo: 'Scegli una nuova password',
+  nuovaPasswordPlaceholder: 'Nuova password',
+  confermaPasswordPlaceholder: 'Ripeti la password',
+  errPasswordDiverse: 'Le due password non coincidono.',
+  salvaPasswordBtn: 'Salva password',
+  passwordAggiornata: 'Password aggiornata! Stai entrando…',
+
   tabPunti: 'Punti',
   tabBravura: 'Bravura',
   percVittorie: 'di vittorie',

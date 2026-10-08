@@ -134,6 +134,21 @@ export const en: Partial<Record<ChiaveTesto, string>> = {
   creaAccountBtn: 'Create account',
   entraBtn: 'Log in',
 
+  // — Password recovery —
+  passwordDimenticata: 'Forgot password?',
+  recuperoTitolo: 'Reset your password',
+  recuperoSpiega: "Enter your account email and we'll send you a link to choose a new one.",
+  recuperoInviaBtn: 'Send link',
+  recuperoInviato: 'Done! Check your inbox (and spam) and open the link on the device you play on.',
+  recuperoTornaLogin: '← Back to login',
+  errSoloEmail: 'Please enter your email.',
+  nuovaPasswordTitolo: 'Choose a new password',
+  nuovaPasswordPlaceholder: 'New password',
+  confermaPasswordPlaceholder: 'Repeat password',
+  errPasswordDiverse: "The two passwords don't match.",
+  salvaPasswordBtn: 'Save password',
+  passwordAggiornata: 'Password updated! Logging you in…',
+
   tabPunti: 'Points',
   tabBravura: 'Skill',
   percVittorie: 'win rate',

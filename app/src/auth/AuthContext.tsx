@@ -9,6 +9,7 @@
 // -----------------------------------------------------------------------------
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
+import * as Linking from 'expo-linking';
 import type { Session } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
@@ -34,6 +35,10 @@ type ValoreAuth = {
   accedi: (email: string, password: string) => Promise<RisultatoAuth>;
   accediConGoogle: () => Promise<RisultatoAuth>;
   esci: () => Promise<void>;
+  // Recupero password
+  inRecupero: boolean; // true quando l'utente è entrato dal link "reimposta password"
+  recuperaPassword: (email: string) => Promise<RisultatoAuth>;
+  aggiornaPassword: (nuova: string) => Promise<RisultatoAuth>;
 };
 
 const AuthContext = createContext<ValoreAuth | null>(null);
@@ -51,6 +56,10 @@ function traduciErrore(msg: string): string {
   // Il fallimento del trigger (nick duplicato o mancante) arriva così:
   if (m.includes('duplicate') || m.includes('database error'))
     return 'Questo nickname è già in uso: scegline un altro.';
+  if (m.includes('should be different'))
+    return 'La nuova password deve essere diversa da quella vecchia.';
+  if (m.includes('rate limit') || m.includes('security purposes'))
+    return 'Troppe richieste: aspetta un minuto e riprova.';
   return msg; // fallback: mostra l'originale
 }
 
@@ -76,6 +85,7 @@ async function creaSessioneDaUrl(url: string): Promise<RisultatoAuth> {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [sessione, setSessione] = useState<Session | null>(null);
   const [caricata, setCaricata] = useState(false);
+  const [inRecupero, setInRecupero] = useState(false);
 
   useEffect(() => {
     // 1) Sessione iniziale (se l'utente era già loggato da un avvio precedente).
@@ -84,10 +94,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setCaricata(true);
     });
     // 2) Ascolto dei cambi: login/logout/refresh aggiornano la UI da soli.
-    const { data: sub } = supabase.auth.onAuthStateChange((_evento, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((evento, s) => {
+      // Sul WEB il link dell'email riporta all'app e Supabase emette PASSWORD_RECOVERY.
+      if (evento === 'PASSWORD_RECOVERY') setInRecupero(true);
+      if (evento === 'SIGNED_OUT') setInRecupero(false);
       setSessione(s);
     });
     return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // Sul TELEFONO il link dell'email apre l'app via deep link (SpotLex://reset-password#...):
+  // ricaviamo la sessione dall'URL e, se è un recupero, mostriamo "nuova password".
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const gestisci = async (url: string | null) => {
+      if (!url || !url.includes('reset-password')) return;
+      const { errore } = await creaSessioneDaUrl(url);
+      if (!errore) setInRecupero(true);
+    };
+    Linking.getInitialURL().then(gestisci); // app aperta dal link
+    const sub = Linking.addEventListener('url', ({ url }) => gestisci(url)); // app già aperta
+    return () => sub.remove();
   }, []);
 
   const registrati = async (
@@ -163,9 +190,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  // Invia l'email con il link per reimpostare la password.
+  const recuperaPassword = async (email: string): Promise<RisultatoAuth> => {
+    const redirectTo =
+      Platform.OS === 'web'
+        ? typeof window !== 'undefined' && window.location
+          ? window.location.origin
+          : undefined
+        : makeRedirectUri({ path: 'reset-password' }); // SpotLex://reset-password
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+    return { errore: error ? traduciErrore(error.message) : null };
+  };
+
+  // Salva la nuova password (l'utente è già autenticato dal link).
+  const aggiornaPassword = async (nuova: string): Promise<RisultatoAuth> => {
+    const { error } = await supabase.auth.updateUser({ password: nuova });
+    if (!error) setInRecupero(false);
+    return { errore: error ? traduciErrore(error.message) : null };
+  };
+
   return (
     <AuthContext.Provider
-      value={{ sessione, caricata, registrati, accedi, accediConGoogle, esci }}
+      value={{
+        sessione,
+        caricata,
+        registrati,
+        accedi,
+        accediConGoogle,
+        esci,
+        inRecupero,
+        recuperaPassword,
+        aggiornaPassword,
+      }}
     >
       {children}
     </AuthContext.Provider>

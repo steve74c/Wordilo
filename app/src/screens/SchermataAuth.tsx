@@ -20,7 +20,7 @@ import { useTema } from '../temi/TemaContext';
 import { creaStili } from './SchermataAuth.stili';
 import type { StiliAuth } from './SchermataAuth.stili';
 
-type Modo = 'accedi' | 'registrati';
+type Modo = 'accedi' | 'registrati' | 'recupero';
 
 // Selettore compatto a due (o più) opzioni, riusa lo stile "toggle" della card.
 function SelettoreLingua({
@@ -61,7 +61,7 @@ export function SchermataAuth() {
   const tema = useTema();
   const stili = useMemo(() => creaStili(tema), [tema]);
 
-  const { accedi, registrati } = useAuth();
+  const { accedi, registrati, recuperaPassword } = useAuth();
   const { lingua: linguaGiocoAttuale, lingueDisponibili } = useControlliLingua();
   const { linguaUI: linguaUIAttuale, lingueUIDisponibili } = useControlliLinguaUI();
   const { nomeTema, temiDisponibili } = useControlliTema();
@@ -76,6 +76,7 @@ export function SchermataAuth() {
   const t = useT();
   const [errore, setErrore] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [avviso, setAvviso] = useState<string | null>(null); // messaggio di conferma (verde)
 
   const registra = modo === 'registrati';
 
@@ -88,6 +89,23 @@ export function SchermataAuth() {
   const cambiaModo = (m: Modo) => {
     setModo(m);
     setErrore(null);
+    setAvviso(null);
+  };
+
+  // "Password dimenticata?": manda l'email con il link di reset.
+  const inviaRecupero = async () => {
+    if (busy) return;
+    setErrore(null);
+    setAvviso(null);
+    if (!email.trim()) {
+      setErrore(t('errSoloEmail'));
+      return;
+    }
+    setBusy(true);
+    const { errore: err } = await recuperaPassword(email);
+    setBusy(false);
+    if (err) setErrore(err);
+    else setAvviso(t('recuperoInviato'));
   };
 
   const invia = async () => {
@@ -131,6 +149,51 @@ export function SchermataAuth() {
           >
             <Text style={stili.titolo}>SpotLex</Text>
 
+            {modo === 'recupero' ? (
+            <View style={[stili.card, ombra(0.4, 24, 12, 14)]}>
+              <Text style={stili.sottotitolo}>{t('recuperoTitolo')}</Text>
+              <Text style={stili.spiega}>{t('recuperoSpiega')}</Text>
+
+              <TextInput
+                style={stili.input}
+                placeholder={t('emailPlaceholder')}
+                placeholderTextColor={tema.palette.testoTenue}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+                onSubmitEditing={inviaRecupero}
+                returnKeyType="send"
+              />
+
+              {errore && <Text style={stili.errore}>{errore}</Text>}
+              {avviso && <Text style={stili.avviso}>{avviso}</Text>}
+
+              <Pressable
+                onPress={inviaRecupero}
+                disabled={busy}
+                style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.98 : 1 }], width: '100%' }]}
+              >
+                <LinearGradient
+                  colors={tema.gradienti.accento}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[stili.bottone, ombra(0.35, 10, 5, 6), busy && { opacity: 0.7 }]}
+                >
+                  {busy ? (
+                    <ActivityIndicator color={tema.palette.testoSuAccento} />
+                  ) : (
+                    <Text style={stili.bottoneTesto}>{t('recuperoInviaBtn')}</Text>
+                  )}
+                </LinearGradient>
+              </Pressable>
+
+              <Pressable onPress={() => cambiaModo('accedi')} hitSlop={8}>
+                <Text style={stili.link}>{t('recuperoTornaLogin')}</Text>
+              </Pressable>
+            </View>
+            ) : (
             <View style={[stili.card, ombra(0.4, 24, 12, 14)]}>
               <View style={stili.toggle}>
                 <Pressable
@@ -213,6 +276,12 @@ export function SchermataAuth() {
                 returnKeyType="go"
               />
 
+              {!registra && (
+                <Pressable onPress={() => cambiaModo('recupero')} hitSlop={8}>
+                  <Text style={stili.link}>{t('passwordDimenticata')}</Text>
+                </Pressable>
+              )}
+
               {errore && <Text style={stili.errore}>{errore}</Text>}
 
               <Pressable
@@ -234,6 +303,7 @@ export function SchermataAuth() {
                 </LinearGradient>
               </Pressable>
             </View>
+            )}
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>

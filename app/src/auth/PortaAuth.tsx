@@ -11,10 +11,11 @@ import { ActivityIndicator, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from './AuthContext';
 import { SchermataAuth } from '../screens/SchermataAuth';
+import { SchermataNuovaPassword } from '../screens/SchermataNuovaPassword';
 import { C, GRAD } from '../theme';
 
 export function PortaAuth({ children }: { children: React.ReactNode }) {
-  const { sessione, caricata } = useAuth();
+  const { sessione, caricata, inRecupero } = useAuth();
 
   // Breve attesa mentre leggiamo la sessione salvata (di norma è istantanea).
   if (!caricata) {
@@ -24,6 +25,9 @@ export function PortaAuth({ children }: { children: React.ReactNode }) {
       </LinearGradient>
     );
   }
+
+  // Arrivato dal link "reimposta password": prima la nuova password, poi il gioco.
+  if (sessione && inRecupero) return <SchermataNuovaPassword />;
 
   return sessione ? <>{children}</> : <SchermataAuth />;
 }

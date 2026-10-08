@@ -65,6 +65,11 @@ export function creaStili(tema: Tema) {
       fontFamily: tema.font.regular,
     },
     errore: { color: tema.palette.arancione, fontSize: 14, fontFamily: tema.font.medium, fontWeight: '600', textAlign: 'center' },
+    // Recupero password
+    avviso: { color: tema.palette.testo, fontSize: 14, fontFamily: tema.font.medium, fontWeight: '600', textAlign: 'center' },
+    link: { color: tema.palette.accentoSoft, fontSize: 14, fontFamily: tema.font.medium, fontWeight: '600', textAlign: 'center', paddingVertical: 2 },
+    sottotitolo: { color: tema.palette.testo, fontSize: 20, fontFamily: tema.font.bold, fontWeight: '700', textAlign: 'center' },
+    spiega: { color: tema.palette.testoTenue, fontSize: 14, fontFamily: tema.font.regular, textAlign: 'center', lineHeight: 20 },
     bottone: { width: '100%', paddingVertical: 15, borderRadius: 16, alignItems: 'center', marginTop: 4 },
     bottoneTesto: { color: tema.palette.testoSuAccento, fontSize: 16, fontFamily: tema.font.bold, fontWeight: '800' }, // era '#052722'
   });
